@@ -1,5 +1,8 @@
 # Hacker Suite - Auth
 
+[![Build Status](https://travis-ci.org/unicsmcr/hs_auth.svg?branch=master)](https://travis-ci.org/unicsmcr/hs_auth)
+![GitHub](https://img.shields.io/github/license/unicsmcr/hs_auth.svg)
+
  ## WIP
 
  ## Set up
