@@ -6,15 +6,11 @@ language: go
 go:
   - 1.12.x
 
-install:
- - go get -u github.com/golang/lint/golint
-
 # Only clone the most recent commit.
 git:
   depth: 1
 
 script:
-  - golint
   - go test -v -race ./...
 
 notifications:
