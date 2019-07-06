@@ -1,9 +1,19 @@
+# use the latest ubuntu environment (18.04) available on travis
+dist: xenial
+
 language: go
 
 go:
- - 1.x
- - "1.10"
- - 1.11.x
- - master
+  - 1.12.x
 
- script: go test
+
+# Only clone the most recent commit.
+git:
+  depth: 1
+
+script:
+  - golint
+  - go test -v -race ./...
+
+notifications:
+  email: false
