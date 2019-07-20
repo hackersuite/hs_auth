@@ -19,6 +19,9 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", heartbeat)
 	port := os.Getenv("PORT")
+	if len(port) == 0 {
+		log.Fatal("could not start server: PORT env variable not set")
+	}
 	fmt.Printf("starting server on localhost:%s\n", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
 }
