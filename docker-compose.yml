@@ -1,14 +1,14 @@
-version: '3.5'
+version: '3.6'
 
 services:
   app:
-    build: .
-    volumes:
-      - .:/go/src/github.com/unicsmcr/hs_auth
+    image: hs_auth:latest
     ports:
       - 8080:8080
     env_file:
       - app.env
+    volumes:
+      - ./:/go/src/github.com/unicsmcr/hs_auth
     networks:
       - internal
       - hacker_suite
