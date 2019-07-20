@@ -11,7 +11,7 @@ git:
   depth: 1
 
 script:
-  - make test
+  - go test -v -cover ./...
 
 notifications:
   email: false
