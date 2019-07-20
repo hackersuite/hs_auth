@@ -1,16 +1,72 @@
-# Hacker Suite - Auth
 
+# Hacker Suite - Auth (WIP)
 [![Build Status](https://travis-ci.org/unicsmcr/hs_auth.svg?branch=master)](https://travis-ci.org/unicsmcr/hs_auth)
+
 ![GitHub](https://img.shields.io/github/license/unicsmcr/hs_auth.svg)
 
- ## WIP
+## Dependencies
+- Go
+- Docker
+- GNU make
 
- ## Set up
+## Getting started
 
-  * `go get github.com/unicsmcr/hs_auth`
-  * navigate to root directory
-  * `go run main.go`
-  * app should be accessible at localhost:8080
+### Project set up
 
- ## License
- Hacker Suite - Auth is licensed under the MIT License.
+Run the following commands in a terminal:
+
+```
+go get github.com/unicsmcr/hs_auth
+cd $GOROOT/src/github.com/unicsmcr/hs_auth
+cp app.env.example app.env
+cp mongo.env.example mongo.env
+cp mongo-express.env.example mongo-express.env
+```
+
+
+
+Then replace the placeholder values in the .env files
+
+
+
+## Deployment
+
+### Starting the app
+First, complete the initial set up (above). Then run one of the 2 commands in a terminal:
+
+```
+make up
+```
+or
+```
+make up-dev // this will start the app with live reloading
+```
+This will create three containers: the go app, the MongoDB database, a database managent tool Mongo Express and two Docker networks: `hs_auth_internal` and `hacker_suite` (if it doesn't exist already). The first time you run the command, it will take a while since it will install the required services. Next time you run the command, it will be much faster since dependecies are cached.
+
+The go app will be available at `localhost:8080` or as `hs_auth` on the `hacker_suite` network. Mongo Express will be available at `localhost:8081`
+
+`hs_auth_internal` is a network used by the hs_auth services internally to communicate with each other, while `hacker_suite` is used to connect all consumer-facing Hacker Suite services.
+
+### Logging
+The output from the apps can be attached to the terminal with one of the following commands:
+```
+make logs // will attach the logs from all 3 containers
+make logs-app // will attach the logs from the go app
+make logs-mongo // will attach the logs from the database
+```
+
+ ### Stopping the app
+ The app can be stopped with:
+ ```
+ make down
+ ```
+
+## Tests
+Tests can be run with:
+````
+make test
+````
+
+## License
+
+Hacker Suite - Auth is licensed under the MIT License.
