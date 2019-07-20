@@ -2,6 +2,7 @@ version: '3.6'
 
 services:
   app:
+    name: hs_auth
     image: hs_auth:latest
     ports:
       - 8080:8080
@@ -9,10 +10,13 @@ services:
       - app.env
     volumes:
       - ./:/go/src/github.com/unicsmcr/hs_auth
+    depends_on:
+      - mongo
     networks:
       - internal
       - hacker_suite
 
+  # database used by app
   mongo:
     image: mongo:4
     restart: always
@@ -21,6 +25,7 @@ services:
     networks:
       - internal
 
+  # graphical DB management platform (available at localhost:8081)
   mongo_express:
     image: mongo-express
     restart: always
@@ -28,12 +33,16 @@ services:
       - 8081:8081
     env_file:
       - mongo_express.env
+    depends_on:
+      - mongo
     networks:
       - internal
 
 networks:
+  # internal network for hs_auth services
   internal:
     driver: bridge
+  # external network for consumer-facing hacker suite services
   hacker_suite:
     external:
       name: hacker_suite
