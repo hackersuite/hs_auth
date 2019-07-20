@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,6 +9,8 @@ import (
 	"os"
 
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type heartbeatResponse struct {
@@ -27,6 +30,21 @@ func main() {
 }
 
 func heartbeat(w http.ResponseWriter, r *http.Request) {
+	clientOptions := options.Client().ApplyURI("mongodb://mongo")
+
+	// connect to DB
+	client, err := mongo.Connect(context.TODO(), clientOptions)
+	defer client.Disconnect(context.TODO())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// check the connection
+	err = client.Ping(context.TODO(), nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	json.NewEncoder(w).Encode(heartbeatResponse{Status: "OK", Code: 200})
 }
 
