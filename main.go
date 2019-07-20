@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
@@ -19,7 +20,7 @@ func main() {
 	router.HandleFunc("/", heartbeat)
 	port := os.Getenv("PORT")
 	fmt.Printf("starting server on localhost:%s\n", port)
-	http.ListenAndServe(fmt.Sprintf(":%s", port), router)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
 }
 
 func heartbeat(w http.ResponseWriter, r *http.Request) {

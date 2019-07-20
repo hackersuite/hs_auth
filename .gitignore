@@ -1,3 +1,4 @@
 app.env
 mongo.env
 mongo_express.env
+hs_auth

@@ -1,10 +1,16 @@
-FROM golang:1.8
+FROM golang:1.10
 
 WORKDIR /go/src/github.com/unicsmcr/hs_auth
+
 COPY . .
 
 RUN go get -d -v ./...
 RUN go install -v ./...
 
+
+RUN ["go", "get", "github.com/githubnemo/CompileDaemon"]
+
+ENV PORT 8080
 EXPOSE 8080
-CMD ["go", "run", "main.go"]
+
+ENTRYPOINT CompileDaemon -log-prefix=false -build="go build" -command="./hs_auth"
