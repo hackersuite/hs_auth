@@ -1,5 +1,3 @@
-app.env
-mongo.env
-mongo_express.env
+*.env
 hs_auth
 bin/

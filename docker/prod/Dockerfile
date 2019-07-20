@@ -7,6 +7,8 @@ COPY . .
 RUN go get -d -v ./...
 RUN go install -v ./...
 
+ENV GOPATH /go
+
 EXPOSE 8080
 
 CMD ["go", "run", "main.go"]

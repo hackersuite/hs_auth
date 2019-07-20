@@ -7,6 +7,7 @@ COPY . .
 RUN go get -d -v ./...
 RUN go install -v ./...
 
+ENV GOPATH /go
 
 RUN ["go", "get", "github.com/githubnemo/CompileDaemon"]
 
