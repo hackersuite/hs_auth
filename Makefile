@@ -39,7 +39,15 @@ up-dev: docker-build-dev setup-network
 	@echo "=============starting hs_auth (dev)============="
 	docker-compose up -d
 
-# prints the logs from the containers
+# prints the logs from all containers
+logs-app:
+	docker-compose logs -f app
+
+# prints the logs from all containers
+logs-mongo:
+	docker-compose logs -f mongo
+
+# prints the logs from all containers
 logs:
 	docker-compose logs -f
 
