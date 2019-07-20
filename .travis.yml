@@ -11,7 +11,7 @@ git:
   depth: 1
 
 script:
-  - go test -v -race ./...
+  - make test
 
 notifications:
   email: false
