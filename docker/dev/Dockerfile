@@ -10,7 +10,6 @@ RUN go install -v ./...
 
 RUN ["go", "get", "github.com/githubnemo/CompileDaemon"]
 
-ENV PORT 8080
 EXPOSE 8080
 
 ENTRYPOINT CompileDaemon -log-prefix=false -build="go build" -command="./hs_auth"
