@@ -8,9 +8,10 @@ RUN apk add git
 RUN go get -d -v ./...
 RUN go install -v ./...
 RUN go build main.go
+RUN apk del git
 
 ENV GOPATH /go
 
 EXPOSE 80
 
-ENTRYPOINT ./hs_auth
+ENTRYPOINT ./main
