@@ -11,6 +11,8 @@ services:
       - ./:/go/src/github.com/unicsmcr/hs_auth
     depends_on:
       - mongo
+    cap_add:
+      - NET_ADMIN
     networks:
       - internal
       - hacker_suite
