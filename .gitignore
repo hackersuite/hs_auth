@@ -1,4 +1,3 @@
 *.env
 main
-bin/
 .DS_Store
