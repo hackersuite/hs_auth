@@ -7,10 +7,11 @@ COPY . .
 RUN apk add git
 RUN go get -d -v ./...
 RUN go install -v ./...
+RUN go get github.com/githubnemo/CompileDaemon
+RUN apk del git
 
 ENV GOPATH /go
 
-RUN go get github.com/githubnemo/CompileDaemon
 
 EXPOSE 80
 
