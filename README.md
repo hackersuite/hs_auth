@@ -6,7 +6,6 @@
 
 ## Dependencies
 - Go
-- Docker
 - GNU make
 
 ## Getting started
@@ -29,7 +28,7 @@ Then replace the placeholder values in the .env files
 
 
 
-## Deployment
+## Deployment with Docker
 
 ### Starting the app
 First, complete the initial set up (above). Then run one of the 2 commands in a terminal:
@@ -60,6 +59,12 @@ make logs-mongo // will attach the logs from the database
  ```
  make down
  ```
+
+## Manual deployment
+Complete the setup above and make sure that DB_URL in hs_auth.env is pointing to a running MongoDB database, then run:
+```
+make run
+```
 
 ## Tests
 Tests can be run with:

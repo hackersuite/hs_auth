@@ -2,7 +2,6 @@ version: '3.6'
 
 services:
   app:
-    name: hs_auth
     image: hs_auth:latest
     ports:
       - 8080:8080
