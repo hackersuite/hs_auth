@@ -1,4 +1,4 @@
 *.env
-hs_auth
+main
 bin/
 .DS_Store
