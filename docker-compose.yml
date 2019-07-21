@@ -4,7 +4,7 @@ services:
   hs_auth:
     image: hs_auth:latest
     ports:
-      - 8080:8080
+      - 8080:80
     env_file:
       - app.env
     volumes:
