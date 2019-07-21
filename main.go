@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,29 +22,38 @@ type heartbeatResponse struct {
 func main() {
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", heartbeat)
+
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		log.Fatal("could not start server: PORT env variable not set")
 	}
+
 	fmt.Printf("starting server on localhost:%s\n", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
 }
 
 func heartbeat(w http.ResponseWriter, r *http.Request) {
-	clientOptions := options.Client().ApplyURI("mongodb://mongo")
+	dbURL := os.Getenv("DB_URL")
+	connectionURL := fmt.Sprintf("mongodb://%s", dbURL)
+	fmt.Printf("connecting to database at %s\n", connectionURL)
+	if len(dbURL) == 0 {
+		log.Fatal("could not start server: DB_URL not defined")
+	}
 
-	// connect to DB
-	client, err := mongo.Connect(context.TODO(), clientOptions)
-	defer client.Disconnect(context.TODO())
+	clientOptions := options.Client().ApplyURI(connectionURL)
+	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+
+	client, err := mongo.Connect(ctx, clientOptions)
+	defer client.Disconnect(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// check the connection
-	err = client.Ping(context.TODO(), nil)
+	err = client.Ping(ctx, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("connection to database established!\n")
 
 	json.NewEncoder(w).Encode(heartbeatResponse{Status: "OK", Code: 200})
 }

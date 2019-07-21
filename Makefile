@@ -40,16 +40,16 @@ up-dev: docker-build-dev setup-network
 	docker-compose up -d
 
 # prints the logs from all containers
+logs:
+	docker-compose logs -f
+
+# prints the logs only from the go app
 logs-app:
 	docker-compose logs -f app
 
-# prints the logs from all containers
+# prints the logs only from the database
 logs-mongo:
 	docker-compose logs -f mongo
-
-# prints the logs from all containers
-logs:
-	docker-compose logs -f
 
 # shuts down the containers
 down:
