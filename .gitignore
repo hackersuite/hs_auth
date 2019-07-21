@@ -1,3 +1,4 @@
 *.env
 hs_auth
 bin/
+.DS_Store

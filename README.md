@@ -19,7 +19,7 @@ go get github.com/unicsmcr/hs_auth
 cd $GOROOT/src/github.com/unicsmcr/hs_auth
 cp app.env.example app.env
 cp mongo.env.example mongo.env
-cp mongo-express.env.example mongo-express.env
+cp mongo_express.env.example mongo_express.env
 ```
 
 
