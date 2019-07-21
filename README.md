@@ -51,14 +51,14 @@ The output from the apps can be attached to the terminal with one of the followi
 ```
 make logs // will attach the logs from all 3 containers
 make logs-app // will attach the logs from the go app
-make logs-mongo // will attach the logs from the database
+make logs-db // will attach the logs from the database
 ```
 
- ### Stopping the app
- The app can be stopped with:
- ```
- make down
- ```
+### Stopping the app
+The app can be stopped with:
+```
+make down
+```
 
 ## Manual deployment
 Complete the setup above and make sure that DB_URL in hs_auth.env is pointing to a running MongoDB database, then run:

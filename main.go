@@ -33,6 +33,8 @@ func main() {
 }
 
 func heartbeat(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("request received from %s\n", r.RemoteAddr)
+
 	dbURL := os.Getenv("DB_URL")
 	connectionURL := fmt.Sprintf("mongodb://%s", dbURL)
 	fmt.Printf("connecting to database at %s\n", connectionURL)

@@ -45,10 +45,10 @@ logs:
 
 # prints the logs only from the go app
 logs-app:
-	docker-compose logs -f app
+	docker-compose logs -f hs_auth
 
 # prints the logs only from the database
-logs-mongo:
+logs-db:
 	docker-compose logs -f mongo
 
 # shuts down the containers
