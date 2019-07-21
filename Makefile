@@ -15,12 +15,12 @@ build:
 	go build -o bin/hs_auth main.go
 
 # builds the docker image
-docker-build: $(objects)
+build-docker: $(objects)
 	@echo "=============building hs_auth============="
 	docker build -f docker/prod/Dockerfile -t hs_auth .
 
 # builds the docker image for dev environment
-docker-build-dev: $(objects)
+build-docker-dev: $(objects)
 	@echo "=============building hs_auth (dev)============="
 	docker build -f docker/dev/Dockerfile -t hs_auth .
 
@@ -30,12 +30,12 @@ setup-network:
 	docker network create --driver bridge hacker_suite || echo "This is most likely fine, it just means that the network has already been created"
 
 # starts the app and MongoDB in docker containers
-up: docker-build setup-network
+up: build-docker setup-network
 	@echo "=============starting hs_auth============="
 	docker-compose up -d
 
 # starts the app and MongoDB in docker containers for dev environment
-up-dev: docker-build-dev setup-network
+up-dev: build-docker-dev setup-network
 	@echo "=============starting hs_auth (dev)============="
 	docker-compose up -d
 
