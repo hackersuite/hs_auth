@@ -7,7 +7,7 @@ COPY . .
 RUN apk add git
 RUN go get -d -v ./...
 RUN go install -v ./...
-RUN go get github.com/githubnemo/CompileDaemon
+RUN go get github.com/oxequa/realize
 RUN apk del git
 
 ENV GOPATH /go
@@ -15,6 +15,4 @@ ENV GOPATH /go
 
 EXPOSE 80
 
-ENTRYPOINT \
-  # Starting daemon for live reloading
-  CompileDaemon -log-prefix=false -build="go build" -command="./hs_auth"
+ENTRYPOINT realize start
