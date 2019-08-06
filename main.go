@@ -9,13 +9,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/unicsmcr/hs_auth/routers"
+
+	"github.com/gin-gonic/gin"
+
+	"go.uber.org/zap"
+
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/unicsmcr/hs_auth/entities"
 
-	"gopkg.in/go-playground/validator.v9"
-
-	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -29,39 +32,30 @@ type heartbeatResponse struct {
 var db *mongo.Database
 
 func main() {
-	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/", heartbeat)
-
-	validate := validator.New()
-
-	user := entities.User{
-		Name:     "hellow",
-		Email:    "email@email.com",
-		Password: "password",
+	var logger *zap.Logger
+	var err error
+	if os.Getenv("ENVIRONMENT") == "prod" {
+		logger, err = zap.NewProduction()
+	} else {
+		logger, err = zap.NewDevelopment()
 	}
-
-	err := validate.Struct(user)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("could not make zap logger: %s", err)
 	}
-
-	connectToDB()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	result, err := db.Collection("users").InsertOne(ctx, user)
-	if err != nil {
-		fmt.Println("user already exists")
-	}
-	log.Println(result)
-	cancel()
 
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
-		log.Fatal("could not start server: PORT env variable not set")
+		logger.Fatal("could not start server", zap.String("error", "PORT env variable not set"))
 	}
 
-	fmt.Printf("starting server on localhost:%s\n", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%s", port), router))
+	r := gin.Default()
+	routers.RegisterRoutes(logger, r.Group(""))
+
+	logger.Info("starting server", zap.String("address", fmt.Sprintf("localhost:%s", port)))
+	err = r.Run(fmt.Sprintf(":%s", port))
+	if err != nil {
+		logger.Fatal("could not start server", zap.Error(err))
+	}
 }
 
 func connectToDB() {
