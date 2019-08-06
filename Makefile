@@ -2,12 +2,18 @@ include app.env
 
 default: build test
 
+# checks the code for problems
+.PHONY: vet
+vet:
+	go vet
+
 # starts the app
-run:
+run: vet
+	@echo "=============vetting the code============="
 	go run main.go
 
 # runs test
-test:
+test: vet
 	go test -v -cover ./...
 
 # builds the executable
@@ -30,12 +36,12 @@ setup-network:
 	docker network create --driver bridge hacker_suite || echo "This is most likely fine, it just means that the network has already been created"
 
 # starts the app and MongoDB in docker containers
-up: build-docker setup-network
+up: vet build-docker setup-network
 	@echo "=============starting hs_auth============="
 	docker-compose up -d
 
 # starts the app and MongoDB in docker containers for dev environment
-up-dev: build-docker-dev setup-network
+up-dev: vet build-docker-dev setup-network
 	@echo "=============starting hs_auth (dev)============="
 	docker-compose up -d
 

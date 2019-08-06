@@ -39,6 +39,8 @@ make up
 or
 ```
 make up-dev // this will start the app with live reloading
+// NOTE: you will need to restart the containers whenever you install a new package
+// or change the environment variables in any of the .env files
 ```
 This will create three containers: the go app, the MongoDB database, a database managent tool Mongo Express and two Docker networks: `hs_auth_internal` and `hacker_suite` (if it doesn't exist already). The first time you run the command, it will take a while since it will install the required services. Next time you run the command, it will be much faster since dependecies are cached.
 
