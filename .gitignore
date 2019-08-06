@@ -1,3 +1,6 @@
 *.env
 main
 .DS_Store
+hs_auth
+data
+.vscode
