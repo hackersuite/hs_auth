@@ -9,11 +9,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RegisterRoutes(logger *zap.Logger, routerGroup *gin.RouterGroup) {
-	router := models.Router{Logger: logger}
+type MainRouter struct {
+	models.Router
+	logger *zap.Logger
+	apiV1  v1.APIV1Router
+}
 
-	routerGroup.GET("/", router.Heartbeat)
+func NewMainRouter(logger *zap.Logger, apiV1Router v1.APIV1Router) MainRouter {
+	return MainRouter{
+		logger: logger,
+		apiV1:  apiV1Router,
+	}
+}
 
-	apiV1 := routerGroup.Group("/api/v1")
-	v1.RegisterRoutes(logger, apiV1)
+func (r MainRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
+	routerGroup.GET("/", r.Heartbeat)
+
+	apiV1Group := routerGroup.Group("/api/v1")
+	r.apiV1.RegisterRoutes(apiV1Group)
 }

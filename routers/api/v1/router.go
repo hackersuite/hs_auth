@@ -6,8 +6,17 @@ import (
 	"go.uber.org/zap"
 )
 
-func RegisterRoutes(logger *zap.Logger, routerGroup *gin.RouterGroup) {
-	router := models.Router{Logger: logger}
+type APIV1Router struct {
+	models.Router
+	logger *zap.Logger
+}
 
-	routerGroup.GET("/", router.Heartbeat)
+func NewAPIV1Router(logger *zap.Logger) APIV1Router {
+	return APIV1Router{
+		logger: logger,
+	}
+}
+
+func (r APIV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
+	routerGroup.GET("/", r.Heartbeat)
 }
