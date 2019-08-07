@@ -7,6 +7,7 @@
 ## Dependencies
 - Go
 - GNU make
+- [wire](https://github.com/google/wire/) (optional - only needed to update DI containers)
 
 ## Getting started
 
