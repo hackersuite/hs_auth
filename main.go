@@ -9,12 +9,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/unicsmcr/hs_auth/routers"
-
-	"github.com/gin-gonic/gin"
-
-	"go.uber.org/zap"
-
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/unicsmcr/hs_auth/entities"
@@ -32,30 +26,22 @@ type heartbeatResponse struct {
 var db *mongo.Database
 
 func main() {
-	var logger *zap.Logger
-	var err error
-	if os.Getenv("ENVIRONMENT") == "prod" {
-		logger, err = zap.NewProduction()
-	} else {
-		logger, err = zap.NewDevelopment()
-	}
+	server, err := InitializeServer()
 	if err != nil {
-		log.Fatalf("could not make zap logger: %s", err)
+		log.Fatal(fmt.Sprintf("could not create server: %s", err))
 	}
 
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
-		logger.Fatal("could not start server", zap.String("error", "PORT env variable not set"))
+		log.Fatalf("could not start server: %s", err)
 	}
 
-	r := gin.Default()
-	routers.RegisterRoutes(logger, r.Group(""))
-
-	logger.Info("starting server", zap.String("address", fmt.Sprintf("localhost:%s", port)))
-	err = r.Run(fmt.Sprintf(":%s", port))
+	err = server.Run(fmt.Sprintf(":%s", port))
 	if err != nil {
-		logger.Fatal("could not start server", zap.Error(err))
+		log.Fatal(fmt.Sprintf("could not start server: %s", err))
 	}
+
+	log.Printf("server started at: localhost:%s", port)
 }
 
 func connectToDB() {
