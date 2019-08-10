@@ -11,7 +11,7 @@ type AppConfig struct{}
 func NewAppConfig(env *environment.Env) (*AppConfig, error) {
 	var configProvider *config.YAML
 	var err error
-	if env.GetEnvironment() == "prod" {
+	if env.Get(environment.Environment) == "prod" {
 		configProvider, err = config.NewYAML(config.File("base.yaml"), config.File("production.yaml"))
 	} else {
 		configProvider, err = config.NewYAML(config.File("base.yaml"), config.File("development.yaml"))

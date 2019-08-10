@@ -13,7 +13,11 @@ import (
 )
 
 func NewDatabase(logger *zap.Logger, env *environment.Env) *mongo.Database {
-	connectionURL := fmt.Sprintf(`mongodb://%s:%s@%s/%s`, env.GetMongoUser(), env.GetMongoPassword(), env.GetMongoHost(), env.GetMongoDatabase())
+	connectionURL := fmt.Sprintf(`mongodb://%s:%s@%s/%s`,
+		env.Get(environment.MongoUser),
+		env.Get(environment.MongoPassword),
+		env.Get(environment.MongoHost),
+		env.Get(environment.MongoDatabase))
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(connectionURL))
 	if err != nil {

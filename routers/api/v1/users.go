@@ -3,6 +3,8 @@ package v1
 import (
 	"net/http"
 
+	"github.com/unicsmcr/hs_auth/environment"
+
 	"github.com/unicsmcr/hs_auth/utils/auth"
 
 	"go.uber.org/zap"
@@ -50,7 +52,7 @@ func (r APIV1Router) login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := auth.NewJWT(*user, []byte(r.env.GetJWTSecret()))
+	token, err := auth.NewJWT(*user, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")

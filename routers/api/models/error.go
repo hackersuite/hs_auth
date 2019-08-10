@@ -14,7 +14,7 @@ func (e *APIError) Error() string {
 	return e.Err
 }
 
-// APIError creates an APIError with given status and error message
+// NewAPIError creates an APIError with given status and error message
 func NewAPIError(status int, err string) APIError {
 	return APIError{
 		Status: status,
