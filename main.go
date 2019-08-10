@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -22,15 +21,10 @@ func main() {
 		log.Fatal(fmt.Sprintf("could not create server: %s", err))
 	}
 
-	port := os.Getenv("PORT")
-	if len(port) == 0 {
-		log.Fatalf("could not start server: %s", err)
-	}
-
-	err = server.Run(fmt.Sprintf(":%s", port))
+	err = server.Run(fmt.Sprintf(":%s", server.Port))
 	if err != nil {
 		log.Fatal(fmt.Sprintf("could not start server: %s", err))
 	}
 
-	log.Printf("server started at: localhost:%s", port)
+	log.Printf("server started at: localhost:%s", server.Port)
 }
