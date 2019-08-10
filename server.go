@@ -14,7 +14,7 @@ type Server struct {
 func NewServer(mainRouter routers.MainRouter, env *environment.Env) Server {
 	server := Server{
 		Engine: gin.Default(),
-		Port:   env.GetPort(),
+		Port:   env.Get(environment.Port),
 	}
 
 	mainRouter.RegisterRoutes(server.Group("/"))

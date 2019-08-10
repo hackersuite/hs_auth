@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Router is the basic model for a requests routers
 type Router struct{}
 
 type heartbeatResponse struct {
@@ -15,6 +16,7 @@ type heartbeatResponse struct {
 	Message string `json:"message"`
 }
 
+// Heartbeat sends an HTTP_OK response to the user
 func (r *Router) Heartbeat(ctx *gin.Context) {
 	message := fmt.Sprintf("request to %s received", ctx.Request.URL.String())
 
