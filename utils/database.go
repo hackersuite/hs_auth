@@ -20,6 +20,11 @@ func NewDatabase(logger *zap.Logger, env *environment.Env) *mongo.Database {
 		env.Get(environment.MongoHost),
 		env.Get(environment.MongoDatabase))
 
+	logger.Info(fmt.Sprint(env.Get(environment.MongoUser),
+		env.Get(environment.MongoPassword),
+		env.Get(environment.MongoHost),
+		env.Get(environment.MongoDatabase)))
+
 	client, err := mongo.NewClient(options.Client().ApplyURI(connectionURL))
 	if err != nil {
 		logger.Fatal("could not connect to database", zap.Error(err))
