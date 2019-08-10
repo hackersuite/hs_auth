@@ -14,6 +14,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GET: /api/v1/users/
+// Response: users []entities.User
 func (r APIV1Router) getUsers(ctx *gin.Context) {
 	users, err := r.userService.GetUsers(ctx)
 	if err != nil {
@@ -25,6 +27,10 @@ func (r APIV1Router) getUsers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, users)
 }
 
+// POST: /api/v1/users/login
+// Request:  email string
+//           password string
+// Response: jwtToken string
 func (r APIV1Router) login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	if email == "" {

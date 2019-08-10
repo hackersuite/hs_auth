@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// NewDatabase creates a new connection to the database specified in given Env
 func NewDatabase(logger *zap.Logger, env *environment.Env) *mongo.Database {
 	connectionURL := fmt.Sprintf(`mongodb://%s:%s@%s/%s`,
 		env.Get(environment.MongoUser),
