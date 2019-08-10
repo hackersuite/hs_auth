@@ -2,11 +2,20 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/routers"
 )
 
-func NewServer(mainRouter routers.MainRouter) *gin.Engine {
-	server := gin.Default()
+type Server struct {
+	*gin.Engine
+	Port string
+}
+
+func NewServer(mainRouter routers.MainRouter, env *environment.Env) Server {
+	server := Server{
+		Engine: gin.Default(),
+		Port:   env.GetPort(),
+	}
 
 	mainRouter.RegisterRoutes(server.Group("/"))
 

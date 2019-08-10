@@ -6,26 +6,27 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
-	"github.com/unicsmcr/hs_auth/routers/api/v1"
+	v1 "github.com/unicsmcr/hs_auth/routers/api/v1"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
 )
 
 // Injectors from wire.go:
 
-func InitializeServer() (*gin.Engine, error) {
+func InitializeServer() (Server, error) {
 	logger, err := utils.NewLogger()
 	if err != nil {
-		return nil, err
+		return Server{}, err
 	}
-	database := utils.NewDatabase(logger)
+	env := environment.NewEnv(logger)
+	database := utils.NewDatabase(logger, env)
 	userRepository := repositories.NewUserRepository(database)
 	userService := services.NewUserService(userRepository)
-	apiv1Router := v1.NewAPIV1Router(logger, userService)
+	apiv1Router := v1.NewAPIV1Router(logger, userService, env)
 	mainRouter := routers.NewMainRouter(logger, apiv1Router)
-	engine := NewServer(mainRouter)
-	return engine, nil
+	server := NewServer(mainRouter, env)
+	return server, nil
 }

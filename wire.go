@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
+	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
 	v1 "github.com/unicsmcr/hs_auth/routers/api/v1"
@@ -12,7 +12,7 @@ import (
 	"github.com/unicsmcr/hs_auth/utils"
 )
 
-func InitializeServer() (*gin.Engine, error) {
+func InitializeServer() (Server, error) {
 	wire.Build(
 		NewServer,
 		routers.NewMainRouter,
@@ -20,7 +20,9 @@ func InitializeServer() (*gin.Engine, error) {
 		services.NewUserService,
 		repositories.NewUserRepository,
 		utils.NewDatabase,
+		environment.NewEnv,
 		utils.NewLogger,
+		// config.NewAppConfig,
 	)
-	return &gin.Engine{}, nil
+	return Server{}, nil
 }
