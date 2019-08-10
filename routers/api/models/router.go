@@ -15,8 +15,8 @@ type heartbeatResponse struct {
 	Message string `json:"message"`
 }
 
-func (r *Router) Heartbeat(c *gin.Context) {
-	message := fmt.Sprintf("request to %s received", c.Request.URL.String())
+func (r *Router) Heartbeat(ctx *gin.Context) {
+	message := fmt.Sprintf("request to %s received", ctx.Request.URL.String())
 
-	c.JSON(http.StatusOK, heartbeatResponse{Status: "OK", Code: http.StatusOK, Message: message})
+	ctx.JSON(http.StatusOK, heartbeatResponse{Status: "OK", Code: http.StatusOK, Message: message})
 }
