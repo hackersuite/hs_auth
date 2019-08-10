@@ -3,16 +3,17 @@ package utils
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
+
+	"github.com/unicsmcr/hs_auth/environment"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"
 )
 
-func NewDatabase(logger *zap.Logger) *mongo.Database {
-	connectionURL := fmt.Sprintf(`mongodb://%s:%s@%s/%s`, os.Getenv("MONGO_USER"), os.Getenv("MONGO_PASSWORD"), os.Getenv("MONGO_HOST"), os.Getenv("MONGO_DATABASE"))
+func NewDatabase(logger *zap.Logger, env *environment.Env) *mongo.Database {
+	connectionURL := fmt.Sprintf(`mongodb://%s:%s@%s/%s`, env.GetMongoUser(), env.GetMongoPassword(), env.GetMongoHost(), env.GetMongoDatabase())
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(connectionURL))
 	if err != nil {
