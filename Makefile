@@ -23,12 +23,22 @@ build:
 # builds the docker image
 build-docker: $(objects)
 	@echo "=============building hs_auth============="
-	docker build -f docker/prod/Dockerfile -t hs_auth .
+	if docker image ls | grep -qw hs_auth; then \
+		echo "image already exists, skipping build"; \
+	else \
+		echo "creating new image"; \
+		docker build -f docker/dev/Dockerfile -t hs_auth . ;\
+	fi
 
 # builds the docker image for dev environment
 build-docker-dev: $(objects)
-	@echo "=============building hs_auth (dev)============="
-	docker build -f docker/dev/Dockerfile -t hs_auth .
+	@echo "=============building hs_auth_dev============="
+	if docker image ls | grep -qw hs_auth_dev; then \
+		echo "image already exists, skipping build"; \
+	else \
+		echo "creating new image"; \
+		docker build -f docker/dev/Dockerfile -t hs_auth_dev . ;\
+	fi
 
 # sets up the hacker suite docker network
 setup-network:
