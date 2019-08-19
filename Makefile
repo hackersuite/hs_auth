@@ -12,8 +12,13 @@ run: vet
 	@echo "=============vetting the code============="
 	go run main.go
 
+.PHONY: mocks
+mocks:
+	@echo "=============generating mocks============="
+	grep -rl --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done
+
 # runs test
-test: vet
+test: vet mocks
 	go test -v -cover ./...
 
 # builds the executable
