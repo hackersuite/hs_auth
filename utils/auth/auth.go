@@ -2,7 +2,6 @@ package auth
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/unicsmcr/hs_auth/entities"
@@ -18,8 +17,6 @@ func NewJWT(user entities.User, secret []byte) (string, error) {
 		"_id":        user.ID,
 		"auth_level": user.AuthLevel,
 	})
-
-	fmt.Println(secret)
 
 	return token.SignedString(secret)
 }
