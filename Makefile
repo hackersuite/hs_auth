@@ -19,7 +19,7 @@ run: vet
 .PHONY: mocks
 mocks:
 	@echo "=============generating mocks============="
-	grep -rl --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done
+	grep -rl --exclude "./vendor/*" --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done
 
 # runs test
 test: vet mocks
