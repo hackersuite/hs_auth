@@ -1,4 +1,8 @@
 include app.env
+export $(shell sed 's/=.*//' app.env)
+
+prod_docker_compose_file=./docker/hs_auth/docker-compose.yml
+dev_docker_compose_file=./docker/hs_auth_dev/docker-compose.yml
 
 default: build test
 
@@ -26,23 +30,13 @@ build:
 	go build -o bin/hs_auth main.go
 
 # builds the docker image
-build-docker: $(objects)
+build-docker:
 	@echo "=============building hs_auth============="
 	if docker image ls | grep -qw hs_auth; then \
 		echo "image already exists, skipping build"; \
 	else \
 		echo "creating new image"; \
 		docker build -f docker/dev/Dockerfile -t hs_auth . ;\
-	fi
-
-# builds the docker image for dev environment
-build-docker-dev: $(objects)
-	@echo "=============building hs_auth_dev============="
-	if docker image ls | grep -qw hs_auth_dev; then \
-		echo "image already exists, skipping build"; \
-	else \
-		echo "creating new image"; \
-		docker build -f docker/dev/Dockerfile -t hs_auth_dev . ;\
 	fi
 
 # sets up the hacker suite docker network
@@ -56,27 +50,42 @@ up: vet build-docker setup-network
 	docker-compose up -d
 
 # starts the app and MongoDB in docker containers for dev environment
-up-dev: vet build-docker-dev setup-network
+up-dev: export ENVIRONMENT=dev
+up-dev: export PORT=8000
+up-dev: export MONGO_HOST=127.0.0.1:8002
+up-dev: vet setup-network
 	@echo "=============starting hs_auth (dev)============="
-	docker-compose up -d
+	docker-compose -f $(dev_docker_compose_file) up -d
+	realize start
 
 # prints the logs from all containers
 logs:
-	docker-compose logs -f
+ifeq ($(ENV), dev)
+	docker-compose -f $(dev_docker_compose_file) logs -f
+else
+	docker-compose -f $(prod_docker_compose_file) logs -f
+endif
 
 # prints the logs only from the go app
 logs-app:
-	docker-compose logs -f hs_auth
+	docker-compose -f $(prod_docker_compose_file) logs -f hs_auth
 
 # prints the logs only from the database
 logs-db:
-	docker-compose logs -f mongo
+ifeq ($(ENV), dev)
+	docker-compose -f $(dev_docker_compose_file) logs -f mongo
+else
+	docker-compose -f $(prod_docker_compose_file) logs -f mongo
+endif
 
 # shuts down the containers
 down:
-	docker-compose down
+	docker-compose -f $(prod_docker_compose_file) down
+	docker-compose -f $(dev_docker_compose_file) down
 
 # cleans up unused images, networks and containers
+# WARNING: this will delete ALL docker images on the system
+#          that are not being used
 clean: down
 	@echo "=============cleaning up============="
 	rm -f hs_auth
