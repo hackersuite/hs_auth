@@ -1,8 +1,9 @@
 package utils
 
 import (
-	"os"
 	"testing"
+
+	"github.com/unicsmcr/hs_auth/testutils"
 
 	"github.com/stretchr/testify/assert"
 
@@ -10,12 +11,8 @@ import (
 )
 
 func Test_NewLogger__should_not_throw_error_when_ENVIRONMENT_not_set(t *testing.T) {
-	initialValue, exists := os.LookupEnv(environment.Environment)
-	err := os.Unsetenv(environment.Environment)
-	assert.NoError(t, err)
-	if exists {
-		defer os.Setenv(environment.Environment, initialValue)
-	}
+	restoreVars := testutils.UnsetVars(environment.Environment)
+	defer restoreVars()
 
 	logger, err := NewLogger()
 	assert.NoError(t, err)
@@ -23,13 +20,8 @@ func Test_NewLogger__should_not_throw_error_when_ENVIRONMENT_not_set(t *testing.
 }
 
 func Test_NewLogger__should_not_throw_error_when_ENVIRONMENT_is_set_to_prod(t *testing.T) {
-	initialValue, exists := os.LookupEnv(environment.Environment)
-	err := os.Setenv(environment.Environment, "prod")
-	assert.NoError(t, err)
-
-	if exists {
-		defer os.Setenv(environment.Environment, initialValue)
-	}
+	restoreVars := testutils.SetEnvVars(map[string]string{environment.Environment: "prod"})
+	defer restoreVars()
 
 	logger, err := NewLogger()
 	assert.NoError(t, err)
