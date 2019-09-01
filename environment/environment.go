@@ -20,15 +20,16 @@ const (
 // NewEnv creates an Env with loaded environment variables
 func NewEnv(logger *zap.Logger) *Env {
 	env := Env{
-		vars: map[string]string{},
+		vars: map[string]string{
+			Environment:   valueOfEnvVar(logger, Environment),
+			Port:          valueOfEnvVar(logger, Port),
+			MongoHost:     valueOfEnvVar(logger, MongoHost),
+			MongoDatabase: valueOfEnvVar(logger, MongoDatabase),
+			MongoUser:     valueOfEnvVar(logger, MongoUser),
+			MongoPassword: valueOfEnvVar(logger, MongoPassword),
+			JWTSecret:     valueOfEnvVar(logger, JWTSecret),
+		},
 	}
-	env.vars[Environment] = valueOfEnvVar(logger, Environment)
-	env.vars[Port] = valueOfEnvVar(logger, Port)
-	env.vars[MongoHost] = valueOfEnvVar(logger, MongoHost)
-	env.vars[MongoDatabase] = valueOfEnvVar(logger, MongoDatabase)
-	env.vars[MongoUser] = valueOfEnvVar(logger, MongoUser)
-	env.vars[MongoPassword] = valueOfEnvVar(logger, MongoPassword)
-	env.vars[JWTSecret] = valueOfEnvVar(logger, JWTSecret)
 	return &env
 }
 
