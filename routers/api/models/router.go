@@ -7,6 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type IRouter interface {
+	RegisterRoutes(*gin.RouterGroup)
+}
+
 // Router is the basic model for a requests routers
 type Router struct{}
 

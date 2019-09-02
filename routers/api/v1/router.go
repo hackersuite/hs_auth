@@ -10,7 +10,7 @@ import (
 
 // APIV1Router is the router for v1 of the API
 type APIV1Router interface {
-	RegisterRoutes(*gin.RouterGroup)
+	models.IRouter
 	GetUsers(*gin.Context)
 	Login(*gin.Context)
 }
@@ -23,10 +23,11 @@ type apiV1Router struct {
 }
 
 // NewAPIV1Router creates a APIV1Router
-func NewAPIV1Router(logger *zap.Logger, userService services.UserService) APIV1Router {
+func NewAPIV1Router(logger *zap.Logger, userService services.UserService, env *environment.Env) APIV1Router {
 	return &apiV1Router{
 		logger:      logger,
 		userService: userService,
+		env:         env,
 	}
 }
 
