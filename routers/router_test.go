@@ -1,4 +1,4 @@
-package v1
+package routers
 
 import (
 	"net/http"
@@ -7,9 +7,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/gin-gonic/gin"
+	"github.com/unicsmcr/hs_auth/testutils"
 
-	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	mock_v1 "github.com/unicsmcr/hs_auth/mocks/routers/api/v1"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/golang/mock/gomock"
 
@@ -18,16 +20,14 @@ import (
 
 func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockUserService := mock_services.NewMockUserService(ctrl)
+	mockAPIV1Router := mock_v1.NewMockAPIV1Router(ctrl)
 
-	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
-	mockUserService.EXPECT().GetUserWithEmailAndPassword(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockAPIV1Router.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/api/v1"}).Times(1)
 
-	router := NewAPIV1Router(zap.NewNop(), mockUserService, nil)
+	router := NewMainRouter(zap.NewNop(), mockAPIV1Router)
 
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
-
 	router.RegisterRoutes(&testServer.RouterGroup)
 
 	tests := []struct {
@@ -38,18 +38,11 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			route:  "/",
 			method: http.MethodGet,
 		},
-		{
-			route:  "/users",
-			method: http.MethodGet,
-		},
-		{
-			route:  "/users/login",
-			method: http.MethodPost,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.route, func(t *testing.T) {
+
 			req := httptest.NewRequest(tt.method, tt.route, nil)
 
 			testServer.ServeHTTP(w, req)
