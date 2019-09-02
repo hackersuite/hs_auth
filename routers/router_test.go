@@ -22,6 +22,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockAPIV1Router := mock_v1.NewMockAPIV1Router(ctrl)
 
+	// checking APIV1Router gets registered on /api/v1
 	mockAPIV1Router.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/api/v1"}).Times(1)
 
 	router := NewMainRouter(zap.NewNop(), mockAPIV1Router)
