@@ -4,9 +4,7 @@ import (
 	"net/http"
 
 	"github.com/unicsmcr/hs_auth/environment"
-
 	"github.com/unicsmcr/hs_auth/utils/auth"
-
 	"go.uber.org/zap"
 
 	"github.com/unicsmcr/hs_auth/routers/api/models"
@@ -16,7 +14,7 @@ import (
 
 // GET: /api/v1/users/
 // Response: users []entities.User
-func (r APIV1Router) getUsers(ctx *gin.Context) {
+func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 	users, err := r.userService.GetUsers(ctx)
 	if err != nil {
 		r.logger.Error("could not fetch users")
@@ -31,7 +29,7 @@ func (r APIV1Router) getUsers(ctx *gin.Context) {
 // Request:  email string
 //           password string
 // Response: jwtToken string
-func (r APIV1Router) login(ctx *gin.Context) {
+func (r *apiV1Router) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	if email == "" {
 		r.logger.Error("email was not provided")
