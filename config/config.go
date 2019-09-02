@@ -7,7 +7,9 @@ import (
 )
 
 // AppConfig is a struct to store non-private configuration for the project
-type AppConfig struct{}
+type AppConfig struct {
+	Name string `yaml:"name"`
+}
 
 // NewAppConfig loads the project config from the config files based on the environment
 func NewAppConfig(env *environment.Env) (*AppConfig, error) {
