@@ -13,13 +13,13 @@ type AppConfig struct{}
 func NewAppConfig(env *environment.Env) (*AppConfig, error) {
 	var configProvider *config.YAML
 	var err error
+	configFiles := []config.YAMLOption{config.File("base.yaml")}
 	if env.Get(environment.Environment) == "prod" {
-		configProvider, err = config.NewYAML(config.File("base.yaml"), config.File("production.yaml"))
+		configFiles = append(configFiles, config.File("production.yaml"))
 	} else if env.Get(environment.Environment) == "dev" {
-		configProvider, err = config.NewYAML(config.File("base.yaml"), config.File("development.yaml"))
-	} else {
-		configProvider, err = config.NewYAML(config.File("base.yaml"))
+		configFiles = append(configFiles, config.File("development.yaml"))
 	}
+	configProvider, err = config.NewYAML(configFiles...)
 	if err != nil {
 		return nil, err
 	}
