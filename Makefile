@@ -17,7 +17,7 @@ run: vet
 	go run main.go
 
 .PHONY: mocks
-mocks:
+mocks: clean-mocks
 	@echo "=============generating mocks============="
 	grep -rl --exclude "./vendor/*" --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done
 
@@ -93,3 +93,6 @@ clean: down
 	docker network prune -f
 	docker system prune -f
 	docker volume prune -f
+
+clean-mocks:
+	rm -rf ./mocks
