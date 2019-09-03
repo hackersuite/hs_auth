@@ -5,10 +5,7 @@ import (
 )
 
 // APIError is a struct to store a standard API error
-type APIError struct {
-	Status int    `json:"status"`
-	Err    string `json:"error"`
-}
+type APIError Response
 
 func (e *APIError) Error() string {
 	return e.Err

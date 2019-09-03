@@ -2,6 +2,7 @@ package v1
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/utils/auth"
@@ -22,13 +23,20 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, users)
+	ctx.JSON(http.StatusOK, getUsersRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Users: users,
+	})
 }
 
 // POST: /api/v1/users/login
+// x-www-form-urlencoded
 // Request:  email string
 //           password string
-// Response: jwtToken string
+// Response: token string
+// Headers:  Authorization <- token
 func (r *apiV1Router) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	if email == "" {
@@ -56,12 +64,18 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := auth.NewJWT(*user, []byte(r.env.Get(environment.JWTSecret)))
+	token, err := auth.NewJWT(*user, time.Now().Unix(), []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")
 		return
 	}
 
-	ctx.JSON(http.StatusOK, token)
+	ctx.Header("Authorization", token)
+	ctx.JSON(http.StatusOK, loginRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Token: token,
+	})
 }
