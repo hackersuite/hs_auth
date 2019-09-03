@@ -10,13 +10,13 @@ import (
 
 // APIV1Router is the router for v1 of the API
 type APIV1Router interface {
-	models.IRouter
+	models.Router
 	GetUsers(*gin.Context)
 	Login(*gin.Context)
 }
 
 type apiV1Router struct {
-	models.Router
+	models.BaseRouter
 	logger      *zap.Logger
 	userService services.UserService
 	env         *environment.Env

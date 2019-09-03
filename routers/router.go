@@ -11,7 +11,7 @@ import (
 
 // MainRouter is router to connect all routers used by the app
 type MainRouter interface {
-	models.IRouter
+	models.Router
 }
 
 type mainRouter struct {
