@@ -14,7 +14,7 @@ func Test_Heartbeat__should_return_correct_message(t *testing.T) {
 	w := httptest.NewRecorder()
 	_, testRouter := gin.CreateTestContext(w)
 
-	router := Router{}
+	router := BaseRouter{}
 	testRouter.GET("test", router.Heartbeat)
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
