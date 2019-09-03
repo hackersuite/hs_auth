@@ -15,7 +15,7 @@ type MainRouter interface {
 }
 
 type mainRouter struct {
-	models.Router
+	models.BaseRouter
 	logger *zap.Logger
 	apiV1  v1.APIV1Router
 }
