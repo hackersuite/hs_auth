@@ -211,3 +211,47 @@ func Test_Login__should_return_StatusBadRequest_when_invalid_credentials_are_pro
 	assert.Equal(t, http.StatusBadRequest, actualRes.Status)
 	assert.Equal(t, "user not found", actualRes.Err)
 }
+
+func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
+	_, w, testCtx, _, router := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	testUser := entities.User{
+		AuthLevel: 3,
+		ID:        primitive.NewObjectID(),
+	}
+
+	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token)
+	testCtx.Request = req
+
+	router.Verify(testCtx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func Test_Verify__should_return_StatusUnauthorized_for_invalid_token(t *testing.T) {
+	_, w, testCtx, _, router := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	testUser := entities.User{
+		AuthLevel: 3,
+		ID:        primitive.NewObjectID(),
+	}
+
+	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token+"some text")
+	testCtx.Request = req
+
+	router.Verify(testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}

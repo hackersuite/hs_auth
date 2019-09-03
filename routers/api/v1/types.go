@@ -14,3 +14,7 @@ type loginRes struct {
 	models.Response
 	Token string `json:"token"`
 }
+
+type verifyRes struct {
+	models.Response
+}
