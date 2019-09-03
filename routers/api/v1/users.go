@@ -14,7 +14,10 @@ import (
 )
 
 // GET: /api/v1/users/
-// Response: users []entities.User
+// Response: status int
+//           error string
+//           users []entities.User
+
 func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 	users, err := r.userService.GetUsers(ctx)
 	if err != nil {
@@ -36,6 +39,8 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 // Request:  email string
 //           password string
 // Response: token string
+//           status int
+//           error string
 // Headers:  Authorization <- token
 func (r *apiV1Router) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
@@ -78,4 +83,28 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		},
 		Token: token,
 	})
+}
+
+// GET: /api/v1/users/verify
+// Response: status int
+//           error string
+// Headers:  Authorization -> token
+func (r *apiV1Router) Verify(ctx *gin.Context) {
+	token := ctx.GetHeader("Authorization")
+
+	valid := auth.IsValidJWT(token, []byte(r.env.Get(environment.JWTSecret)))
+	if valid {
+		ctx.JSON(http.StatusOK, verifyRes{
+			Response: models.Response{
+				Status: http.StatusOK,
+			},
+		})
+	} else {
+		ctx.JSON(http.StatusUnauthorized, verifyRes{
+			Response: models.Response{
+				Status: http.StatusUnauthorized,
+				Err:    "invalid token",
+			},
+		})
+	}
 }

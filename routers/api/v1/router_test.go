@@ -43,6 +43,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			method: http.MethodGet,
 		},
 		{
+			route:  "/verify",
+			method: http.MethodGet,
+		},
+		{
 			route:  "/users/login",
 			method: http.MethodPost,
 		},
