@@ -131,11 +131,10 @@ func Test_Login__should_call_UserService_and_return_correct_token(t *testing.T) 
 		return []byte("testsecret"), nil
 	})
 	assert.NoError(t, err)
+	assert.Equal(t, testUser.ID.Hex(), claims.Id)
+	assert.Equal(t, testUser.AuthLevel, claims.AuthLevel)
 
-	expectedToken, err := auth.NewJWT(testUser, claims.IssuedAt, []byte("testsecret"))
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedToken, actualRes.Token)
+	assert.True(t, auth.IsValidJWT(actualRes.Token, []byte("testsecret")))
 }
 
 func Test_Login__should_return_StatusBadRequest_when_no_email_is_provided(t *testing.T) {
