@@ -3,6 +3,7 @@ package models
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -25,5 +26,5 @@ func Test_Heartbeat__should_return_correct_message(t *testing.T) {
 	res, err := w.Body.ReadString('\x00')
 	assert.Equal(t, "EOF", err.Error())
 
-	assert.Equal(t, "{\"status\":\"OK\",\"code\":200,\"message\":\"request to /test received\"}", res)
+	assert.Equal(t, "{\"status\":\"OK\",\"code\":200,\"message\":\"request to /test received\"}", strings.Trim(res, "\n"))
 }

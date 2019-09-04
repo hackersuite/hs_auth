@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -42,5 +43,5 @@ func Test_SendAPIError__should_send_correct_message(t *testing.T) {
 	expectedErrString, err := json.Marshal(expectedErr)
 	assert.NoError(t, err)
 
-	assert.Equal(t, string(expectedErrString), actualErrString)
+	assert.Equal(t, string(expectedErrString), strings.Trim(actualErrString, "\n"))
 }
