@@ -10,13 +10,19 @@ go:
 git:
   depth: 1
 
-install:
-  - go get github.com/stretchr/testify/assert
-  - go get -d -v ./...
-  - go install -v ./...
+before_install:
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+  - cp app.env.example app.env
+  - cp mongo.env.example mongo.env
+  - cp mongo_express.env.example mongo_express.env
+  - dep ensure
+  - go get github.com/golang/mock/mockgen
+
+env:
+  - GO111MODULE=on
 
 script:
-  - go test -v -cover ./...
+  - make test
 
 notifications:
   email: false
