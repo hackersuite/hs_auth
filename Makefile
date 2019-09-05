@@ -23,7 +23,7 @@ mocks: clean-mocks
 
 # runs test
 test: vet mocks
-	go test -v -cover ./...
+	go test -cover ./...
 
 # builds the executable
 build:

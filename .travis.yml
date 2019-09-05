@@ -15,7 +15,6 @@ before_install:
   - cp app.env.example app.env
   - cp mongo.env.example mongo.env
   - cp mongo_express.env.example mongo_express.env
-  - dep ensure
   - go get github.com/golang/mock/mockgen
 
 env:
@@ -23,6 +22,9 @@ env:
 
 script:
   - make test
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
 
 notifications:
   email: false
