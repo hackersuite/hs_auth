@@ -1,6 +1,8 @@
 include app.env
 export $(shell sed 's/=.*//' app.env)
 
+GO111MODULE=on
+
 prod_docker_compose_file=./docker/hs_auth/docker-compose.yml
 dev_docker_compose_file=./docker/hs_auth_dev/docker-compose.yml
 
@@ -56,7 +58,7 @@ up-dev: export MONGO_HOST=127.0.0.1:8002
 up-dev: vet setup-network
 	@echo "=============starting hs_auth (dev)============="
 	docker-compose -f $(dev_docker_compose_file) up -d
-	realize start
+	refresh run
 
 # prints the logs from all containers
 logs:
