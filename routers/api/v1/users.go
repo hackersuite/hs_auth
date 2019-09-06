@@ -82,6 +82,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 			Status: http.StatusOK,
 		},
 		Token: token,
+		User:  *user,
 	})
 }
 

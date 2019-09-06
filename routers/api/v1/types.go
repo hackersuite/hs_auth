@@ -12,7 +12,8 @@ type getUsersRes struct {
 
 type loginRes struct {
 	models.Response
-	Token string `json:"token"`
+	Token string        `json:"token"`
+	User  entities.User `json:"user,omitempty"`
 }
 
 type verifyRes struct {
