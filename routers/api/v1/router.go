@@ -14,6 +14,8 @@ type APIV1Router interface {
 	GetUsers(*gin.Context)
 	Login(*gin.Context)
 	Verify(*gin.Context)
+	GetMe(*gin.Context)
+	PutMe(*gin.Context)
 }
 
 type apiV1Router struct {
