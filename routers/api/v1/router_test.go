@@ -5,6 +5,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/unicsmcr/hs_auth/testutils"
+
+	"github.com/unicsmcr/hs_auth/environment"
+
 	"github.com/stretchr/testify/assert"
 
 	"github.com/gin-gonic/gin"
@@ -17,13 +21,19 @@ import (
 )
 
 func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
+	restoreVars := testutils.SetEnvVars(map[string]string{
+		"JWT_SECRET": "verysecret",
+	})
+	restoreVars()
+	env := environment.NewEnv(zap.NewNop())
+
 	ctrl := gomock.NewController(t)
 	mockUserService := mock_services.NewMockUserService(ctrl)
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmailAndPassword(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), mockUserService, nil)
+	router := NewAPIV1Router(zap.NewNop(), mockUserService, env)
 
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
@@ -43,12 +53,20 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			method: http.MethodGet,
 		},
 		{
-			route:  "/verify",
+			route:  "/users/verify",
 			method: http.MethodGet,
 		},
 		{
 			route:  "/users/login",
 			method: http.MethodPost,
+		},
+		{
+			route:  "/users/me",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/users/me",
+			method: http.MethodPut,
 		},
 	}
 

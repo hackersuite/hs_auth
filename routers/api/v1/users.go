@@ -108,3 +108,18 @@ func (r *apiV1Router) Verify(ctx *gin.Context) {
 		})
 	}
 }
+
+// GET: /api/v1/users/me
+// Response: user entities.User
+// Headers:  Authorization -> token
+func (r *apiV1Router) GetMe(ctx *gin.Context) {
+
+}
+
+// PUT: /api/v1/users/me
+// Request: name string
+//          team primitive.ObjectID
+// Headers: Authorization -> token
+func (r *apiV1Router) PutMe(ctx *gin.Context) {
+
+}
