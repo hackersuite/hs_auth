@@ -19,3 +19,8 @@ type loginRes struct {
 type verifyRes struct {
 	models.Response
 }
+
+type getMeRes struct {
+	models.Response
+	User entities.User `json:"user,omitempty"`
+}
