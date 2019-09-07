@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"testing"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/unicsmcr/hs_auth/services"
 
 	"github.com/unicsmcr/hs_auth/utils/auth"
 
@@ -219,7 +219,7 @@ func Test_Login__should_return_StatusBadRequest_when_invalid_credentials_are_pro
 	testCtx.Request = req
 
 	mockUService.EXPECT().GetUserWithEmailAndPassword(gomock.Any(), "john@doe.com", "password123").
-		Return(nil, mongo.ErrNoDocuments).Times(1)
+		Return(nil, services.ErrNotFound).Times(1)
 
 	router.Login(testCtx)
 
@@ -310,7 +310,7 @@ func Test_GetMe__should_return_400_if_user_in_token_doesnt_exist(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
 	req.Header.Set("Authorization", token)
 
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID).Return(nil, errors.New("mongo: no documents in result")).Times(1)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(nil, services.ErrNotFound).Times(1)
 	testCtx.Request = req
 
 	router.GetMe(testCtx)
@@ -329,7 +329,7 @@ func Test_GetMe__should_return_500_if_user_service_returns_err(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
 	req.Header.Set("Authorization", token)
 
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID).Return(nil, errors.New("service err")).Times(1)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(nil, errors.New("service err")).Times(1)
 	testCtx.Request = req
 
 	router.GetMe(testCtx)
@@ -348,7 +348,7 @@ func Test_GetMe__should_return_correct_user(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
 	req.Header.Set("Authorization", token)
 
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID).Return(&testUser, nil).Times(1)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(&testUser, nil).Times(1)
 	testCtx.Request = req
 
 	router.GetMe(testCtx)
