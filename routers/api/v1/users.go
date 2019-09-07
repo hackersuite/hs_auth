@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/unicsmcr/hs_auth/services"
 
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/utils/auth"
@@ -61,7 +61,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 
 	user, err := r.userService.GetUserWithEmailAndPassword(ctx, email, password)
 	if err != nil {
-		if err.Error() == "mongo: no documents in result" {
+		if err == services.ErrNotFound {
 			r.logger.Warn("user not found", zap.String("email", email))
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
@@ -117,21 +117,15 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 	token := ctx.GetHeader("Authorization")
 	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
 	if claims == nil {
+		r.logger.Warn("invalid token", zap.String("token", token))
 		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
 		return
 	}
 
-	id, err := primitive.ObjectIDFromHex(claims.Id)
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
 	if err != nil {
-		r.logger.Warn("id was invalid or not provided", zap.Any("auth claims", claims))
-		models.SendAPIError(ctx, http.StatusUnauthorized, "id was invalid or not provided")
-		return
-	}
-
-	user, err := r.userService.GetUserWithID(ctx, id)
-	if err != nil {
-		if err.Error() == "mongo: no documents in result" {
-			r.logger.Warn("user not found", zap.Any("id", id))
+		if err == services.ErrNotFound {
+			r.logger.Warn("user not found", zap.Any("id", claims.Id))
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -146,9 +140,44 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 
 // PUT: /api/v1/users/me
 // Request:  name string
-//           team string
+//           team primitive.ObjectID.Hex
 // Response: status int
 //           error string
 // Headers:  Authorization -> token
 func (r *apiV1Router) PutMe(ctx *gin.Context) {
+	name := ctx.PostForm("name")
+	team := ctx.PostForm("team")
+
+	if len(name) == 0 && len(team) == 0 {
+		r.logger.Warn("neither name nor team provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "either name or team must be provided")
+		return
+	}
+
+	token := ctx.GetHeader("Authorization")
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
+	}
+
+	fieldsToUpdate := map[string]interface{}{}
+
+	if len(name) > 0 {
+		fieldsToUpdate["name"] = name
+	}
+	if len(team) > 0 {
+		// TODO: check if team exists (need to implement teams persistence first)
+		fieldsToUpdate["team"] = team
+	}
+
+	err := r.userService.UpdateUserWithID(ctx, claims.Id, fieldsToUpdate)
+	if err != nil {
+		r.logger.Error("could not update user", zap.String("id", claims.Id), zap.Any("fields to update", fieldsToUpdate), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with updating the user")
+		return
+	}
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
+	})
 }

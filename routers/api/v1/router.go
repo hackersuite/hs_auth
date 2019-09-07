@@ -44,5 +44,5 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.POST("/login", r.Login)
 	usersGroup.GET("/verify", r.Verify)
 	usersGroup.GET("/me", r.GetMe)
-	usersGroup.GET("/put", r.PutMe)
+	usersGroup.PUT("/me", r.PutMe)
 }
