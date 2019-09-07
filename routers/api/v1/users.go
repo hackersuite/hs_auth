@@ -23,7 +23,7 @@ import (
 func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 	users, err := r.userService.GetUsers(ctx)
 	if err != nil {
-		r.logger.Error("could not fetch users")
+		r.logger.Error("could not fetch users", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -62,7 +62,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 	user, err := r.userService.GetUserWithEmailAndPassword(ctx, email, password)
 	if err != nil {
 		if err.Error() == "mongo: no documents in result" {
-			r.logger.Warn("user not found", zap.String("email", email), zap.String("password", password))
+			r.logger.Warn("user not found", zap.String("email", email))
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -73,7 +73,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 
 	token, err := auth.NewJWT(*user, time.Now().Unix(), []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
-		r.logger.Error("could not create JWT", zap.Error(err))
+		r.logger.Error("could not create JWT", zap.Any("user", *user), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")
 		return
 	}
@@ -109,7 +109,9 @@ func (r *apiV1Router) Verify(ctx *gin.Context) {
 }
 
 // GET: /api/v1/users/me
-// Response: user entities.User
+// Response: status int
+//           error string
+//           user entities.User
 // Headers:  Authorization -> token
 func (r *apiV1Router) GetMe(ctx *gin.Context) {
 	token := ctx.GetHeader("Authorization")
@@ -121,15 +123,20 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 
 	id, err := primitive.ObjectIDFromHex(claims.Id)
 	if err != nil {
-		r.logger.Warn("id was invalid or not provided")
+		r.logger.Warn("id was invalid or not provided", zap.Any("auth claims", claims))
 		models.SendAPIError(ctx, http.StatusUnauthorized, "id was invalid or not provided")
 		return
 	}
 
 	user, err := r.userService.GetUserWithID(ctx, id)
 	if err != nil {
-		r.logger.Error("could not fetch user", zap.Any("user id", id), zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
+		if err.Error() == "mongo: no documents in result" {
+			r.logger.Warn("user not found", zap.Any("id", id))
+			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
+		} else {
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
+		}
 		return
 	}
 	ctx.JSON(http.StatusOK, getMeRes{
@@ -138,9 +145,10 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 }
 
 // PUT: /api/v1/users/me
-// Request: name string
-//          team primitive.ObjectID
-// Headers: Authorization -> token
+// Request:  name string
+//           team string
+// Response: status int
+//           error string
+// Headers:  Authorization -> token
 func (r *apiV1Router) PutMe(ctx *gin.Context) {
-
 }
