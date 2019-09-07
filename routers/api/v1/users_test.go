@@ -96,7 +96,7 @@ func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testin
 	assert.Equal(t, expectedAPIError, actualRes)
 }
 
-func Test_Login__should_call_UserService_and_return_correct_token(t *testing.T) {
+func Test_Login__should_call_UserService_and_return_correct_token_and_user(t *testing.T) {
 	mockUService, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
@@ -135,6 +135,28 @@ func Test_Login__should_call_UserService_and_return_correct_token(t *testing.T) 
 
 	assert.NotNil(t, auth.GetJWTClaims(actualRes.Token, []byte("testsecret")))
 	assert.Equal(t, testUser, actualRes.User)
+}
+
+func Test_Login__should_return_500_when_user_service_returns_error(t *testing.T) {
+	mockUService, w, testCtx, _, router, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	mockUService.EXPECT().
+		GetUserWithEmailAndPassword(gomock.Any(), "john@doe.com", "password123").
+		Return(nil, errors.New("service err")).Times(1)
+
+	data := url.Values{}
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Login(testCtx)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
 func Test_Login__should_return_StatusBadRequest_when_no_email_is_provided(t *testing.T) {
