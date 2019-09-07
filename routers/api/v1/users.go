@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.uber.org/zap"
@@ -45,14 +47,14 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 func (r *apiV1Router) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	if email == "" {
-		r.logger.Error("email was not provided")
+		r.logger.Warn("email was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "email must be provided")
 		return
 	}
 
 	password := ctx.PostForm("password")
 	if password == "" {
-		r.logger.Error("password was not provided")
+		r.logger.Warn("password was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "password must be provided")
 		return
 	}
@@ -60,7 +62,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 	user, err := r.userService.GetUserWithEmailAndPassword(ctx, email, password)
 	if err != nil {
 		if err.Error() == "mongo: no documents in result" {
-			r.logger.Error("user not found", zap.String("email", email), zap.String("password", password))
+			r.logger.Warn("user not found", zap.String("email", email), zap.String("password", password))
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -110,7 +112,29 @@ func (r *apiV1Router) Verify(ctx *gin.Context) {
 // Response: user entities.User
 // Headers:  Authorization -> token
 func (r *apiV1Router) GetMe(ctx *gin.Context) {
+	token := ctx.GetHeader("Authorization")
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
+	}
 
+	id, err := primitive.ObjectIDFromHex(claims.Id)
+	if err != nil {
+		r.logger.Warn("id was invalid or not provided")
+		models.SendAPIError(ctx, http.StatusUnauthorized, "id was invalid or not provided")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, id)
+	if err != nil {
+		r.logger.Error("could not fetch user", zap.Any("user id", id), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
+		return
+	}
+	ctx.JSON(http.StatusOK, getMeRes{
+		User: *user,
+	})
 }
 
 // PUT: /api/v1/users/me

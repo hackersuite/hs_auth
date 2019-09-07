@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/unicsmcr/hs_auth/entities"
@@ -11,6 +13,7 @@ import (
 
 // UserService is the service for interactions with a remote users repository
 type UserService interface {
+	GetUserWithID(context.Context, primitive.ObjectID) (*entities.User, error)
 	GetUserWithEmailAndPassword(context.Context, string, string) (*entities.User, error)
 	GetUsers(context.Context) ([]entities.User, error)
 }
@@ -21,13 +24,30 @@ type userService struct {
 
 // NewUserService creates a new UserService
 func NewUserService(userRepository repositories.UserRepository) UserService {
-	return userService{
+	return &userService{
 		userRepository: userRepository,
 	}
 }
 
+func (s *userService) GetUserWithID(ctx context.Context, id primitive.ObjectID) (*entities.User, error) {
+	res := s.userRepository.FindOne(ctx, bson.M{
+		"_id": id,
+	})
+
+	if err := res.Err(); err != nil {
+		return nil, err
+	}
+
+	var user entities.User
+	if err := res.Decode(&user); err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 // GetUserWithEmailAndPassword fetches a user with given email and password
-func (s userService) GetUserWithEmailAndPassword(ctx context.Context, email string, password string) (*entities.User, error) {
+func (s *userService) GetUserWithEmailAndPassword(ctx context.Context, email string, password string) (*entities.User, error) {
 	res := s.userRepository.FindOne(ctx, bson.M{
 		"email":    email,
 		"password": password,
@@ -49,7 +69,7 @@ func (s userService) GetUserWithEmailAndPassword(ctx context.Context, email stri
 }
 
 // GetUsers fetches all users
-func (s userService) GetUsers(ctx context.Context) ([]entities.User, error) {
+func (s *userService) GetUsers(ctx context.Context) ([]entities.User, error) {
 	users := []entities.User{}
 
 	cur, err := s.userRepository.Find(ctx, bson.M{})
