@@ -36,7 +36,7 @@ import (
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 )
 
-func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUserService, *httptest.ResponseRecorder, *gin.Context, *gin.Engine, APIV1Router) {
+func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUserService, *httptest.ResponseRecorder, *gin.Context, *gin.Engine, APIV1Router, entities.User) {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	w := httptest.NewRecorder()
@@ -45,12 +45,16 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	env := environment.NewEnv(zap.NewNop())
 	restoreVars()
 	router := NewAPIV1Router(zap.NewNop(), mockUService, env)
+	testUser := entities.User{
+		AuthLevel: 3,
+		ID:        primitive.NewObjectID(),
+	}
 
-	return mockUService, w, testCtx, testServer, router
+	return mockUService, w, testCtx, testServer, router, testUser
 }
 
 func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
-	mockUService, w, testCtx, _, router := setupTest(t, nil)
+	mockUService, w, testCtx, _, router, _ := setupTest(t, nil)
 
 	expectedRes := getUsersRes{
 		Response: models.Response{
@@ -73,7 +77,7 @@ func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
 }
 
 func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testing.T) {
-	mockUService, w, testCtx, _, router := setupTest(t, nil)
+	mockUService, w, testCtx, _, router, _ := setupTest(t, nil)
 
 	expectedAPIError := models.NewAPIError(http.StatusInternalServerError, "service err")
 
@@ -93,14 +97,9 @@ func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testin
 }
 
 func Test_Login__should_call_UserService_and_return_correct_token(t *testing.T) {
-	mockUService, w, testCtx, _, router := setupTest(t, map[string]string{
+	mockUService, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
-
-	testUser := entities.User{
-		ID:        primitive.NewObjectID(),
-		AuthLevel: 5,
-	}
 
 	mockUService.EXPECT().
 		GetUserWithEmailAndPassword(gomock.Any(), "john@doe.com", "password123").
@@ -139,7 +138,7 @@ func Test_Login__should_call_UserService_and_return_correct_token(t *testing.T) 
 }
 
 func Test_Login__should_return_StatusBadRequest_when_no_email_is_provided(t *testing.T) {
-	_, w, testCtx, _, router := setupTest(t, map[string]string{
+	_, w, testCtx, _, router, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 	data := url.Values{}
@@ -162,7 +161,7 @@ func Test_Login__should_return_StatusBadRequest_when_no_email_is_provided(t *tes
 }
 
 func Test_Login__should_return_StatusBadRequest_when_no_password_is_provided(t *testing.T) {
-	_, w, testCtx, _, router := setupTest(t, map[string]string{
+	_, w, testCtx, _, router, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 	data := url.Values{}
@@ -186,7 +185,7 @@ func Test_Login__should_return_StatusBadRequest_when_no_password_is_provided(t *
 }
 
 func Test_Login__should_return_StatusBadRequest_when_invalid_credentials_are_provided(t *testing.T) {
-	mockUService, w, testCtx, _, router := setupTest(t, map[string]string{
+	mockUService, w, testCtx, _, router, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 	data := url.Values{}
@@ -214,14 +213,9 @@ func Test_Login__should_return_StatusBadRequest_when_invalid_credentials_are_pro
 }
 
 func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
-	_, w, testCtx, _, router := setupTest(t, map[string]string{
+	_, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
-
-	testUser := entities.User{
-		AuthLevel: 3,
-		ID:        primitive.NewObjectID(),
-	}
 
 	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
 	assert.NoError(t, err)
@@ -236,14 +230,9 @@ func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
 }
 
 func Test_Verify__should_return_StatusUnauthorized_for_invalid_token(t *testing.T) {
-	_, w, testCtx, _, router := setupTest(t, map[string]string{
+	_, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
-
-	testUser := entities.User{
-		AuthLevel: 3,
-		ID:        primitive.NewObjectID(),
-	}
 
 	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
 	assert.NoError(t, err)
@@ -255,4 +244,101 @@ func Test_Verify__should_return_StatusUnauthorized_for_invalid_token(t *testing.
 	router.Verify(testCtx)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_GetMe__should_return_401_if_auth_token_is_empty(t *testing.T) {
+	_, w, testCtx, _, router, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Del("Authorization")
+	testCtx.Request = req
+
+	router.GetMe(testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_GetMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
+	_, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token+"some text")
+	testCtx.Request = req
+
+	router.GetMe(testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_GetMe__should_return_400_if_user_in_token_doesnt_exist(t *testing.T) {
+	mockUService, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token)
+
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID).Return(nil, errors.New("mongo: no documents in result")).Times(1)
+	testCtx.Request = req
+
+	router.GetMe(testCtx)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_GetMe__should_return_500_if_user_service_returns_err(t *testing.T) {
+	mockUService, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token)
+
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID).Return(nil, errors.New("service err")).Times(1)
+	testCtx.Request = req
+
+	router.GetMe(testCtx)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_GetMe__should_return_correct_user(t *testing.T) {
+	mockUService, w, testCtx, _, router, testUser := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	token, err := auth.NewJWT(testUser, 100, []byte("testsecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token)
+
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID).Return(&testUser, nil).Times(1)
+	testCtx.Request = req
+
+	router.GetMe(testCtx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	actualResStr, err := w.Body.ReadString('\x00')
+	assert.Equal(t, "EOF", err.Error())
+
+	var actualRes getMeRes
+	err = json.Unmarshal([]byte(actualResStr), &actualRes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, testUser, actualRes.User)
 }
