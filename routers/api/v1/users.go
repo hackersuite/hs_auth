@@ -92,22 +92,18 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 // Headers:  Authorization -> token
 func (r *apiV1Router) Verify(ctx *gin.Context) {
 	token := ctx.GetHeader("Authorization")
-
-	valid := auth.IsValidJWT(token, []byte(r.env.Get(environment.JWTSecret)))
-	if valid {
-		ctx.JSON(http.StatusOK, verifyRes{
-			Response: models.Response{
-				Status: http.StatusOK,
-			},
-		})
-	} else {
-		ctx.JSON(http.StatusUnauthorized, verifyRes{
-			Response: models.Response{
-				Status: http.StatusUnauthorized,
-				Err:    "invalid token",
-			},
-		})
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
 	}
+
+	r.logger.Info("claims", zap.Any("claims", claims))
+	ctx.JSON(http.StatusOK, verifyRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+	})
 }
 
 // GET: /api/v1/users/me
