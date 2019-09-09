@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
@@ -22,14 +23,16 @@ type APIV1Router interface {
 type apiV1Router struct {
 	models.BaseRouter
 	logger      *zap.Logger
+	cfg         *config.AppConfig
 	userService services.UserService
 	env         *environment.Env
 }
 
 // NewAPIV1Router creates a APIV1Router
-func NewAPIV1Router(logger *zap.Logger, userService services.UserService, env *environment.Env) APIV1Router {
+func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, userService services.UserService, env *environment.Env) APIV1Router {
 	return &apiV1Router{
 		logger:      logger,
+		cfg:         cfg,
 		userService: userService,
 		env:         env,
 	}

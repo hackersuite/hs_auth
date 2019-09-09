@@ -33,7 +33,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmailAndPassword(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), mockUserService, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, env)
 
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
