@@ -1,4 +1,4 @@
-package utils
+package common
 
 // AuthLevel is a type for storing a users auth level
 type AuthLevel int

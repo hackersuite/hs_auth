@@ -1,0 +1,2 @@
+# This file will override base.yaml if env var "ENVIRONMENT" is not set or not "prod"
+name: "Hacker Suite - Auth (dev)"

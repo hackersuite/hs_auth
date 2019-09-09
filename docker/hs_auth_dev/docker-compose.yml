@@ -1,0 +1,48 @@
+version: '2.1'
+
+services:
+  # database used by app
+  mongo:
+    image: mongo:4
+    restart: always
+    env_file:
+      - ../../mongo.env
+    volumes:
+      - ../../data:/data/db
+      - ../../initial_db_setup.sh:/docker-entrypoint-initdb.d/initial_db_setup.sh:ro
+    ports:
+      - 8002:27017
+    healthcheck:
+      test:
+        - CMD
+        - mongo
+        - --eval
+        - "db.adminCommand('ping')"
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - internal
+
+  # graphical DB management platform (available at localhost:8081)
+  mongo_express:
+    image: mongo-express
+    restart: always
+    ports:
+      - 8001:8081
+    env_file:
+      - ../../mongo_express.env
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - internal
+
+networks:
+  # internal network for hs_auth services
+  internal:
+    driver: bridge
+  # external network for consumer-facing hacker suite services
+  hacker_suite:
+    external:
+      name: hacker_suite
