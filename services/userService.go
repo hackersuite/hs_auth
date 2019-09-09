@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
+
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -18,6 +20,7 @@ type UserService interface {
 	GetUserWithID(context.Context, string) (*entities.User, error)
 	GetUserWithEmailAndPassword(context.Context, string, string) (*entities.User, error)
 	GetUsers(context.Context) ([]entities.User, error)
+	CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error)
 	UpdateUserWithID(context.Context, string, map[string]interface{}) error
 }
 
@@ -118,4 +121,13 @@ func (s *userService) UpdateUserWithID(ctx context.Context, id string, fieldsToU
 	})
 
 	return err
+}
+
+func (s *userService) CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error) {
+	return &entities.User{
+		Name:      name,
+		Email:     email,
+		Password:  password,
+		AuthLevel: authLevel,
+	}, nil
 }
