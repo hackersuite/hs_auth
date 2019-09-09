@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"go.uber.org/config"
 	"go.uber.org/zap"
 
 	"github.com/unicsmcr/hs_auth/testutils"
@@ -18,10 +19,17 @@ func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_prod(t 
 
 	env := environment.NewEnv(zap.NewNop())
 
-	config, err := NewAppConfig(env)
+	actualConfig, err := NewAppConfig(env)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Hacker Suite - Auth", config.Name)
+	configProvider, err := config.NewYAML(config.File("base.yaml"), config.File("production.yaml"))
+	assert.NoError(t, err)
+	var expectedConfig AppConfig
+	err = configProvider.Get("").Populate(&expectedConfig)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedConfig.Name, actualConfig.Name)
+	assert.Equal(t, expectedConfig.BaseAuthLevel, actualConfig.BaseAuthLevel)
 }
 
 func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_dev(t *testing.T) {
@@ -30,8 +38,15 @@ func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_dev(t *
 
 	env := environment.NewEnv(zap.NewNop())
 
-	config, err := NewAppConfig(env)
+	actualConfig, err := NewAppConfig(env)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "Hacker Suite - Auth (dev)", config.Name)
+	configProvider, err := config.NewYAML(config.File("base.yaml"), config.File("development.yaml"))
+	assert.NoError(t, err)
+	var expectedConfig AppConfig
+	err = configProvider.Get("").Populate(&expectedConfig)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedConfig.Name, actualConfig.Name)
+	assert.Equal(t, expectedConfig.BaseAuthLevel, actualConfig.BaseAuthLevel)
 }

@@ -8,7 +8,8 @@ import (
 
 // AppConfig is a struct to store non-private configuration for the project
 type AppConfig struct {
-	Name string `yaml:"name"`
+	Name          string `yaml:"name"`
+	BaseAuthLevel int    `yaml:"base_auth_level"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment
