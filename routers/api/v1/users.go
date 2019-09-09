@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/unicsmcr/hs_auth/services"
-
 	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.uber.org/zap"
 
 	"github.com/unicsmcr/hs_auth/routers/api/models"
@@ -19,8 +19,17 @@ import (
 // Response: status int
 //           error string
 //           users []entities.User
-
 func (r *apiV1Router) GetUsers(ctx *gin.Context) {
+	token := ctx.GetHeader("Authorization")
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
+	} else if claims.AuthLevel < authlevels.Organizer {
+		models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this endpoint")
+		return
+	}
+
 	users, err := r.userService.GetUsers(ctx)
 	if err != nil {
 		r.logger.Error("could not fetch users", zap.Error(err))
@@ -180,4 +189,8 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, models.Response{
 		Status: http.StatusOK,
 	})
+}
+
+func (r *apiV1Router) Register(ctx *gin.Context) {
+
 }
