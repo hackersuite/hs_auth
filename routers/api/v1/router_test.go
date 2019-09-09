@@ -68,6 +68,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			route:  "/users/me",
 			method: http.MethodPut,
 		},
+		{
+			route:  "/",
+			method: http.MethodPost,
+		},
 	}
 
 	for _, tt := range tests {

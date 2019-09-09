@@ -45,6 +45,7 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup := routerGroup.Group("/users")
 
 	usersGroup.GET("/", r.GetUsers)
+	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 	usersGroup.GET("/verify", r.Verify)
 	usersGroup.GET("/me", r.GetMe)
