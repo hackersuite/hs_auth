@@ -209,4 +209,15 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 		return
 	}
 
+	_, err := r.userService.CreateUser(ctx, name, email, password, r.cfg.BaseAuthLevel)
+	if err != nil {
+		r.logger.Error("could not create user", zap.String("name", name), zap.String("email", email), zap.Int("auth level", int(r.cfg.BaseAuthLevel)))
+		return
+	}
+
+	// TODO: implement email verification
+
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
+	})
 }

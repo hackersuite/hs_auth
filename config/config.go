@@ -2,14 +2,15 @@ package config
 
 import (
 	"github.com/unicsmcr/hs_auth/environment"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 
 	"go.uber.org/config"
 )
 
 // AppConfig is a struct to store non-private configuration for the project
 type AppConfig struct {
-	Name          string `yaml:"name"`
-	BaseAuthLevel int    `yaml:"base_auth_level"`
+	Name          string               `yaml:"name"`
+	BaseAuthLevel authlevels.AuthLevel `yaml:"base_auth_level"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment
