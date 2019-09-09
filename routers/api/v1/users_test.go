@@ -49,14 +49,20 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 		AuthLevel: 3,
 		ID:        primitive.NewObjectID(),
 	}
-	token, err := auth.NewJWT(testUser, 100, []byte(env.Get(environment.JWTSecret)))
-	assert.NoError(t, err)
+	var token string
+	if env.Get(environment.JWTSecret) != "" {
+		var err error
+		token, err = auth.NewJWT(testUser, 100, []byte(env.Get(environment.JWTSecret)))
+		assert.NoError(t, err)
+	}
 
 	return mockUService, w, testCtx, testServer, router, testUser, token
 }
 
 func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
-	mockUService, w, testCtx, _, router, _, _ := setupTest(t, nil)
+	mockUService, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
 
 	expectedRes := getUsersRes{
 		Response: models.Response{
@@ -66,6 +72,9 @@ func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
 	}
 	mockUService.EXPECT().GetUsers(gomock.Any()).Return(expectedRes.Users, nil).Times(1)
 
+	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req.Header.Set("Authorization", token)
+	testCtx.Request = req
 	router.GetUsers(testCtx)
 
 	actualResStr, err := w.Body.ReadString('\x00')
@@ -79,12 +88,17 @@ func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
 }
 
 func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testing.T) {
-	mockUService, w, testCtx, _, router, _, _ := setupTest(t, nil)
+	mockUService, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
 
 	expectedAPIError := models.NewAPIError(http.StatusInternalServerError, "service err")
 
 	mockUService.EXPECT().GetUsers(gomock.Any()).Return(nil, errors.New(expectedAPIError.Err)).Times(1)
 
+	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req.Header.Set("Authorization", token)
+	testCtx.Request = req
 	router.GetUsers(testCtx)
 
 	actualResStr, err := w.Body.ReadString('\x00')
@@ -448,4 +462,37 @@ func Test_PutMe__should_set_the_users_team_to_required_value(t *testing.T) {
 	router.PutMe(testCtx)
 
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func Test_GetUsers__should_return_401_if_auth_token_is_invalid(t *testing.T) {
+	_, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req.Header.Set("Authorization", token+"some text")
+	testCtx.Request = req
+
+	router.GetUsers(testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_GetUsers__should_return_401_if_auth_level_is_too_low(t *testing.T) {
+	_, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	token, err := auth.NewJWT(entities.User{
+		AuthLevel: common.Volunteer,
+		ID:        primitive.NewObjectID(),
+	}, 100, []byte("testsecret"))
+	assert.NoError(t, err)
+	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req.Header.Set("Authorization", token)
+	testCtx.Request = req
+
+	router.GetUsers(testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
