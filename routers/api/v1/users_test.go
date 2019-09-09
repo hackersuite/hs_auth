@@ -44,7 +44,7 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	restoreVars := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
 	restoreVars()
-	router := NewAPIV1Router(zap.NewNop(), mockUService, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, mockUService, env)
 	testUser := entities.User{
 		AuthLevel: 3,
 		ID:        primitive.NewObjectID(),

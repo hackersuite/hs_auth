@@ -200,5 +200,13 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 // Response: status int
 //           error string
 func (r *apiV1Router) Register(ctx *gin.Context) {
+	name := ctx.PostForm("name")
+	email := ctx.PostForm("email")
+	password := ctx.PostForm("password")
+
+	if len(name) == 0 || len(email) == 0 || len(password) == 0 {
+		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the user's name, email and passowrd")
+		return
+	}
 
 }
