@@ -1,0 +1,22 @@
+# The root of your application relative to your configuration file.
+app_root: .
+# List of folders you don't want to watch. The more folders you ignore, the
+# faster things will be.
+ignored_folders:
+  - vendor
+  - log
+  - tmp
+  - mocks
+  - testutils
+# List of file extensions you want to watch for changes.
+included_extensions:
+  - .go
+# The directory you want to build your binary in.
+build_path: /tmp
+# `fsnotify` can trigger many events at once when you change a file. To minimize
+# unnecessary builds, a delay is used to ignore extra events.
+build_delay: 200ms
+# What you would like to name the built binary.
+binary_name: hs_auth
+# If you want colors to be used when printing out log messages.
+enable_colors: true

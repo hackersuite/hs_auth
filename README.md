@@ -1,12 +1,15 @@
 
 # Hacker Suite - Auth (WIP)
 [![Build Status](https://travis-ci.org/unicsmcr/hs_auth.svg?branch=master)](https://travis-ci.org/unicsmcr/hs_auth)
-
+[![codecov](https://codecov.io/gh/unicsmcr/hs_auth/branch/master/graph/badge.svg)](https://codecov.io/gh/unicsmcr/hs_auth)
 ![GitHub](https://img.shields.io/github/license/unicsmcr/hs_auth.svg)
 
 ## Dependencies
 - Go
 - GNU make
+- [mockgen](https://github.com/golang/mock)
+- [wire](https://github.com/google/wire/) (optional - only needed to update DI containers)
+- [refresh](https://github.com/markbates/refresh)
 
 ## Getting started
 
