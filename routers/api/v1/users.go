@@ -148,6 +148,7 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 }
 
 // PUT: /api/v1/users/me
+// x-www-form-urlencoded
 // Request:  name string
 //           team primitive.ObjectID.Hex
 // Response: status int
@@ -191,6 +192,13 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 	})
 }
 
+// POST: /api/v1/users
+// x-www-form-urlencoded
+// Request:  name string
+//           email string
+//					 password string
+// Response: status int
+//           error string
 func (r *apiV1Router) Register(ctx *gin.Context) {
 
 }
