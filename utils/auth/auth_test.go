@@ -44,6 +44,7 @@ func Test_NewJWT__should_return_correct_JWT(t *testing.T) {
 	assert.Equal(t, expectedToken, actualToken)
 }
 
+// TODO: outdated tests
 func Test_IsValidJWT__should_return_correct_auth_claims_for_valid_JWT(t *testing.T) {
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
@@ -67,4 +68,20 @@ func Test_IsValidJWT__should_return_nil_for_invalid_JWT(t *testing.T) {
 
 	testSecret := []byte(`test_secret`)
 	assert.Nil(t, GetJWTClaims(invalidToken, testSecret))
+}
+
+func Test_NewEmailToken__should_generate_token_of_required_length(t *testing.T) {
+	token := NewEmailToken(32)
+	assert.Equal(t, 32, len(token))
+}
+
+func Test_NewEmailToken__should_generate_a_random_token(t *testing.T) {
+	tokens := map[string]bool{}
+
+	for i := 0; i < 100; i++ {
+		token := NewEmailToken(32)
+		_, exists := tokens[token]
+		assert.False(t, exists)
+		tokens[token] = true
+	}
 }
