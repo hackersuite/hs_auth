@@ -21,7 +21,7 @@ env:
   - GO111MODULE=on
 
 script:
-  - make test
+  - make ci
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

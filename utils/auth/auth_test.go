@@ -44,7 +44,7 @@ func Test_NewJWT__should_return_correct_JWT(t *testing.T) {
 	assert.Equal(t, expectedToken, actualToken)
 }
 
-func Test_IsValidJWT__should_return_true_for_valid_JWT(t *testing.T) {
+func Test_IsValidJWT__should_return_correct_auth_claims_for_valid_JWT(t *testing.T) {
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
 		AuthLevel: 3,
@@ -55,12 +55,16 @@ func Test_IsValidJWT__should_return_true_for_valid_JWT(t *testing.T) {
 	fmt.Println(token)
 	assert.NoError(t, err)
 
-	assert.True(t, IsValidJWT(token, testSecret))
+	claims := GetJWTClaims(token, testSecret)
+	assert.NotNil(t, claims)
+
+	assert.Equal(t, testUser.ID.Hex(), claims.Id)
+	assert.Equal(t, testUser.AuthLevel, claims.AuthLevel)
 }
-func Test_IsValidJWT__should_return_false_for_invalid_JWT(t *testing.T) {
+func Test_IsValidJWT__should_return_nil_for_invalid_JWT(t *testing.T) {
 	// token with an increased auth_level in claims (signed with the secret "test_secret")
 	invalidToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9eyJqdGkiOiI1ZDZlYzA2Nzg4ODJhMTFhYmE0ZjMzODEiLCJpYXQiOjEwMSwiYXV0aF9sZXZlbCI6NH0HbBIrZiQxexzKrnU+GCM8VCs3ZwxaMg=="
 
 	testSecret := []byte(`test_secret`)
-	assert.False(t, IsValidJWT(invalidToken, testSecret))
+	assert.Nil(t, GetJWTClaims(invalidToken, testSecret))
 }

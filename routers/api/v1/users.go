@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/unicsmcr/hs_auth/services"
+
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.uber.org/zap"
@@ -21,7 +23,7 @@ import (
 func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 	users, err := r.userService.GetUsers(ctx)
 	if err != nil {
-		r.logger.Error("could not fetch users")
+		r.logger.Error("could not fetch users", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -45,22 +47,22 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 func (r *apiV1Router) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	if email == "" {
-		r.logger.Error("email was not provided")
+		r.logger.Warn("email was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "email must be provided")
 		return
 	}
 
 	password := ctx.PostForm("password")
 	if password == "" {
-		r.logger.Error("password was not provided")
+		r.logger.Warn("password was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "password must be provided")
 		return
 	}
 
 	user, err := r.userService.GetUserWithEmailAndPassword(ctx, email, password)
 	if err != nil {
-		if err.Error() == "mongo: no documents in result" {
-			r.logger.Error("user not found", zap.String("email", email), zap.String("password", password))
+		if err == services.ErrNotFound {
+			r.logger.Warn("user not found", zap.String("email", email))
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -71,7 +73,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 
 	token, err := auth.NewJWT(*user, time.Now().Unix(), []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
-		r.logger.Error("could not create JWT", zap.Error(err))
+		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")
 		return
 	}
@@ -82,6 +84,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 			Status: http.StatusOK,
 		},
 		Token: token,
+		User:  *user,
 	})
 }
 
@@ -91,20 +94,90 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 // Headers:  Authorization -> token
 func (r *apiV1Router) Verify(ctx *gin.Context) {
 	token := ctx.GetHeader("Authorization")
-
-	valid := auth.IsValidJWT(token, []byte(r.env.Get(environment.JWTSecret)))
-	if valid {
-		ctx.JSON(http.StatusOK, verifyRes{
-			Response: models.Response{
-				Status: http.StatusOK,
-			},
-		})
-	} else {
-		ctx.JSON(http.StatusUnauthorized, verifyRes{
-			Response: models.Response{
-				Status: http.StatusUnauthorized,
-				Err:    "invalid token",
-			},
-		})
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
 	}
+
+	r.logger.Info("claims", zap.Any("claims", claims))
+	ctx.JSON(http.StatusOK, verifyRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+	})
+}
+
+// GET: /api/v1/users/me
+// Response: status int
+//           error string
+//           user entities.User
+// Headers:  Authorization -> token
+func (r *apiV1Router) GetMe(ctx *gin.Context) {
+	token := ctx.GetHeader("Authorization")
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		r.logger.Warn("invalid token", zap.String("token", token))
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		if err == services.ErrNotFound {
+			r.logger.Warn("user not found", zap.Any("id", claims.Id))
+			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
+		} else {
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
+		}
+		return
+	}
+	ctx.JSON(http.StatusOK, getMeRes{
+		User: *user,
+	})
+}
+
+// PUT: /api/v1/users/me
+// Request:  name string
+//           team primitive.ObjectID.Hex
+// Response: status int
+//           error string
+// Headers:  Authorization -> token
+func (r *apiV1Router) PutMe(ctx *gin.Context) {
+	name := ctx.PostForm("name")
+	team := ctx.PostForm("team")
+
+	if len(name) == 0 && len(team) == 0 {
+		r.logger.Warn("neither name nor team provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "either name or team must be provided")
+		return
+	}
+
+	token := ctx.GetHeader("Authorization")
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
+	}
+
+	fieldsToUpdate := map[string]interface{}{}
+
+	if len(name) > 0 {
+		fieldsToUpdate["name"] = name
+	}
+	if len(team) > 0 {
+		// TODO: check if team exists (need to implement teams persistence first)
+		fieldsToUpdate["team"] = team
+	}
+
+	err := r.userService.UpdateUserWithID(ctx, claims.Id, fieldsToUpdate)
+	if err != nil {
+		r.logger.Error("could not update user", zap.String("id", claims.Id), zap.Any("fields to update", fieldsToUpdate), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with updating the user")
+		return
+	}
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
+	})
 }
