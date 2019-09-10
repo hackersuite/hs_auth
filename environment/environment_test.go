@@ -12,13 +12,14 @@ import (
 
 func Test_NewEnv__should_return_correct_env(t *testing.T) {
 	vars := map[string]string{
-		Environment:   "testenv",
-		Port:          "testport",
-		MongoHost:     "testmongohost",
-		MongoDatabase: "testmongodatabase",
-		MongoUser:     "testmongouser",
-		MongoPassword: "testmongopassword",
-		JWTSecret:     "testsecret",
+		Environment:    "testenv",
+		Port:           "testport",
+		MongoHost:      "testmongohost",
+		MongoDatabase:  "testmongodatabase",
+		MongoUser:      "testmongouser",
+		MongoPassword:  "testmongopassword",
+		JWTSecret:      "testsecret",
+		SendgridAPIKey: "testkey",
 	}
 
 	restoreVars := testutils.SetEnvVars(vars)
@@ -34,13 +35,14 @@ func Test_NewEnv__should_return_correct_env(t *testing.T) {
 func Test_Get__should_return_correct_value(t *testing.T) {
 	env := &Env{
 		vars: map[string]string{
-			Environment:   "testenv",
-			Port:          "testport",
-			MongoHost:     "testmongohost",
-			MongoDatabase: "testmongodatabase",
-			MongoUser:     "testmongouser",
-			MongoPassword: "testmongopassword",
-			JWTSecret:     "testsecret",
+			Environment:    "testenv",
+			Port:           "testport",
+			MongoHost:      "testmongohost",
+			MongoDatabase:  "testmongodatabase",
+			MongoUser:      "testmongouser",
+			MongoPassword:  "testmongopassword",
+			JWTSecret:      "testsecret",
+			SendgridAPIKey: "testkey",
 		},
 	}
 
@@ -78,6 +80,11 @@ func Test_Get__should_return_correct_value(t *testing.T) {
 			name: MongoPassword,
 			want: env.vars[MongoPassword],
 			args: MongoPassword,
+		},
+		{
+			name: JWTSecret,
+			want: env.vars[JWTSecret],
+			args: JWTSecret,
 		},
 		{
 			name: JWTSecret,
