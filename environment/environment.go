@@ -42,7 +42,11 @@ type Env struct {
 
 // Get returns an environment variable with the specified name
 func (env *Env) Get(variableName string) string {
-	return env.vars[variableName]
+	value, exists := env.vars[variableName]
+	if !exists {
+		return "not set"
+	}
+	return value
 }
 
 func valueOfEnvVar(logger *zap.Logger, varName string) string {
