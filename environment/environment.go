@@ -8,26 +8,28 @@ import (
 
 // names of env vars
 const (
-	Environment   = "ENVIRONMENT"
-	Port          = "PORT"
-	MongoHost     = "MONGO_HOST"
-	MongoDatabase = "MONGO_DATABASE"
-	MongoUser     = "MONGO_USER"
-	MongoPassword = "MONGO_PASSWORD"
-	JWTSecret     = "JWT_SECRET"
+	Environment    = "ENVIRONMENT"
+	Port           = "PORT"
+	MongoHost      = "MONGO_HOST"
+	MongoDatabase  = "MONGO_DATABASE"
+	MongoUser      = "MONGO_USER"
+	MongoPassword  = "MONGO_PASSWORD"
+	JWTSecret      = "JWT_SECRET"
+	SendgridAPIKey = "SENDGRID_API_KEY"
 )
 
 // NewEnv creates an Env with loaded environment variables
 func NewEnv(logger *zap.Logger) *Env {
 	env := Env{
 		vars: map[string]string{
-			Environment:   valueOfEnvVar(logger, Environment),
-			Port:          valueOfEnvVar(logger, Port),
-			MongoHost:     valueOfEnvVar(logger, MongoHost),
-			MongoDatabase: valueOfEnvVar(logger, MongoDatabase),
-			MongoUser:     valueOfEnvVar(logger, MongoUser),
-			MongoPassword: valueOfEnvVar(logger, MongoPassword),
-			JWTSecret:     valueOfEnvVar(logger, JWTSecret),
+			Environment:    valueOfEnvVar(logger, Environment),
+			Port:           valueOfEnvVar(logger, Port),
+			MongoHost:      valueOfEnvVar(logger, MongoHost),
+			MongoDatabase:  valueOfEnvVar(logger, MongoDatabase),
+			MongoUser:      valueOfEnvVar(logger, MongoUser),
+			MongoPassword:  valueOfEnvVar(logger, MongoPassword),
+			JWTSecret:      valueOfEnvVar(logger, JWTSecret),
+			SendgridAPIKey: valueOfEnvVar(logger, SendgridAPIKey),
 		},
 	}
 	return &env
