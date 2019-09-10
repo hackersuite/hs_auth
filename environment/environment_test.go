@@ -115,3 +115,14 @@ func Test_valueOfEnvVar__should_return_empty_string_when_var_not_set(t *testing.
 	value := valueOfEnvVar(zap.NewNop(), "testkey")
 	assert.Equal(t, "", value)
 }
+
+func Test_Get__should_return_not_set_when_env_var_is_not_set(t *testing.T) {
+	vars := map[string]string{}
+
+	restoreVars := testutils.SetEnvVars(vars)
+	defer restoreVars()
+
+	env := NewEnv(zap.NewNop())
+
+	assert.Equal(t, "not set", env.Get("not set var"))
+}
