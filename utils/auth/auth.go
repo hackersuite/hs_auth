@@ -11,30 +11,34 @@ import (
 	"github.com/unicsmcr/hs_auth/entities"
 )
 
-// IsValidJWT checks if the given token is a valid JWT with given secret
-func IsValidJWT(token string, secret []byte) bool {
+// GetJWTClaims checks if the given token is a valid JWT with given secret
+// and returns the claims inside the token. Returns nill if the token is invalid
+func GetJWTClaims(token string, secret []byte) *common.AuthClaims {
 	var claims common.AuthClaims
 	parsedToken, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
 
 	if err != nil {
-		return false
+		return nil
 	}
 
 	userID, err := primitive.ObjectIDFromHex(claims.Id)
 	if err != nil {
-		return false
+		return nil
 	}
 	expectedToken, err := NewJWT(entities.User{
 		ID:        userID,
 		AuthLevel: claims.AuthLevel,
 	}, claims.IssuedAt, secret)
 	if err != nil {
-		return false
+		return nil
 	}
 
-	return parsedToken.Raw == expectedToken
+	if parsedToken.Raw != expectedToken {
+		return nil
+	}
+	return &claims
 }
 
 // NewJWT creates a new JWT token for the specified user with the specified secret

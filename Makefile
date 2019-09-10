@@ -27,6 +27,10 @@ mocks: clean-mocks
 test: vet mocks
 	go test -cover ./...
 
+# build target for CI
+ci: vet mocks
+	go test ./... -race -coverprofile=coverage.txt -covermode=atomic
+
 # builds the executable
 build:
 	go build -o bin/hs_auth main.go

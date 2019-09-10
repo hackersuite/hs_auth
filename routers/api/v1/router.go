@@ -14,6 +14,8 @@ type APIV1Router interface {
 	GetUsers(*gin.Context)
 	Login(*gin.Context)
 	Verify(*gin.Context)
+	GetMe(*gin.Context)
+	PutMe(*gin.Context)
 }
 
 type apiV1Router struct {
@@ -41,4 +43,6 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/", r.GetUsers)
 	usersGroup.POST("/login", r.Login)
 	usersGroup.GET("/verify", r.Verify)
+	usersGroup.GET("/me", r.GetMe)
+	usersGroup.PUT("/me", r.PutMe)
 }
