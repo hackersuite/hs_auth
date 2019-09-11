@@ -7,21 +7,37 @@ import (
 	"go.uber.org/config"
 )
 
+var (
+	// Paths to the config files from the the project's root folder
+	baseConfigFile = "./config/base.yaml"
+	devConfigFile  = "./config/development.yaml"
+	prodConfigFile = "./config/production.yaml"
+)
+
+// EmailConfig stores the configuration to be used by the email service
+type EmailConfig struct {
+	NoreplyEmailAddr          string `yaml:"noreply_email_addr"`
+	NoreplyEmailName          string `yaml:"noreply_email_name"`
+	EmailVerficationEmailSubj string `yaml:"email_verification_email_subj"`
+	PasswordResetEmailSubj    string `yaml:"password_reset_email_subj"`
+}
+
 // AppConfig is a struct to store non-private configuration for the project
 type AppConfig struct {
 	Name          string               `yaml:"name"`
 	BaseAuthLevel authlevels.AuthLevel `yaml:"base_auth_level"`
+	Email         EmailConfig          `yaml:"email"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment
 func NewAppConfig(env *environment.Env) (*AppConfig, error) {
 	var configProvider *config.YAML
 	var err error
-	configFiles := []config.YAMLOption{config.File("base.yaml")}
+	configFiles := []config.YAMLOption{config.File(baseConfigFile)}
 	if env.Get(environment.Environment) == "prod" {
-		configFiles = append(configFiles, config.File("production.yaml"))
+		configFiles = append(configFiles, config.File(prodConfigFile))
 	} else if env.Get(environment.Environment) == "dev" {
-		configFiles = append(configFiles, config.File("development.yaml"))
+		configFiles = append(configFiles, config.File(devConfigFile))
 	}
 	configProvider, err = config.NewYAML(configFiles...)
 	if err != nil {

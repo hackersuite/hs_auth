@@ -17,6 +17,9 @@ func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_prod(t 
 	restoreVars := testutils.SetEnvVars(map[string]string{environment.Environment: "prod"})
 	defer restoreVars()
 
+	baseConfigFile = "base.yaml"
+	prodConfigFile = "production.yaml"
+
 	env := environment.NewEnv(zap.NewNop())
 
 	actualConfig, err := NewAppConfig(env)
@@ -35,6 +38,9 @@ func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_prod(t 
 func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_dev(t *testing.T) {
 	restoreVars := testutils.SetEnvVars(map[string]string{environment.Environment: "dev"})
 	defer restoreVars()
+
+	baseConfigFile = "base.yaml"
+	devConfigFile = "development.yaml"
 
 	env := environment.NewEnv(zap.NewNop())
 
