@@ -3,6 +3,8 @@ package services
 import (
 	"context"
 
+	"go.uber.org/zap"
+
 	"github.com/unicsmcr/hs_auth/utils/auth"
 
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
@@ -27,12 +29,14 @@ type UserService interface {
 }
 
 type userService struct {
+	logger         *zap.Logger
 	userRepository repositories.UserRepository
 }
 
 // NewUserService creates a new UserService
-func NewUserService(userRepository repositories.UserRepository) UserService {
+func NewUserService(logger *zap.Logger, userRepository repositories.UserRepository) UserService {
 	return &userService{
+		logger:         logger,
 		userRepository: userRepository,
 	}
 }
@@ -64,17 +68,11 @@ func (s *userService) GetUserWithID(ctx context.Context, id string) (*entities.U
 
 // GetUserWithEmailAndPassword fetches a user with given email and password
 func (s *userService) GetUserWithEmailAndPassword(ctx context.Context, email string, password string) (*entities.User, error) {
-	hashedPassword, err := auth.GetHashForPassword(password)
-	if err != nil {
-		return nil, err
-	}
-
 	res := s.userRepository.FindOne(ctx, bson.M{
-		"email":    email,
-		"password": hashedPassword,
+		"email": email,
 	})
 
-	err = res.Err()
+	err := res.Err()
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, ErrNotFound
@@ -87,6 +85,11 @@ func (s *userService) GetUserWithEmailAndPassword(ctx context.Context, email str
 	err = res.Decode(&user)
 	if err != nil {
 		return nil, err
+	}
+
+	err = auth.CompareHashAndPassword(user.Password, password)
+	if err != nil {
+		return nil, ErrNotFound
 	}
 
 	return &user, nil
