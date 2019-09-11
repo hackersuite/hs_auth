@@ -36,15 +36,16 @@ import (
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 )
 
-func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUserService, *httptest.ResponseRecorder, *gin.Context, *gin.Engine, APIV1Router, entities.User, string) {
+func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUserService, *mock_services.MockEmailService, *httptest.ResponseRecorder, *gin.Context, *gin.Engine, APIV1Router, entities.User, string) {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
+	mockESercive := mock_services.NewMockEmailService(ctrl)
 	w := httptest.NewRecorder()
 	testCtx, testServer := gin.CreateTestContext(w)
 	restoreVars := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
 	restoreVars()
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUService, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, mockUService, mockESercive, env)
 	testUser := entities.User{
 		AuthLevel: 3,
 		ID:        primitive.NewObjectID(),
@@ -56,11 +57,11 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 		assert.NoError(t, err)
 	}
 
-	return mockUService, w, testCtx, testServer, router, testUser, token
+	return mockUService, mockESercive, w, testCtx, testServer, router, testUser, token
 }
 
 func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
-	mockUService, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -88,7 +89,7 @@ func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
 }
 
 func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testing.T) {
-	mockUService, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -113,7 +114,7 @@ func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testin
 }
 
 func Test_Login__should_call_UserService_and_return_correct_token_and_user(t *testing.T) {
-	mockUService, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -154,7 +155,7 @@ func Test_Login__should_call_UserService_and_return_correct_token_and_user(t *te
 }
 
 func Test_Login__should_return_500_when_user_service_returns_error(t *testing.T) {
-	mockUService, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -176,7 +177,7 @@ func Test_Login__should_return_500_when_user_service_returns_error(t *testing.T)
 }
 
 func Test_Login__should_return_StatusBadRequest_when_no_email_is_provided(t *testing.T) {
-	_, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 	data := url.Values{}
@@ -199,7 +200,7 @@ func Test_Login__should_return_StatusBadRequest_when_no_email_is_provided(t *tes
 }
 
 func Test_Login__should_return_StatusBadRequest_when_no_password_is_provided(t *testing.T) {
-	_, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 	data := url.Values{}
@@ -223,7 +224,7 @@ func Test_Login__should_return_StatusBadRequest_when_no_password_is_provided(t *
 }
 
 func Test_Login__should_return_StatusBadRequest_when_invalid_credentials_are_provided(t *testing.T) {
-	mockUService, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 	data := url.Values{}
@@ -251,7 +252,7 @@ func Test_Login__should_return_StatusBadRequest_when_invalid_credentials_are_pro
 }
 
 func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
-	_, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -265,7 +266,7 @@ func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
 }
 
 func Test_Verify__should_return_StatusUnauthorized_for_invalid_token(t *testing.T) {
-	_, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -279,7 +280,7 @@ func Test_Verify__should_return_StatusUnauthorized_for_invalid_token(t *testing.
 }
 
 func Test_GetMe__should_return_401_if_auth_token_is_empty(t *testing.T) {
-	_, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -293,7 +294,7 @@ func Test_GetMe__should_return_401_if_auth_token_is_empty(t *testing.T) {
 }
 
 func Test_GetMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
-	_, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -307,7 +308,7 @@ func Test_GetMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
 }
 
 func Test_GetMe__should_return_400_if_user_in_token_doesnt_exist(t *testing.T) {
-	mockUService, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -323,7 +324,7 @@ func Test_GetMe__should_return_400_if_user_in_token_doesnt_exist(t *testing.T) {
 }
 
 func Test_GetMe__should_return_500_if_user_service_returns_err(t *testing.T) {
-	mockUService, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -339,7 +340,7 @@ func Test_GetMe__should_return_500_if_user_service_returns_err(t *testing.T) {
 }
 
 func Test_GetMe__should_return_correct_user(t *testing.T) {
-	mockUService, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -364,7 +365,7 @@ func Test_GetMe__should_return_correct_user(t *testing.T) {
 }
 
 func Test_PutMe__should_return_400_when_email_and_team_is_not_provided(t *testing.T) {
-	_, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -380,7 +381,7 @@ func Test_PutMe__should_return_400_when_email_and_team_is_not_provided(t *testin
 }
 
 func Test_PutMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
-	_, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -399,7 +400,7 @@ func Test_PutMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
 }
 
 func Test_PutMe__should_return_500_when_user_service_returns_error(t *testing.T) {
-	mockUService, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -421,7 +422,7 @@ func Test_PutMe__should_return_500_when_user_service_returns_error(t *testing.T)
 }
 
 func Test_PutMe__should_set_the_users_name_to_required_value(t *testing.T) {
-	mockUService, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -443,7 +444,7 @@ func Test_PutMe__should_set_the_users_name_to_required_value(t *testing.T) {
 }
 
 func Test_PutMe__should_set_the_users_team_to_required_value(t *testing.T) {
-	mockUService, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
+	mockUService, _, w, testCtx, _, router, testUser, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -465,7 +466,7 @@ func Test_PutMe__should_set_the_users_team_to_required_value(t *testing.T) {
 }
 
 func Test_GetUsers__should_return_401_if_auth_token_is_invalid(t *testing.T) {
-	_, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 
@@ -479,7 +480,7 @@ func Test_GetUsers__should_return_401_if_auth_token_is_invalid(t *testing.T) {
 }
 
 func Test_GetUsers__should_return_401_if_auth_level_is_too_low(t *testing.T) {
-	_, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
 

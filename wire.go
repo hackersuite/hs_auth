@@ -18,6 +18,7 @@ func InitializeServer() (Server, error) {
 		NewServer,
 		routers.NewMainRouter,
 		v1.NewAPIV1Router,
+		services.NewEmailClient,
 		services.NewUserService,
 		repositories.NewUserRepository,
 		utils.NewDatabase,

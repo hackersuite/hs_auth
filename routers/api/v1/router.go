@@ -22,19 +22,21 @@ type APIV1Router interface {
 
 type apiV1Router struct {
 	models.BaseRouter
-	logger      *zap.Logger
-	cfg         *config.AppConfig
-	userService services.UserService
-	env         *environment.Env
+	logger       *zap.Logger
+	cfg          *config.AppConfig
+	userService  services.UserService
+	emailService services.EmailService
+	env          *environment.Env
 }
 
 // NewAPIV1Router creates a APIV1Router
-func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, userService services.UserService, env *environment.Env) APIV1Router {
+func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, userService services.UserService, emailService services.EmailService, env *environment.Env) APIV1Router {
 	return &apiV1Router{
-		logger:      logger,
-		cfg:         cfg,
-		userService: userService,
-		env:         env,
+		logger:       logger,
+		cfg:          cfg,
+		userService:  userService,
+		emailService: emailService,
+		env:          env,
 	}
 }
 

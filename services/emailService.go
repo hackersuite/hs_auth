@@ -12,6 +12,7 @@ import (
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 )
 
+// EmailService is used to send out emails
 type EmailService interface {
 	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
 	SendEmailVerificationEmail(user entities.User) error
@@ -25,6 +26,7 @@ type emailService struct {
 	env    *environment.Env
 }
 
+// NewEmailClient creates a new email client that uses Sendgrid
 func NewEmailClient(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env) EmailService {
 	sendgridClient := sendgrid.NewSendClient(env.Get(environment.SendgridAPIKey))
 
@@ -69,7 +71,14 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 }
 
 func (s *emailService) SendEmailVerificationEmail(user entities.User) error {
-	return nil
+	return s.SendEmail(
+		s.cfg.Email.EmailVerficationEmailSubj,
+		user.EmailToken,
+		user.EmailToken,
+		s.cfg.Email.NoreplyEmailName,
+		s.cfg.Email.NoreplyEmailAddr,
+		user.Name,
+		user.Email)
 }
 
 func (s *emailService) SendPasswordResetEmail(user entities.User) error {
