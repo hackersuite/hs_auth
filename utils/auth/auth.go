@@ -4,12 +4,11 @@ import (
 	"errors"
 	"math/rand"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/unicsmcr/hs_auth/utils/auth/common"
-
 	"github.com/dgrijalva/jwt-go"
 	"github.com/unicsmcr/hs_auth/entities"
+	"github.com/unicsmcr/hs_auth/utils/auth/common"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/crypto/bcrypt"
 )
 
 const lettersForEmailToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!"
@@ -44,6 +43,15 @@ func GetJWTClaims(token string, secret []byte) *common.AuthClaims {
 	return &claims
 }
 
+// GetHashForPassword generates a hash for the given password with the given salt
+func GetHashForPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
 // NewJWT creates a new JWT token for the specified user with the specified secret
 func NewJWT(user entities.User, timestamp int64, secret []byte) (string, error) {
 	if len(secret) == 0 {
@@ -68,4 +76,11 @@ func NewEmailToken(length int) string {
 		token[i] = lettersForEmailToken[rand.Int63()%int64(len(lettersForEmailToken))]
 	}
 	return string(token)
+}
+
+// CompareHashAndPassword compares the hash to the password.
+// If they both represent the same string, returns nill.
+// Returns an error otherwise
+func CompareHashAndPassword(hash, password string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
