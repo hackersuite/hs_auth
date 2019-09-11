@@ -47,8 +47,9 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	restoreVars()
 	router := NewAPIV1Router(zap.NewNop(), nil, mockUService, mockESercive, env)
 	testUser := entities.User{
-		AuthLevel: 3,
-		ID:        primitive.NewObjectID(),
+		AuthLevel:     3,
+		ID:            primitive.NewObjectID(),
+		EmailVerified: true,
 	}
 	var token string
 	if env.Get(environment.JWTSecret) != "" {
@@ -496,4 +497,23 @@ func Test_GetUsers__should_return_401_if_auth_level_is_too_low(t *testing.T) {
 	router.GetUsers(testCtx)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_Login__should_return_400_when_users_email_not_verified(t *testing.T) {
+	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
+
+	mockUService.EXPECT().GetUserWithEmailAndPassword(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&entities.User{}, nil).Times(1)
+
+	data := url.Values{}
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Login(testCtx)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }

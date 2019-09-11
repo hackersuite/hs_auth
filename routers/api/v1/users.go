@@ -80,6 +80,12 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		return
 	}
 
+	if !user.EmailVerified {
+		r.logger.Warn("user's email not verified'", zap.String("user id", user.ID.Hex()), zap.String("email", email))
+		models.SendAPIError(ctx, http.StatusBadRequest, "user's email has not been verified")
+		return
+	}
+
 	token, err := auth.NewJWT(*user, time.Now().Unix(), []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.Any("user", *user), zap.Error(err))
