@@ -531,7 +531,9 @@ func Test_Login__should_return_401_when_users_email_not_verified(t *testing.T) {
 
 func Test_Login__should_return_500_when_making_JWT_token_returns_err(t *testing.T) {
 	// leaving env var JWT_SECRET undefined to case NewJWTToken to throw error
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{})
+	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "",
+	})
 
 	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).
 		Return(&testUser, nil).Times(1)
