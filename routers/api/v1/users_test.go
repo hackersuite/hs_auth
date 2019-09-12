@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/unicsmcr/hs_auth/config"
 
@@ -289,6 +290,21 @@ func Test_Verify__should_return_StatusUnauthorized_for_invalid_token(t *testing.
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
+func Test_Verify__should_return_StatusUnauthorized_for_email_token(t *testing.T) {
+	_, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{})
+
+	token, err := auth.NewJWT(testUser, time.Now().Unix(), 0, auth.Email, []byte("supersecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token)
+	testCtx.Request = req
+
+	router.Verify(testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
 func Test_GetMe__should_return_401_if_auth_token_is_empty(t *testing.T) {
 	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
@@ -310,6 +326,21 @@ func Test_GetMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
 	req.Header.Set("Authorization", token+"some text")
+	testCtx.Request = req
+
+	router.GetMe(testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_GetMe__should_return_401_if_token_is_email_token(t *testing.T) {
+	_, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{})
+
+	token, err := auth.NewJWT(testUser, time.Now().Unix(), 0, auth.Email, []byte("supersecret"))
+	assert.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
+	req.Header.Set("Authorization", token)
 	testCtx.Request = req
 
 	router.GetMe(testCtx)

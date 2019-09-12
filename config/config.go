@@ -26,6 +26,7 @@ type EmailConfig struct {
 type AppConfig struct {
 	Name          string               `yaml:"name"`
 	BaseAuthLevel authlevels.AuthLevel `yaml:"base_auth_level"`
+	AppURL        string               `yaml:"app_url"`
 	Email         EmailConfig          `yaml:"email"`
 }
 

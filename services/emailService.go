@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/unicsmcr/hs_auth/config"
@@ -71,10 +72,12 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 }
 
 func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken string) error {
+	verificationURL := fmt.Sprintf("http://%s/api/v1/users/email/verify?token=%s", s.cfg.AppURL, emailToken)
+
 	return s.SendEmail(
 		s.cfg.Email.EmailVerficationEmailSubj,
-		emailToken,
-		emailToken,
+		verificationURL,
+		verificationURL,
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
 		user.Name,

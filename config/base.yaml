@@ -7,3 +7,4 @@ email:
   noreply_email_name: "UniCS"
   email_verification_email_subj: "Verify email"
   password_reset_email_subj: "Reset password"
+app_url: "auth.unicsmcr.com"
