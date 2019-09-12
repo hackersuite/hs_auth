@@ -6,6 +6,9 @@ import (
 	"go.uber.org/zap"
 )
 
+// DefaultEnvVarValue is the value returned by Get when the env var is not set
+const DefaultEnvVarValue = "not set"
+
 // names of env vars
 const (
 	Environment    = "ENVIRONMENT"
@@ -44,7 +47,7 @@ type Env struct {
 func (env *Env) Get(variableName string) string {
 	value, exists := env.vars[variableName]
 	if !exists {
-		return "not set"
+		return DefaultEnvVarValue
 	}
 	return value
 }

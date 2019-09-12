@@ -24,6 +24,7 @@ type UserService interface {
 	GetUsers(context.Context) ([]entities.User, error)
 	CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error)
 	UpdateUserWithID(context.Context, string, map[string]interface{}) error
+	DeleteUserWithEmail(ctx context.Context, email string) error
 }
 
 type userService struct {
@@ -144,4 +145,12 @@ func (s *userService) CreateUser(ctx context.Context, name, email, password stri
 	}
 
 	return user, nil
+}
+
+func (s *userService) DeleteUserWithEmail(ctx context.Context, email string) error {
+	_, err := s.userRepository.DeleteOne(ctx, bson.M{
+		"email": email,
+	})
+
+	return err
 }

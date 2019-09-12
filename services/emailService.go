@@ -15,8 +15,8 @@ import (
 // EmailService is used to send out emails
 type EmailService interface {
 	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
-	SendEmailVerificationEmail(user entities.User) error
-	SendPasswordResetEmail(user entities.User) error
+	SendEmailVerificationEmail(user entities.User, emailToken string) error
+	SendPasswordResetEmail(user entities.User, emailToken string) error
 }
 
 type emailService struct {
@@ -53,7 +53,7 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 		return err
 	}
 
-	if response.StatusCode != http.StatusOK {
+	if response.StatusCode != http.StatusAccepted {
 		s.logger.Error("email request was rejected by Sendgrid",
 			zap.String("subject", subject),
 			zap.String("recipient", recipientEmail),
@@ -70,17 +70,17 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 	return nil
 }
 
-func (s *emailService) SendEmailVerificationEmail(user entities.User) error {
+func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken string) error {
 	return s.SendEmail(
 		s.cfg.Email.EmailVerficationEmailSubj,
-		user.EmailToken,
-		user.EmailToken,
+		emailToken,
+		emailToken,
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
 		user.Name,
 		user.Email)
 }
 
-func (s *emailService) SendPasswordResetEmail(user entities.User) error {
+func (s *emailService) SendPasswordResetEmail(user entities.User, emailToken string) error {
 	return nil
 }

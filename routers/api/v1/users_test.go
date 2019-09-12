@@ -59,7 +59,7 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	var token string
 	if env.Get(environment.JWTSecret) != "" {
 		var err error
-		token, err = auth.NewJWT(testUser, 100, []byte(env.Get(environment.JWTSecret)))
+		token, err = auth.NewJWT(testUser, 100, 0, auth.Auth, []byte(env.Get(environment.JWTSecret)))
 		assert.NoError(t, err)
 	}
 
@@ -148,7 +148,7 @@ func Test_Login__should_call_UserService_and_return_correct_token_and_user(t *te
 	assert.Equal(t, http.StatusOK, actualRes.Status)
 	assert.Zero(t, actualRes.Err)
 
-	var claims common.AuthClaims
+	var claims auth.Claims
 	_, err = jwt.ParseWithClaims(actualRes.Token, &claims, func(*jwt.Token) (interface{}, error) {
 		return []byte("testsecret"), nil
 	})
@@ -495,7 +495,7 @@ func Test_GetUsers__should_return_401_if_auth_level_is_too_low(t *testing.T) {
 	token, err := auth.NewJWT(entities.User{
 		AuthLevel: common.Volunteer,
 		ID:        primitive.NewObjectID(),
-	}, 100, []byte("testsecret"))
+	}, 100, 0, auth.Auth, []byte("testsecret"))
 	assert.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
 	req.Header.Set("Authorization", token)
@@ -530,7 +530,7 @@ func Test_Login__should_return_401_when_users_email_not_verified(t *testing.T) {
 }
 
 func Test_Login__should_return_500_when_making_JWT_token_returns_err(t *testing.T) {
-	// leaving env var JWT_SECRET undefined to case NewJWTToken to throw error
+	// leaving env var JWT_SECRET undefined to case NewJWT to throw error
 	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
 		environment.JWTSecret: "",
 	})

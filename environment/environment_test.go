@@ -124,5 +124,5 @@ func Test_Get__should_return_not_set_when_env_var_is_not_set(t *testing.T) {
 
 	env := NewEnv(zap.NewNop())
 
-	assert.Equal(t, "not set", env.Get("not set var"))
+	assert.Equal(t, DefaultEnvVarValue, env.Get("not set var"))
 }
