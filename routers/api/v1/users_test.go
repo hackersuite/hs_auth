@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/unicsmcr/hs_auth/config"
+
 	"github.com/unicsmcr/hs_auth/services"
 
 	"github.com/unicsmcr/hs_auth/utils/auth"
@@ -45,7 +47,9 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	restoreVars := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
 	restoreVars()
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUService, mockESercive, env)
+	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
+		BaseAuthLevel: 0,
+	}, mockUService, mockESercive, env)
 	password, err := auth.GetHashForPassword("password123")
 	assert.NoError(t, err)
 	userID, err := primitive.ObjectIDFromHex("5d7a9386e48fa16556c56411")
@@ -630,4 +634,191 @@ func Test_GetUsers__return_users_with_hidden_passwords(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, expectedRes, actualRes)
+}
+
+func Test_Register__should_return_400_if_name_is_unspecified(t *testing.T) {
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
+
+	data := url.Values{}
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_Register__should_return_400_if_email_is_unspecified(t *testing.T) {
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("password", "password123")
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_Register__should_return_400_if_password_is_unspecified(t *testing.T) {
+	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("email", "john@doe.com")
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_Register__should_return_400_if_email_is_taken(t *testing.T) {
+	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, nil).Times(1)
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_Register__should_return_500_if_GetUserReturns_err_that_is_not_ErrNotFound(t *testing.T) {
+	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, errors.New("service err")).Times(1)
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_Register__should_return_500_if_CreateUser_returns_error(t *testing.T) {
+	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
+	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(nil, errors.New("service err")).Times(1)
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_Register__should_return_500_and_delete_user_if_creating_email_JWT_fails(t *testing.T) {
+	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "",
+	})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
+	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(&testUser, nil).Times(1)
+	mockUService.EXPECT().DeleteUserWithEmail(gomock.Any(), "john@doe.com").Return(nil).Times(1)
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_Register__should_return_500_and_delete_user_if_sending_email_fails(t *testing.T) {
+	mockUService, mockEService, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "supersecret",
+	})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
+	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(&testUser, nil).Times(1)
+	mockUService.EXPECT().DeleteUserWithEmail(gomock.Any(), "john@doe.com").Return(nil).Times(1)
+	mockEService.EXPECT().SendEmailVerificationEmail(gomock.Any(), gomock.Any()).Return(errors.New("service err")).Times(1)
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_Register__should_return_200_and_correct_user(t *testing.T) {
+	mockUService, mockEService, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "supersecret",
+	})
+
+	data := url.Values{}
+	data.Add("name", "John Doe")
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
+	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(&testUser, nil).Times(1)
+	mockUService.EXPECT().DeleteUserWithEmail(gomock.Any(), "john@doe.com").Return(nil).Times(1)
+	mockEService.EXPECT().SendEmailVerificationEmail(gomock.Any(), gomock.Any()).Return(nil).Times(1)
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Register(testCtx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	actualResStr, err := w.Body.ReadString('\x00')
+	assert.Equal(t, "EOF", err.Error())
+
+	var actualRes registerRes
+	err = json.Unmarshal([]byte(actualResStr), &actualRes)
+	assert.NoError(t, err)
+
+	assert.Equal(t, testUser, actualRes.User)
+	assert.Equal(t, passwordReplacementString, actualRes.User.Password)
 }
