@@ -24,3 +24,8 @@ type getMeRes struct {
 	models.Response
 	User entities.User `json:"user,omitempty"`
 }
+
+type registerRes struct {
+	models.Response
+	User entities.User `json:"user,omitempty"`
+}

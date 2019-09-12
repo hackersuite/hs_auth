@@ -15,6 +15,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const passwordReplacementString = "************"
+
 // GET: /api/v1/users/
 // Response: status int
 //           error string
@@ -35,6 +37,9 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 		r.logger.Error("could not fetch users", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, err.Error())
 		return
+	}
+	for _, user := range users {
+		user.Password = passwordReplacementString
 	}
 
 	ctx.JSON(http.StatusOK, getUsersRes{
@@ -84,11 +89,13 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 	if err != nil {
 		r.logger.Warn("user not found", zap.String("email", email))
 		models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
+		return
 	}
+	user.Password = passwordReplacementString
 
 	if !user.EmailVerified {
 		r.logger.Warn("user's email not verified'", zap.String("user id", user.ID.Hex()), zap.String("email", email))
-		models.SendAPIError(ctx, http.StatusBadRequest, "user's email has not been verified")
+		models.SendAPIError(ctx, http.StatusUnauthorized, "user's email has not been verified")
 		return
 	}
 
@@ -154,6 +161,7 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 		}
 		return
 	}
+	user.Password = passwordReplacementString
 	ctx.JSON(http.StatusOK, getMeRes{
 		User: *user,
 	})
@@ -221,19 +229,44 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 		return
 	}
 
-	_, err := r.userService.CreateUser(ctx, name, email, password, r.cfg.BaseAuthLevel)
+	_, err := r.userService.GetUserWithEmail(ctx, email)
+	if err == nil {
+		r.logger.Warn("email taken", zap.String("email", email))
+		models.SendAPIError(ctx, http.StatusBadRequest, "email taken")
+		return
+	}
+
+	if err != services.ErrNotFound {
+		r.logger.Error("could not create user", zap.String("name", name), zap.String("email", email), zap.Int("auth level", int(r.cfg.BaseAuthLevel)), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
+		return
+	}
+
+	hashedPassword, err := auth.GetHashForPassword(password)
+	if err != nil {
+		r.logger.Error("could not create user", zap.String("name", name), zap.String("email", email), zap.Int("auth level", int(r.cfg.BaseAuthLevel)), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
+		return
+	}
+
+	user, err := r.userService.CreateUser(ctx, name, email, hashedPassword, r.cfg.BaseAuthLevel)
 	if err != nil {
 		r.logger.Error("could not create user",
 			zap.String("name", name),
 			zap.String("email", email),
 			zap.Int("auth level", int(r.cfg.BaseAuthLevel)),
 			zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
 		return
 	}
+	user.Password = passwordReplacementString
 
 	// TODO: implement email verification
 
-	ctx.JSON(http.StatusOK, models.Response{
-		Status: http.StatusOK,
+	ctx.JSON(http.StatusOK, registerRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		User: *user,
 	})
 }
