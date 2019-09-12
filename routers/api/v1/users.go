@@ -99,7 +99,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := auth.NewJWT(*user, time.Now().Unix(), []byte(r.env.Get(environment.JWTSecret)))
+	token, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.Any("user", *user), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")
@@ -225,6 +225,7 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 	password := ctx.PostForm("password")
 
 	if len(name) == 0 || len(email) == 0 || len(password) == 0 {
+		r.logger.Warn("one of name, email or password not specified", zap.String("name", name), zap.String("email", email), zap.String("password", password))
 		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the user's name, email and passowrd")
 		return
 	}
@@ -237,14 +238,14 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 	}
 
 	if err != services.ErrNotFound {
-		r.logger.Error("could not create user", zap.String("name", name), zap.String("email", email), zap.Int("auth level", int(r.cfg.BaseAuthLevel)), zap.Error(err))
+		r.logger.Error("could not query for user with email", zap.String("email", email), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
 		return
 	}
 
 	hashedPassword, err := auth.GetHashForPassword(password)
 	if err != nil {
-		r.logger.Error("could not create user", zap.String("name", name), zap.String("email", email), zap.Int("auth level", int(r.cfg.BaseAuthLevel)), zap.Error(err))
+		r.logger.Error("could not make hash for password", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
 		return
 	}
@@ -261,7 +262,28 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 	}
 	user.Password = passwordReplacementString
 
-	// TODO: implement email verification
+	// TODO: change validityDuration placeholder once token validity duration is implemented
+	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
+	if err != nil {
+		r.logger.Error("could not generate JWT token",
+			zap.String("user id", user.ID.Hex()),
+			zap.Bool("JWT_SECRET set", r.env.Get(environment.JWTSecret) != environment.DefaultEnvVarValue),
+			zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
+		r.userService.DeleteUserWithEmail(ctx, email)
+		return
+	}
+	err = r.emailService.SendEmailVerificationEmail(*user, emailToken)
+	if err != nil {
+		r.logger.Error("could not send email verification email",
+			zap.String("user email", user.Email),
+			zap.String("noreply email", r.cfg.Email.NoreplyEmailAddr),
+			zap.Bool("SENDGRID_API_KEY set", r.env.Get(environment.SendgridAPIKey) != environment.DefaultEnvVarValue),
+			zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
+		r.userService.DeleteUserWithEmail(ctx, email)
+		return
+	}
 
 	ctx.JSON(http.StatusOK, registerRes{
 		Response: models.Response{

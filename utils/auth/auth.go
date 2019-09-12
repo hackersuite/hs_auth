@@ -2,7 +2,7 @@ package auth
 
 import (
 	"errors"
-	"math/rand"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/unicsmcr/hs_auth/entities"
@@ -11,12 +11,29 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// TokenType represent an auth token type
+type TokenType string
+
+var (
+	// Email is token type for email tokens
+	Email TokenType = "email"
+	// Auth is token type for auth tokens
+	Auth TokenType = "auth"
+)
+
+// Claims is the model for the claims in the JWT token
+type Claims struct {
+	jwt.StandardClaims
+	AuthLevel common.AuthLevel `json:"auth_level"`
+	TokenType TokenType        `json:"token_type"`
+}
+
 const lettersForEmailToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!"
 
 // GetJWTClaims checks if the given token is a valid JWT with given secret
 // and returns the claims inside the token. Returns nill if the token is invalid
-func GetJWTClaims(token string, secret []byte) *common.AuthClaims {
-	var claims common.AuthClaims
+func GetJWTClaims(token string, secret []byte) *Claims {
+	var claims Claims
 	parsedToken, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
@@ -32,7 +49,7 @@ func GetJWTClaims(token string, secret []byte) *common.AuthClaims {
 	expectedToken, err := NewJWT(entities.User{
 		ID:        userID,
 		AuthLevel: claims.AuthLevel,
-	}, claims.IssuedAt, secret)
+	}, claims.IssuedAt, 0, claims.TokenType, secret)
 	if err != nil {
 		return nil
 	}
@@ -53,29 +70,21 @@ func GetHashForPassword(password string) (string, error) {
 }
 
 // NewJWT creates a new JWT token for the specified user with the specified secret
-func NewJWT(user entities.User, timestamp int64, secret []byte) (string, error) {
+func NewJWT(user entities.User, timestamp int64, validityDuration time.Duration, tokenType TokenType, secret []byte) (string, error) {
 	if len(secret) == 0 {
 		return "", errors.New("JWT token secret undefined")
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &common.AuthClaims{
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
 		StandardClaims: jwt.StandardClaims{
 			Id:       user.ID.Hex(),
 			IssuedAt: timestamp,
 		},
 		AuthLevel: user.AuthLevel,
+		TokenType: tokenType,
 	})
 
 	return token.SignedString(secret)
-}
-
-// NewEmailToken creates a random email token of given length
-func NewEmailToken(length int) string {
-	token := make([]byte, length)
-	for i := range token {
-		token[i] = lettersForEmailToken[rand.Int63()%int64(len(lettersForEmailToken))]
-	}
-	return string(token)
 }
 
 // CompareHashAndPassword compares the hash to the password.
