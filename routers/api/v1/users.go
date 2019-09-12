@@ -38,8 +38,8 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 		models.SendAPIError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	for _, user := range users {
-		user.Password = passwordReplacementString
+	for i := 0; i < len(users); i++ {
+		users[i].Password = passwordReplacementString
 	}
 
 	ctx.JSON(http.StatusOK, getUsersRes{

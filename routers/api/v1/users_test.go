@@ -367,6 +367,8 @@ func Test_GetMe__should_return_correct_user(t *testing.T) {
 	err = json.Unmarshal([]byte(actualResStr), &actualRes)
 	assert.NoError(t, err)
 
+	testUser.Password = passwordReplacementString
+
 	assert.Equal(t, testUser, actualRes.User)
 }
 
@@ -564,4 +566,66 @@ func Test_Login__should_return_401_when_users_password_is_incorrect(t *testing.T
 	router.Login(testCtx)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_Login__should_return_user_with_hidden_password(t *testing.T) {
+	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
+		environment.JWTSecret: "supersecret",
+	})
+
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).
+		Return(&testUser, nil).Times(1)
+
+	data := url.Values{}
+	data.Add("email", "john@doe.com")
+	data.Add("password", "password123")
+
+	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	testCtx.Request = req
+
+	router.Login(testCtx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	actualResStr, err := w.Body.ReadString('\x00')
+	assert.Equal(t, "EOF", err.Error())
+
+	var actualRes loginRes
+	err = json.Unmarshal([]byte(actualResStr), &actualRes)
+	assert.NoError(t, err)
+
+	testUser.Password = passwordReplacementString
+
+	assert.Equal(t, testUser, actualRes.User)
+}
+
+func Test_GetUsers__return_users_with_hidden_passwords(t *testing.T) {
+	mockUService, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
+		environment.JWTSecret: "testsecret",
+	})
+
+	expectedRes := getUsersRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Users: []entities.User{entities.User{Name: "Bob Tester", Password: "some password"}},
+	}
+	mockUService.EXPECT().GetUsers(gomock.Any()).Return(expectedRes.Users, nil).Times(1)
+
+	req := httptest.NewRequest(http.MethodPost, "/test", nil)
+	req.Header.Set("Authorization", token)
+	testCtx.Request = req
+	router.GetUsers(testCtx)
+
+	actualResStr, err := w.Body.ReadString('\x00')
+	assert.Equal(t, "EOF", err.Error())
+
+	var actualRes getUsersRes
+	err = json.Unmarshal([]byte(actualResStr), &actualRes)
+
+	expectedRes.Users[0].Password = passwordReplacementString
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, expectedRes, actualRes)
 }
