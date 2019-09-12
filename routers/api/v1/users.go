@@ -123,7 +123,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 func (r *apiV1Router) Verify(ctx *gin.Context) {
 	token := ctx.GetHeader("Authorization")
 	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil {
+	if claims == nil || claims.TokenType != auth.Auth {
 		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
 		return
 	}
@@ -144,7 +144,7 @@ func (r *apiV1Router) Verify(ctx *gin.Context) {
 func (r *apiV1Router) GetMe(ctx *gin.Context) {
 	token := ctx.GetHeader("Authorization")
 	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil {
+	if claims == nil || claims.TokenType != auth.Auth {
 		r.logger.Warn("invalid token", zap.String("token", token))
 		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
 		return
@@ -219,6 +219,7 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 //					 password string
 // Response: status int
 //           error string
+//           user entities.User
 func (r *apiV1Router) Register(ctx *gin.Context) {
 	name := ctx.PostForm("name")
 	email := ctx.PostForm("email")
@@ -290,5 +291,39 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 			Status: http.StatusOK,
 		},
 		User: *user,
+	})
+}
+
+// POST: /api/v1/users/email?token={token}
+// Request:  token string
+// Response: status int
+//           error string
+func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
+	token := ctx.Query("token")
+	if len(token) == 0 {
+		r.logger.Warn("token not specified")
+		models.SendAPIError(ctx, http.StatusBadRequest, "no token specified")
+		return
+	}
+
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil || claims.TokenType != auth.Email {
+		r.logger.Warn("invalid token", zap.String("token", token))
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		return
+	}
+
+	fieldsToUpdate := map[string]interface{}{
+		"email_verified": true,
+	}
+	err := r.userService.UpdateUserWithID(ctx, claims.Id, fieldsToUpdate)
+	if err != nil {
+		r.logger.Error("could not update user", zap.String("user id", claims.Id), zap.Any("fields to udpate", fieldsToUpdate))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went with verifying user's email")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
 	})
 }
