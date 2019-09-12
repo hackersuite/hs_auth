@@ -5,8 +5,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/unicsmcr/hs_auth/utils/auth"
-
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 
 	"go.mongodb.org/mongo-driver/mongo"
@@ -132,19 +130,15 @@ func (s *userService) UpdateUserWithID(ctx context.Context, id string, fieldsToU
 
 // CreateUser creates a new user with a hashed password
 func (s *userService) CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error) {
-	hashedPassword, err := auth.GetHashForPassword(password)
-	if err != nil {
-		return nil, err
-	}
-
 	user := &entities.User{
+		ID:        primitive.NewObjectID(),
 		Name:      name,
 		Email:     email,
-		Password:  hashedPassword,
+		Password:  password,
 		AuthLevel: authLevel,
 	}
 
-	_, err = s.userRepository.InsertOne(ctx, *user)
+	_, err := s.userRepository.InsertOne(ctx, *user)
 	if err != nil {
 		return nil, err
 	}
