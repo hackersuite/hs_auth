@@ -77,7 +77,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 	if err != nil {
 		if err == services.ErrNotFound {
 			r.logger.Warn("user not found", zap.String("email", email))
-			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
+			models.SendAPIError(ctx, http.StatusUnauthorized, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
@@ -88,7 +88,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 	err = auth.CompareHashAndPassword(user.Password, password)
 	if err != nil {
 		r.logger.Warn("user not found", zap.String("email", email))
-		models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
+		models.SendAPIError(ctx, http.StatusUnauthorized, "user not found")
 		return
 	}
 	user.Password = passwordReplacementString
