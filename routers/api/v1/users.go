@@ -68,7 +68,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		return
 	}
 
-	user, err := r.userService.GetUserWithEmailAndPassword(ctx, email, password)
+	user, err := r.userService.GetUserWithEmail(ctx, email)
 	if err != nil {
 		if err == services.ErrNotFound {
 			r.logger.Warn("user not found", zap.String("email", email))
@@ -78,6 +78,12 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
 		}
 		return
+	}
+
+	err = auth.CompareHashAndPassword(user.Password, password)
+	if err != nil {
+		r.logger.Warn("user not found", zap.String("email", email))
+		models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 	}
 
 	if !user.EmailVerified {
@@ -217,7 +223,11 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 
 	_, err := r.userService.CreateUser(ctx, name, email, password, r.cfg.BaseAuthLevel)
 	if err != nil {
-		r.logger.Error("could not create user", zap.String("name", name), zap.String("email", email), zap.Int("auth level", int(r.cfg.BaseAuthLevel)))
+		r.logger.Error("could not create user",
+			zap.String("name", name),
+			zap.String("email", email),
+			zap.Int("auth level", int(r.cfg.BaseAuthLevel)),
+			zap.Error(err))
 		return
 	}
 

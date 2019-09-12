@@ -46,8 +46,11 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	env := environment.NewEnv(zap.NewNop())
 	restoreVars()
 	router := NewAPIV1Router(zap.NewNop(), nil, mockUService, mockESercive, env)
+	password, err := auth.GetHashForPassword("password123")
+	assert.NoError(t, err)
 	testUser := entities.User{
 		AuthLevel:     3,
+		Password:      password,
 		ID:            primitive.NewObjectID(),
 		EmailVerified: true,
 	}
@@ -120,7 +123,7 @@ func Test_Login__should_call_UserService_and_return_correct_token_and_user(t *te
 	})
 
 	mockUService.EXPECT().
-		GetUserWithEmailAndPassword(gomock.Any(), "john@doe.com", "password123").
+		GetUserWithEmail(gomock.Any(), "john@doe.com").
 		Return(&testUser, nil).Times(1)
 
 	data := url.Values{}
@@ -161,7 +164,7 @@ func Test_Login__should_return_500_when_user_service_returns_error(t *testing.T)
 	})
 
 	mockUService.EXPECT().
-		GetUserWithEmailAndPassword(gomock.Any(), "john@doe.com", "password123").
+		GetUserWithEmail(gomock.Any(), "john@doe.com").
 		Return(nil, errors.New("service err")).Times(1)
 
 	data := url.Values{}
@@ -236,7 +239,7 @@ func Test_Login__should_return_StatusBadRequest_when_invalid_credentials_are_pro
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
 	testCtx.Request = req
 
-	mockUService.EXPECT().GetUserWithEmailAndPassword(gomock.Any(), "john@doe.com", "password123").
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").
 		Return(nil, services.ErrNotFound).Times(1)
 
 	router.Login(testCtx)
@@ -502,7 +505,7 @@ func Test_GetUsers__should_return_401_if_auth_level_is_too_low(t *testing.T) {
 func Test_Login__should_return_400_when_users_email_not_verified(t *testing.T) {
 	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
 
-	mockUService.EXPECT().GetUserWithEmailAndPassword(gomock.Any(), gomock.Any(), gomock.Any()).
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).
 		Return(&entities.User{}, nil).Times(1)
 
 	data := url.Values{}

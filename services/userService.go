@@ -22,7 +22,7 @@ import (
 // UserService is the service for interactions with a remote users repository
 type UserService interface {
 	GetUserWithID(context.Context, string) (*entities.User, error)
-	GetUserWithEmailAndPassword(context.Context, string, string) (*entities.User, error)
+	GetUserWithEmail(context.Context, string) (*entities.User, error)
 	GetUsers(context.Context) ([]entities.User, error)
 	CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error)
 	UpdateUserWithID(context.Context, string, map[string]interface{}) error
@@ -66,8 +66,8 @@ func (s *userService) GetUserWithID(ctx context.Context, id string) (*entities.U
 	return &user, nil
 }
 
-// GetUserWithEmailAndPassword fetches a user with given email and password
-func (s *userService) GetUserWithEmailAndPassword(ctx context.Context, email string, password string) (*entities.User, error) {
+// GetUserWithEmail fetches a user with given email
+func (s *userService) GetUserWithEmail(ctx context.Context, email string) (*entities.User, error) {
 	res := s.userRepository.FindOne(ctx, bson.M{
 		"email": email,
 	})
@@ -85,11 +85,6 @@ func (s *userService) GetUserWithEmailAndPassword(ctx context.Context, email str
 	err = res.Decode(&user)
 	if err != nil {
 		return nil, err
-	}
-
-	err = auth.CompareHashAndPassword(user.Password, password)
-	if err != nil {
-		return nil, ErrNotFound
 	}
 
 	return &user, nil
