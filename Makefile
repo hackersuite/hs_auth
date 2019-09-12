@@ -38,12 +38,7 @@ build:
 # builds the docker image
 build-docker:
 	@echo "=============building hs_auth============="
-	if docker image ls | grep -qw hs_auth; then \
-		echo "image already exists, skipping build"; \
-	else \
-		echo "creating new image"; \
-		docker build -f docker/dev/Dockerfile -t hs_auth . ;\
-	fi
+	docker build -f docker/hs_auth/Dockerfile -t hs_auth . ;
 
 # sets up the hacker suite docker network
 setup-network:
