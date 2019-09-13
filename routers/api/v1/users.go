@@ -101,7 +101,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 
 	token, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
-		r.logger.Error("could not create JWT", zap.Any("user", *user), zap.Error(err))
+		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")
 		return
 	}
