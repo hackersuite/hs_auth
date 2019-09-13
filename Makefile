@@ -16,7 +16,7 @@ vet:
 # starts the app
 run: vet
 	@echo "=============vetting the code============="
-	go run main.go
+	go run main.go wire_gen.go server.go
 
 .PHONY: mocks
 mocks: clean-mocks
@@ -48,7 +48,7 @@ setup-network:
 # starts the app and MongoDB in docker containers
 up: vet build-docker setup-network
 	@echo "=============starting hs_auth============="
-	docker-compose up -d
+	docker-compose -f $(prod_docker_compose_file) up -d
 
 # starts the app and MongoDB in docker containers for dev environment
 up-dev: export ENVIRONMENT=dev
