@@ -120,6 +120,10 @@ func (s *userService) UpdateUserWithID(ctx context.Context, id string, fieldsToU
 		return ErrInvalidID
 	}
 
+	if len(fieldsToUpdate) == 0 {
+		return nil
+	}
+
 	_, err = s.userRepository.UpdateOne(ctx, bson.M{
 		"_id": mongoID,
 	}, bson.M{
