@@ -28,7 +28,10 @@ func InitializeServer() (Server, error) {
 		return Server{}, err
 	}
 	database := utils.NewDatabase(logger, env)
-	userRepository := repositories.NewUserRepository(database)
+	userRepository, err := repositories.NewUserRepository(database)
+	if err != nil {
+		return Server{}, err
+	}
 	userService := services.NewUserService(logger, userRepository)
 	emailService := services.NewEmailClient(logger, appConfig, env)
 	apiv1Router := v1.NewAPIV1Router(logger, appConfig, userService, emailService, env)
