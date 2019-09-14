@@ -1,3 +1,5 @@
+// +build integration
+
 package services
 
 import (
@@ -193,6 +195,28 @@ func Test_CreateUser__should_create_required_user(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, testUser, *userOnDB)
+}
+
+func Test_DeleteUserWithEmail__should_delete_required_user(t *testing.T) {
+	_, uService := setupTest(t)
+
+	testUser := entities.User{
+		Name:      "John Doe",
+		Email:     "john@doe.com",
+		Password:  "password123",
+		AuthLevel: 3,
+	}
+
+	_, err := uService.CreateUser(context.Background(), testUser.Name, testUser.Email, testUser.Password, testUser.AuthLevel)
+	assert.NoError(t, err)
+
+	err = uService.DeleteUserWithEmail(context.Background(), testUser.Email)
+	assert.NoError(t, err)
+
+	_, err = uService.GetUserWithEmail(context.Background(), testUser.Email)
+	assert.Error(t, err)
+
+	assert.Equal(t, ErrNotFound, err)
 }
 
 func Test_GetUserWithID__should_return_error(t *testing.T) {
