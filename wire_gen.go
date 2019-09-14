@@ -27,7 +27,10 @@ func InitializeServer() (Server, error) {
 	if err != nil {
 		return Server{}, err
 	}
-	database := utils.NewDatabase(logger, env)
+	database, err := utils.NewDatabase(logger, env)
+	if err != nil {
+		return Server{}, err
+	}
 	userRepository, err := repositories.NewUserRepository(database)
 	if err != nil {
 		return Server{}, err
