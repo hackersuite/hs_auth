@@ -48,6 +48,7 @@ func Test_NewDatabase__should_return_error_when_user_credentials_are_incorrect(t
 
 func Test_NewDatabase__should_return_error_some_connection_var_is_undefined(t *testing.T) {
 	restore := testutils.SetEnvVars(map[string]string{
+		environment.MongoUser:     "",
 		environment.MongoPassword: "password123",
 		environment.MongoHost:     "127.0.0.1:8003",
 		environment.MongoDatabase: "hs_auth",
