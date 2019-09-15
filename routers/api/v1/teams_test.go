@@ -2,11 +2,14 @@ package v1
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/unicsmcr/hs_auth/routers/api/models"
 
 	"github.com/unicsmcr/hs_auth/services"
 
@@ -85,6 +88,65 @@ func setupTeamTest(t *testing.T, envVars map[string]string, authLevel common.Aut
 		testCtx:      testCtx,
 		testServer:   testServer,
 		claims:       claims,
+	}
+}
+
+func Test_GetTeams(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*teamTestSetup)
+		wantResCode int
+		wantRes     *getTeamsRes
+	}{
+		{
+			name: "should return 500 when fetching teams fails",
+			prep: func(setup *teamTestSetup) {
+				setup.mockTService.EXPECT().GetTeams(gomock.Any()).Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 and the correct teams",
+			prep: func(setup *teamTestSetup) {
+				setup.mockTService.EXPECT().GetTeams(gomock.Any()).Return([]entities.Team{
+					{Name: "test team 1"},
+					{Name: "test team 2"},
+				}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &getTeamsRes{
+				Response: models.Response{
+					Status: http.StatusOK,
+				},
+				Teams: []entities.Team{
+					{Name: "test team 1"},
+					{Name: "test team 2"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTeamTest(t, nil, 0)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.router.GetTeams(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				actualResStr, err := setup.w.Body.ReadString('\x00')
+				assert.Equal(t, "EOF", err.Error())
+
+				var actualRes getTeamsRes
+				err = json.Unmarshal([]byte(actualResStr), &actualRes)
+
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
+		})
 	}
 }
 

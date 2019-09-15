@@ -12,6 +12,27 @@ import (
 	"go.uber.org/zap"
 )
 
+// GET: /api/v1/teams
+// Response: status int
+//           error string
+//           teams []entities.Team
+// Headers:  Authorization -> token
+func (r *apiV1Router) GetTeams(ctx *gin.Context) {
+	teams, err := r.teamService.GetTeams(ctx)
+	if err != nil {
+		r.logger.Error("could not fetch teams", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "could not fetch teams")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, getTeamsRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Teams: teams,
+	})
+}
+
 // POST: /api/v1/teams
 // x-www-form-urlencoded
 // Request:  name string

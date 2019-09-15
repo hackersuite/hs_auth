@@ -23,6 +23,7 @@ type APIV1Router interface {
 	Register(*gin.Context)
 	VerifyEmail(*gin.Context)
 	AuthLevelVerifierFactory(level authlevels.AuthLevel) func(*gin.Context)
+	GetTeams(*gin.Context)
 	CreateTeam(*gin.Context)
 }
 
@@ -65,5 +66,6 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.PUT("/me", isAtLeastApplicant, r.PutMe)
 
 	teamsGroup := routerGroup.Group("/teams")
+	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)
 	teamsGroup.POST("/", isAtLeastApplicant, r.CreateTeam)
 }
