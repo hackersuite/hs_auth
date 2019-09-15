@@ -6,11 +6,13 @@ import (
 	"context"
 	"testing"
 
+	"github.com/unicsmcr/hs_auth/testutils"
+
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_NewTeamRepository__should_return_teams_mongo_collection(t *testing.T) {
-	db := setupTest(t)
+	db := testutils.ConnectToIntegrationTestDB(t)
 
 	tRepo := NewTeamRepository(db)
 

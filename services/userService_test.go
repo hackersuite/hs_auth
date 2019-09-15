@@ -4,9 +4,9 @@ package services
 
 import (
 	"context"
-	"fmt"
 	"testing"
-	"time"
+
+	"github.com/unicsmcr/hs_auth/testutils"
 
 	"go.mongodb.org/mongo-driver/bson"
 
@@ -19,12 +19,9 @@ import (
 	"github.com/unicsmcr/hs_auth/repositories"
 
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/mongo/options"
-
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type errTestCase struct {
+type errUserTestCase struct {
 	id             string
 	name           string
 	email          string
@@ -34,27 +31,8 @@ type errTestCase struct {
 	wantErr        error
 }
 
-func setupTest(t *testing.T) (repositories.UserRepository, UserService) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://hs_auth:password123@localhost:8003/hs_auth"))
-	assert.NoError(t, err)
-
-	err = client.Connect(context.Background())
-	assert.NoError(t, err)
-
-	var db *mongo.Database
-	// Giving some time for the DB to boot up
-	for i := 0; i < 4; i++ {
-		db = client.Database("hs_auth")
-		err := client.Ping(context.Background(), nil)
-		if err == nil {
-			break
-		} else if i == 3 {
-			fmt.Println(err)
-			panic("could not connect to db")
-		}
-		fmt.Println("could not connect to database, will retry in a bit")
-		time.Sleep(5 * time.Second)
-	}
+func setupUserTest(t *testing.T) (repositories.UserRepository, UserService) {
+	db := testutils.ConnectToIntegrationTestDB(t)
 
 	userRepository, err := repositories.NewUserRepository(db)
 	if err != nil {
@@ -69,7 +47,7 @@ func setupTest(t *testing.T) (repositories.UserRepository, UserService) {
 }
 
 func Test_GetUserWithID__should_return_correct_user(t *testing.T) {
-	uRepo, uService := setupTest(t)
+	uRepo, uService := setupUserTest(t)
 
 	testID, err := primitive.ObjectIDFromHex("2134abd12312312321312313")
 	assert.NoError(t, err)
@@ -92,7 +70,7 @@ func Test_GetUserWithID__should_return_correct_user(t *testing.T) {
 }
 
 func Test_GetUserWithEmail__should_return_correct_user(t *testing.T) {
-	uRepo, uService := setupTest(t)
+	uRepo, uService := setupUserTest(t)
 
 	testID, err := primitive.ObjectIDFromHex("2134abd12312312321312313")
 	assert.NoError(t, err)
@@ -115,7 +93,7 @@ func Test_GetUserWithEmail__should_return_correct_user(t *testing.T) {
 }
 
 func Test_GetUsers__should_return_correct_users(t *testing.T) {
-	uRepo, uService := setupTest(t)
+	uRepo, uService := setupUserTest(t)
 
 	testUsers := []entities.User{
 		{
@@ -138,7 +116,7 @@ func Test_GetUsers__should_return_correct_users(t *testing.T) {
 }
 
 func Test_UpdateUserWithID__should_not_return_error_when_fields_to_update_is_empty(t *testing.T) {
-	_, uService := setupTest(t)
+	_, uService := setupUserTest(t)
 
 	err := uService.UpdateUserWithID(context.Background(), "2134abd12312312321312313", nil)
 
@@ -146,7 +124,7 @@ func Test_UpdateUserWithID__should_not_return_error_when_fields_to_update_is_emp
 }
 
 func Test_UpdateUserWithID__should_update_correct_user(t *testing.T) {
-	uRepo, uService := setupTest(t)
+	uRepo, uService := setupUserTest(t)
 
 	testID, err := primitive.ObjectIDFromHex("2134abd12312312321312313")
 	assert.NoError(t, err)
@@ -176,7 +154,7 @@ func Test_UpdateUserWithID__should_update_correct_user(t *testing.T) {
 }
 
 func Test_CreateUser__should_create_required_user(t *testing.T) {
-	_, uService := setupTest(t)
+	_, uService := setupUserTest(t)
 
 	testUser := entities.User{
 		Name:      "John Doe",
@@ -198,7 +176,7 @@ func Test_CreateUser__should_create_required_user(t *testing.T) {
 }
 
 func Test_DeleteUserWithEmail__should_delete_required_user(t *testing.T) {
-	_, uService := setupTest(t)
+	_, uService := setupUserTest(t)
 
 	testUser := entities.User{
 		Name:      "John Doe",
@@ -220,7 +198,7 @@ func Test_DeleteUserWithEmail__should_delete_required_user(t *testing.T) {
 }
 
 func Test_GetUserWithID__should_return_error(t *testing.T) {
-	tests := []errTestCase{
+	tests := []errUserTestCase{
 		{
 			name:    "when given id is invalid",
 			wantErr: ErrInvalidID,
@@ -234,7 +212,7 @@ func Test_GetUserWithID__should_return_error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo, uService := setupTest(t)
+			uRepo, uService := setupUserTest(t)
 			if tt.prep != nil {
 				tt.prep(t, uRepo)
 			}
@@ -249,7 +227,7 @@ func Test_GetUserWithID__should_return_error(t *testing.T) {
 }
 
 func Test_GetUserWithEmail__should_return_error(t *testing.T) {
-	tests := []errTestCase{
+	tests := []errUserTestCase{
 		{
 			name:    "when user with given email doesn't exist",
 			email:   "john@doe.com",
@@ -259,7 +237,7 @@ func Test_GetUserWithEmail__should_return_error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo, uService := setupTest(t)
+			uRepo, uService := setupUserTest(t)
 			if tt.prep != nil {
 				tt.prep(t, uRepo)
 			}
@@ -274,7 +252,7 @@ func Test_GetUserWithEmail__should_return_error(t *testing.T) {
 }
 
 func Test_UpdateUserWithID__should_return_error(t *testing.T) {
-	tests := []errTestCase{
+	tests := []errUserTestCase{
 		{
 			name:    "when given id is invalid",
 			id:      "2134abd1231231",
@@ -284,7 +262,7 @@ func Test_UpdateUserWithID__should_return_error(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uRepo, uService := setupTest(t)
+			uRepo, uService := setupUserTest(t)
 			if tt.prep != nil {
 				tt.prep(t, uRepo)
 			}
