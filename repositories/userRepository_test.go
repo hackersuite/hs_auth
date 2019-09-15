@@ -13,8 +13,6 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// TODO: integration tests
-
 func setupTest(t *testing.T) *mongo.Database {
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://hs_auth:password123@localhost:8003/hs_auth"))
 	assert.NoError(t, err)
