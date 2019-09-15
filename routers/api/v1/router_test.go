@@ -40,7 +40,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, nil, env)
 
 	tests := []struct {
 		route  string
@@ -78,6 +78,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			route:  "/users/email/verify",
 			method: http.MethodGet,
 		},
+		{
+			route:  "/teams/",
+			method: http.MethodPost,
+		},
 	}
 
 	for _, tt := range tests {
@@ -111,7 +115,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, errors.New("service err")).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, nil, env)
 
 	tests := []struct {
 		route        string
@@ -120,22 +124,27 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 	}{
 		{
 			route:        "/users/",
-			method:       "GET",
+			method:       http.MethodGet,
 			minAuthLevel: authlevels.Organizer,
 		},
 		{
 			route:        "/users/verify",
-			method:       "GET",
+			method:       http.MethodGet,
 			minAuthLevel: authlevels.Applicant,
 		},
 		{
 			route:        "/users/me",
-			method:       "GET",
+			method:       http.MethodGet,
 			minAuthLevel: authlevels.Applicant,
 		},
 		{
 			route:        "/users/me",
-			method:       "PUT",
+			method:       http.MethodPut,
+			minAuthLevel: authlevels.Applicant,
+		},
+		{
+			route:        "/teams/",
+			method:       http.MethodPost,
 			minAuthLevel: authlevels.Applicant,
 		},
 	}

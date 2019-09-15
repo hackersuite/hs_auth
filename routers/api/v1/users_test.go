@@ -54,7 +54,7 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	restoreVars()
 	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
 		BaseAuthLevel: 0,
-	}, mockUService, mockESercive, env)
+	}, mockUService, mockESercive, nil, env)
 	password, err := auth.GetHashForPassword(testPassword)
 	assert.NoError(t, err)
 	userID, err := primitive.ObjectIDFromHex(testUserID)
