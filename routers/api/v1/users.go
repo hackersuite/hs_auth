@@ -130,6 +130,11 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 // Headers:  Authorization -> token
 func (r *apiV1Router) Verify(ctx *gin.Context) {
 	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
+		return
+	}
 
 	r.logger.Info("claims", zap.Any("claims", claims))
 	ctx.JSON(http.StatusOK, verifyRes{
