@@ -18,7 +18,7 @@ import (
 
 	"github.com/unicsmcr/hs_auth/utils/auth/common"
 
-	"gopkg.in/dgrijalva/jwt-go.v3"
+	"github.com/dgrijalva/jwt-go"
 
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/testutils"
@@ -39,6 +39,11 @@ import (
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 )
 
+const testPassword = "password123"
+const testUserID = "5d7a9386e48fa16556c56411"
+const testAuthLevel = 3
+const testEmailVerified = true
+
 func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUserService, *mock_services.MockEmailService, *httptest.ResponseRecorder, *gin.Context, *gin.Engine, APIV1Router, entities.User, string) {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
@@ -51,15 +56,15 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
 		BaseAuthLevel: 0,
 	}, mockUService, mockESercive, env)
-	password, err := auth.GetHashForPassword("password123")
+	password, err := auth.GetHashForPassword(testPassword)
 	assert.NoError(t, err)
-	userID, err := primitive.ObjectIDFromHex("5d7a9386e48fa16556c56411")
+	userID, err := primitive.ObjectIDFromHex(testUserID)
 	assert.NoError(t, err)
 	testUser := entities.User{
-		AuthLevel:     3,
+		AuthLevel:     testAuthLevel,
 		Password:      password,
 		ID:            userID,
-		EmailVerified: true,
+		EmailVerified: testEmailVerified,
 	}
 	var token string
 	if env.Get(environment.JWTSecret) != "" {
@@ -85,7 +90,7 @@ func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
 	mockUService.EXPECT().GetUsers(gomock.Any()).Return(expectedRes.Users, nil).Times(1)
 
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 	router.GetUsers(testCtx)
 
@@ -109,7 +114,7 @@ func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testin
 	mockUService.EXPECT().GetUsers(gomock.Any()).Return(nil, errors.New(expectedAPIError.Err)).Times(1)
 
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 	router.GetUsers(testCtx)
 
@@ -268,7 +273,7 @@ func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 
 	router.Verify(testCtx)
@@ -282,7 +287,7 @@ func Test_Verify__should_return_StatusUnauthorized_for_invalid_token(t *testing.
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token+"some text")
+	req.Header.Set(authHeaderName, token+"some text")
 	testCtx.Request = req
 
 	router.Verify(testCtx)
@@ -297,7 +302,7 @@ func Test_Verify__should_return_StatusUnauthorized_for_email_token(t *testing.T)
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 
 	router.Verify(testCtx)
@@ -311,7 +316,7 @@ func Test_GetMe__should_return_401_if_auth_token_is_empty(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Del("Authorization")
+	req.Header.Del(authHeaderName)
 	testCtx.Request = req
 
 	router.GetMe(testCtx)
@@ -325,7 +330,7 @@ func Test_GetMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token+"some text")
+	req.Header.Set(authHeaderName, token+"some text")
 	testCtx.Request = req
 
 	router.GetMe(testCtx)
@@ -340,7 +345,7 @@ func Test_GetMe__should_return_401_if_token_is_email_token(t *testing.T) {
 	assert.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 
 	router.GetMe(testCtx)
@@ -354,7 +359,7 @@ func Test_GetMe__should_return_400_if_user_in_token_doesnt_exist(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(nil, services.ErrNotFound).Times(1)
 	testCtx.Request = req
@@ -370,7 +375,7 @@ func Test_GetMe__should_return_500_if_user_service_returns_err(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(nil, errors.New("service err")).Times(1)
 	testCtx.Request = req
@@ -386,7 +391,7 @@ func Test_GetMe__should_return_correct_user(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(&testUser, nil).Times(1)
 	testCtx.Request = req
@@ -434,7 +439,7 @@ func Test_PutMe__should_return_401_if_auth_token_is_invalid(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	req.Header.Set("Authorization", token+"some text")
+	req.Header.Set(authHeaderName, token+"some text")
 	testCtx.Request = req
 
 	router.PutMe(testCtx)
@@ -456,7 +461,7 @@ func Test_PutMe__should_return_500_when_user_service_returns_error(t *testing.T)
 
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 
 	router.PutMe(testCtx)
@@ -478,7 +483,7 @@ func Test_PutMe__should_set_the_users_name_to_required_value(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 
 	router.PutMe(testCtx)
@@ -500,7 +505,7 @@ func Test_PutMe__should_set_the_users_team_to_required_value(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 
 	router.PutMe(testCtx)
@@ -514,7 +519,7 @@ func Test_GetUsers__should_return_401_if_auth_token_is_invalid(t *testing.T) {
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Authorization", token+"some text")
+	req.Header.Set(authHeaderName, token+"some text")
 	testCtx.Request = req
 
 	router.GetUsers(testCtx)
@@ -533,7 +538,7 @@ func Test_GetUsers__should_return_401_if_auth_level_is_too_low(t *testing.T) {
 	}, 100, 0, auth.Auth, []byte("testsecret"))
 	assert.NoError(t, err)
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 
 	router.GetUsers(testCtx)
@@ -651,7 +656,7 @@ func Test_GetUsers__return_users_with_hidden_passwords(t *testing.T) {
 	mockUService.EXPECT().GetUsers(gomock.Any()).Return(expectedRes.Users, nil).Times(1)
 
 	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set("Authorization", token)
+	req.Header.Set(authHeaderName, token)
 	testCtx.Request = req
 	router.GetUsers(testCtx)
 
@@ -852,4 +857,79 @@ func Test_Register__should_return_200_and_correct_user(t *testing.T) {
 
 	assert.Equal(t, testUser, actualRes.User)
 	assert.Equal(t, passwordReplacementString, actualRes.User.Password)
+}
+
+func Test_AuthLevelVerifierFactory__should_return_middleware(t *testing.T) {
+	tests := []struct {
+		name           string
+		token          string
+		givenAuthLevel common.AuthLevel
+		wantNextCalled bool
+		wantAuthLevel  common.AuthLevel
+		wantResCode    int
+	}{
+		{
+			name:        "that returns 401 when given token is invalid",
+			token:       "not valid token",
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:           "that returns 401 when auth level is too low",
+			givenAuthLevel: 0,
+			wantAuthLevel:  3,
+			wantResCode:    http.StatusUnauthorized,
+		},
+		{
+			name:           "that returns 200 when auth level is equal to required",
+			givenAuthLevel: 3,
+			wantAuthLevel:  3,
+			wantResCode:    http.StatusOK,
+			wantNextCalled: true,
+		},
+		{
+			name:           "that returns 200 when auth level is above required",
+			givenAuthLevel: 4,
+			wantAuthLevel:  3,
+			wantResCode:    http.StatusOK,
+			wantNextCalled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, w, testCtx, testServer, router, _, _ := setupTest(t, map[string]string{
+				environment.JWTSecret: "supersecret",
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/test", nil)
+			if tt.token == "" {
+				testUser := entities.User{
+					AuthLevel: tt.givenAuthLevel,
+					ID:        primitive.NewObjectID(),
+				}
+				token, err := auth.NewJWT(testUser, 100, 0, auth.Auth, []byte("supersecret"))
+				assert.NoError(t, err)
+				req.Header.Set(authHeaderName, token)
+			} else {
+				req.Header.Set(authHeaderName, tt.token)
+			}
+			testCtx.Request = req
+
+			nextMiddlewareCalled := false
+
+			testServer.RouterGroup.POST("/test",
+				router.AuthLevelVerifierFactory(tt.wantAuthLevel),
+				func(ctx *gin.Context) {
+					nextMiddlewareCalled = true
+					claimsInterface, exists := ctx.Get(authClaimsKeyInCtx)
+					assert.True(t, exists)
+					_, ok := claimsInterface.(*auth.Claims)
+					assert.True(t, ok)
+				})
+			testServer.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.wantNextCalled, nextMiddlewareCalled)
+			assert.Equal(t, tt.wantResCode, w.Code)
+		})
+	}
 }

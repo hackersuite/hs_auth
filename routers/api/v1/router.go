@@ -6,8 +6,11 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.uber.org/zap"
 )
+
+const authHeaderName = "Authorization"
 
 // APIV1Router is the router for v1 of the API
 type APIV1Router interface {
@@ -19,6 +22,7 @@ type APIV1Router interface {
 	PutMe(*gin.Context)
 	Register(*gin.Context)
 	VerifyEmail(*gin.Context)
+	AuthLevelVerifierFactory(level authlevels.AuthLevel) func(*gin.Context)
 }
 
 type apiV1Router struct {
