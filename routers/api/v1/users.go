@@ -16,22 +16,35 @@ import (
 )
 
 const passwordReplacementString = "************"
+const authClaimsKeyInCtx = "auth_claims"
+
+// AuthLevelVerifierFactory creates a middleware that checks if the user's
+// auth token has the required auth level and attaches the auth claims to
+// the reques context. Will return a 401 if the auth token is invalid or has
+// an auth level that is too low
+func (r *apiV1Router) AuthLevelVerifierFactory(level authlevels.AuthLevel) func(*gin.Context) {
+	return func(ctx *gin.Context) {
+		token := ctx.GetHeader(authHeaderName)
+		claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+		if claims == nil || claims.TokenType != auth.Auth {
+			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+			ctx.Abort()
+			return
+		} else if claims.AuthLevel < level {
+			models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this endpoint")
+			ctx.Abort()
+			return
+		}
+		ctx.Set(authClaimsKeyInCtx, claims)
+		ctx.Next()
+	}
+}
 
 // GET: /api/v1/users/
 // Response: status int
 //           error string
 //           users []entities.User
 func (r *apiV1Router) GetUsers(ctx *gin.Context) {
-	token := ctx.GetHeader("Authorization")
-	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-		return
-	} else if claims.AuthLevel < authlevels.Organizer {
-		models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this endpoint")
-		return
-	}
-
 	users, err := r.userService.GetUsers(ctx)
 	if err != nil {
 		r.logger.Error("could not fetch users", zap.Error(err))
@@ -101,12 +114,12 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 
 	token, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
-		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
+		r.logger.Error("could not create JWT", zap.Any("user", *user), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")
 		return
 	}
 
-	ctx.Header("Authorization", token)
+	ctx.Header(authHeaderName, token)
 	ctx.JSON(http.StatusOK, loginRes{
 		Response: models.Response{
 			Status: http.StatusOK,
@@ -121,12 +134,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 //           error string
 // Headers:  Authorization -> token
 func (r *apiV1Router) Verify(ctx *gin.Context) {
-	token := ctx.GetHeader("Authorization")
-	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil || claims.TokenType != auth.Auth {
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-		return
-	}
+	claims := extractClaimsFromCtx(ctx)
 
 	r.logger.Info("claims", zap.Any("claims", claims))
 	ctx.JSON(http.StatusOK, verifyRes{
@@ -142,11 +150,10 @@ func (r *apiV1Router) Verify(ctx *gin.Context) {
 //           user entities.User
 // Headers:  Authorization -> token
 func (r *apiV1Router) GetMe(ctx *gin.Context) {
-	token := ctx.GetHeader("Authorization")
-	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil || claims.TokenType != auth.Auth {
-		r.logger.Warn("invalid token", zap.String("token", token))
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
 		return
 	}
 
@@ -184,10 +191,10 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 		return
 	}
 
-	token := ctx.GetHeader("Authorization")
-	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	claims := extractClaimsFromCtx(ctx)
 	if claims == nil {
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
 		return
 	}
 
