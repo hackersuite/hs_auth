@@ -705,6 +705,62 @@ func Test_VerifyEmail(t *testing.T) {
 	}
 }
 
+func Test_VerifyEmail(t *testing.T) {
+	tests := []struct {
+		name        string
+		token       string
+		wantResCode int
+		prep        func(userID string, mockUService *mock_services.MockUserService)
+	}{
+		{
+			name:        "should return 401 when no token is specified",
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:        "should return 401 when token is invalid",
+			token:       "notvalidtoken",
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:  "should return 500 when email service returns error",
+			token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDdhOTM4NmU0OGZhMTY1NTZjNTY0MTEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MywidG9rZW5fdHlwZSI6ImVtYWlsIn0.Hsi2STFazVwcQ73sG8BKg3dmIx_XnijFoJx6BNYuGPc",
+			prep: func(userID string, mockUService *mock_services.MockUserService) {
+				mockUService.EXPECT().UpdateUserWithID(gomock.Any(), userID, map[string]interface{}{
+					"email_verified": true,
+				}).Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:  "should return 200 when everything is alright",
+			token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDdhOTM4NmU0OGZhMTY1NTZjNTY0MTEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MywidG9rZW5fdHlwZSI6ImVtYWlsIn0.Hsi2STFazVwcQ73sG8BKg3dmIx_XnijFoJx6BNYuGPc",
+			prep: func(userID string, mockUService *mock_services.MockUserService) {
+				mockUService.EXPECT().UpdateUserWithID(gomock.Any(), userID, map[string]interface{}{
+					"email_verified": true,
+				}).Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
+				environment.JWTSecret: "testsecret",
+			})
+			if tt.prep != nil {
+				tt.prep(testUser.ID.Hex(), mockUService)
+			}
+
+			req := httptest.NewRequest("GET", fmt.Sprintf("/test?token=%s", tt.token), nil)
+			testCtx.Request = req
+
+			router.VerifyEmail(testCtx)
+			assert.Equal(t, tt.wantResCode, w.Code)
+		})
+	}
+}
+
 func Test_AuthLevelVerifierFactory__should_return_middleware(t *testing.T) {
 	tests := []struct {
 		name           string
