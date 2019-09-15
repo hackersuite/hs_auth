@@ -288,3 +288,135 @@ func Test_CreateTeam(t *testing.T) {
 		})
 	}
 }
+
+func Test_LeaveTeam(t *testing.T) {
+	tests := []struct {
+		name        string
+		teamID      string
+		prep        func(*teamTestSetup)
+		wantResCode int
+	}{
+		{
+			name: "should return 400 if request context is missing auth claims",
+			prep: func(setup *teamTestSetup) {
+				setup.testCtx.Set(authClaimsKeyInCtx, nil)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 500 if query for user with id fails",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 500 if query for team with id fails",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 500 if removing the user from the team fails when the user is not the team's creator",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(&entities.Team{
+						Creator: primitive.NewObjectID(),
+					}, nil).Times(1)
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
+					"team": primitive.NilObjectID,
+				}).Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 when removing a user from a team is successful and the user is not the team's creator",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(&entities.Team{
+						Creator: primitive.NewObjectID(),
+					}, nil).Times(1)
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
+					"team": primitive.NilObjectID,
+				}).Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
+			name: "should return 500 when removing all team's members from the team fails",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(&entities.Team{
+						ID:      setup.testUser.Team,
+						Creator: setup.testUser.ID,
+					}, nil).Times(1)
+				setup.mockUService.EXPECT().UpdateUsersWithTeam(gomock.Any(), setup.testUser.Team.Hex(), map[string]interface{}{
+					"team": primitive.NilObjectID,
+				}).Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 500 when deleting team fails",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(&entities.Team{
+						ID:      setup.testUser.Team,
+						Creator: setup.testUser.ID,
+					}, nil).Times(1)
+				setup.mockUService.EXPECT().UpdateUsersWithTeam(gomock.Any(), setup.testUser.Team.Hex(), map[string]interface{}{
+					"team": primitive.NilObjectID,
+				}).Return(nil).Times(1)
+				setup.mockTService.EXPECT().DeleteTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 when team creator leaves team",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(&entities.Team{
+						ID:      setup.testUser.Team,
+						Creator: setup.testUser.ID,
+					}, nil).Times(1)
+				setup.mockUService.EXPECT().UpdateUsersWithTeam(gomock.Any(), setup.testUser.Team.Hex(), map[string]interface{}{
+					"team": primitive.NilObjectID,
+				}).Return(nil).Times(1)
+				setup.mockTService.EXPECT().DeleteTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTeamTest(t, nil, 0)
+			teamID, _ := primitive.ObjectIDFromHex(tt.teamID)
+			setup.testUser.Team = teamID
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.router.LeaveTeam(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
