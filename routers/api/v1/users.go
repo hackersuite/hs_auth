@@ -309,7 +309,7 @@ func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
 	token := ctx.Query("token")
 	if len(token) == 0 {
 		r.logger.Warn("token not specified")
-		models.SendAPIError(ctx, http.StatusBadRequest, "no token specified")
+		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
 		return
 	}
 
