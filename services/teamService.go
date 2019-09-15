@@ -19,6 +19,7 @@ import (
 type TeamService interface {
 	GetTeams(context.Context) ([]entities.Team, error)
 	GetTeamWithID(ctx context.Context, id string) (*entities.Team, error)
+	GetTeamWithName(ctx context.Context, name string) (*entities.Team, error)
 	CreateTeam(ctx context.Context, name, creatorID string) (*entities.Team, error)
 	DeleteTeamWithID(ctx context.Context, id string) error
 }
@@ -66,6 +67,26 @@ func (s *teamService) GetTeamWithID(ctx context.Context, id string) (*entities.T
 
 	res := s.teamRepository.FindOne(ctx, bson.M{
 		"_id": mongoID,
+	})
+
+	if err := res.Err(); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var team entities.Team
+	if err := res.Decode(&team); err != nil {
+		return nil, err
+	}
+
+	return &team, nil
+}
+
+func (s *teamService) GetTeamWithName(ctx context.Context, name string) (*entities.Team, error) {
+	res := s.teamRepository.FindOne(ctx, bson.M{
+		"name": name,
 	})
 
 	if err := res.Err(); err != nil {
