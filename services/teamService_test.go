@@ -1,5 +1,3 @@
-// +build integration
-
 package services
 
 import (
@@ -30,9 +28,6 @@ func setupTeamTest(t *testing.T) (repositories.TeamRepository, TeamService) {
 	assert.NoError(t, err)
 
 	teamService := NewTeamService(zap.NewNop(), teamRepository)
-
-	err = teamRepository.Drop(context.Background())
-	assert.NoError(t, err)
 
 	return teamRepository, teamService
 }
@@ -109,6 +104,50 @@ func Test_DeleteTeamWithID__should_delete_correct_team(t *testing.T) {
 	assert.Error(t, err)
 
 	assert.Equal(t, ErrNotFound, err)
+}
+
+func Test_GetTeamWithName(t *testing.T) {
+	tests := []struct {
+		name     string
+		teamName string
+		prep     func(repositories.TeamRepository)
+		wantTeam *entities.Team
+		wantErr  error
+	}{
+		{
+			name:     "should return error if team with given name doesn't exist",
+			teamName: "non-existant team",
+			wantErr:  ErrNotFound,
+		},
+		{
+			name:     "should return correct team",
+			teamName: "test team 1",
+			prep: func(tRepo repositories.TeamRepository) {
+				_, err := tRepo.InsertOne(context.Background(), entities.Team{
+					Name: "test team 1",
+				})
+				assert.NoError(t, err)
+			},
+			wantTeam: &entities.Team{
+				Name: "test team 1",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tRepo, tService := setupTeamTest(t)
+			defer tRepo.Drop(context.Background())
+			if tt.prep != nil {
+				tt.prep(tRepo)
+			}
+
+			team, err := tService.GetTeamWithName(context.Background(), tt.teamName)
+
+			assert.Equal(t, tt.wantErr, err)
+			assert.Equal(t, tt.wantTeam, team)
+		})
+	}
 }
 
 func Test_GetTeamWithID__should_return_error(t *testing.T) {
