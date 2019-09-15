@@ -51,11 +51,14 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 
 	usersGroup := routerGroup.Group("/users")
 
-	usersGroup.GET("/", r.GetUsers)
+	isAtLeastApplicant := r.AuthLevelVerifierFactory(authlevels.Applicant)
+	isAtLeastOrganizer := r.AuthLevelVerifierFactory(authlevels.Organizer)
+
+	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 	usersGroup.GET("/email/verify", r.VerifyEmail)
-	usersGroup.GET("/verify", r.Verify)
-	usersGroup.GET("/me", r.GetMe)
-	usersGroup.PUT("/me", r.PutMe)
+	usersGroup.GET("/verify", isAtLeastApplicant, r.Verify)
+	usersGroup.GET("/me", isAtLeastApplicant, r.GetMe)
+	usersGroup.PUT("/me", isAtLeastApplicant, r.PutMe)
 }
