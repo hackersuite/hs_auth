@@ -24,6 +24,7 @@ type UserService interface {
 	GetUsers(context.Context) ([]entities.User, error)
 	CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error)
 	UpdateUserWithID(context.Context, string, map[string]interface{}) error
+	UpdateUsersWithTeam(ctx context.Context, teamID string, fieldsToUpdate map[string]interface{}) error
 	DeleteUserWithEmail(ctx context.Context, email string) error
 }
 
@@ -154,6 +155,21 @@ func (s *userService) CreateUser(ctx context.Context, name, email, password stri
 func (s *userService) DeleteUserWithEmail(ctx context.Context, email string) error {
 	_, err := s.userRepository.DeleteOne(ctx, bson.M{
 		"email": email,
+	})
+
+	return err
+}
+
+func (s *userService) UpdateUsersWithTeam(ctx context.Context, teamID string, fieldsToUpdate map[string]interface{}) error {
+	mongoID, err := primitive.ObjectIDFromHex(teamID)
+	if err != nil {
+		return ErrInvalidID
+	}
+
+	_, err = s.userRepository.UpdateMany(ctx, bson.M{
+		"team": mongoID,
+	}, bson.M{
+		"$set": fieldsToUpdate,
 	})
 
 	return err
