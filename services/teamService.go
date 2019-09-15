@@ -19,6 +19,8 @@ import (
 type TeamService interface {
 	GetTeams(context.Context) ([]entities.Team, error)
 	GetTeamWithID(ctx context.Context, id string) (*entities.Team, error)
+	CreateTeam(ctx context.Context, name, creatorID string) (*entities.Team, error)
+	DeleteTeamWithID(ctx context.Context, id string) error
 }
 
 type teamService struct {
@@ -79,4 +81,36 @@ func (s *teamService) GetTeamWithID(ctx context.Context, id string) (*entities.T
 	}
 
 	return &team, nil
+}
+
+func (s *teamService) CreateTeam(ctx context.Context, name, creatorID string) (*entities.Team, error) {
+	creatorMongoID, err := primitive.ObjectIDFromHex(creatorID)
+	if err != nil {
+		return nil, ErrInvalidID
+	}
+
+	team := &entities.Team{
+		ID:      primitive.NewObjectID(),
+		Name:    name,
+		Creator: creatorMongoID,
+	}
+
+	_, err = s.teamRepository.InsertOne(ctx, *team)
+	if err != nil {
+		return nil, err
+	}
+
+	return team, nil
+}
+
+func (s *teamService) DeleteTeamWithID(ctx context.Context, id string) error {
+	mongoID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return ErrInvalidID
+	}
+
+	_, err = s.teamRepository.DeleteOne(ctx, bson.M{
+		"_id": mongoID,
+	})
+	return err
 }
