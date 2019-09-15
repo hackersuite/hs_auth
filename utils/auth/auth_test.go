@@ -46,7 +46,7 @@ func Test_NewJWT__should_return_correct_JWT(t *testing.T) {
 }
 
 // TODO: outdated tests
-func Test_IsValidJWT__should_return_correct_auth_claims_for_valid_JWT(t *testing.T) {
+func Test_GetJWTClaims__should_return_correct_auth_claims_for_valid_JWT(t *testing.T) {
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
 		AuthLevel: 3,
@@ -64,7 +64,7 @@ func Test_IsValidJWT__should_return_correct_auth_claims_for_valid_JWT(t *testing
 	assert.Equal(t, testUser.AuthLevel, claims.AuthLevel)
 	assert.Equal(t, Email, claims.TokenType)
 }
-func Test_IsValidJWT__should_return_nil_for_invalid_JWT(t *testing.T) {
+func Test_GetJWTClaims__should_return_nil_for_invalid_JWT(t *testing.T) {
 	// token with an increased auth_level in claims (signed with the secret "test_secret")
 	invalidToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9eyJqdGkiOiI1ZDZlYzA2Nzg4ODJhMTFhYmE0ZjMzODEiLCJpYXQiOjEwMSwiYXV0aF9sZXZlbCI6NH0HbBIrZiQxexzKrnU+GCM8VCs3ZwxaMg=="
 
