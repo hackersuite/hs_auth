@@ -25,6 +25,7 @@ type APIV1Router interface {
 	AuthLevelVerifierFactory(level authlevels.AuthLevel) func(*gin.Context)
 	GetTeams(*gin.Context)
 	CreateTeam(*gin.Context)
+	LeaveTeam(*gin.Context)
 }
 
 type apiV1Router struct {
@@ -68,4 +69,5 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	teamsGroup := routerGroup.Group("/teams")
 	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)
 	teamsGroup.POST("/", isAtLeastApplicant, r.CreateTeam)
+	teamsGroup.DELETE("/leave", isAtLeastApplicant, r.LeaveTeam)
 }

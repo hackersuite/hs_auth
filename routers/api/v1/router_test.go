@@ -88,6 +88,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			route:  "/teams/",
 			method: http.MethodPost,
 		},
+		{
+			route:  "/teams/leave",
+			method: http.MethodDelete,
+		},
 	}
 
 	for _, tt := range tests {
@@ -158,6 +162,11 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		{
 			route:        "/teams/",
 			method:       http.MethodPost,
+			minAuthLevel: authlevels.Applicant,
+		},
+		{
+			route:        "/teams/leave",
+			method:       http.MethodDelete,
 			minAuthLevel: authlevels.Applicant,
 		},
 	}

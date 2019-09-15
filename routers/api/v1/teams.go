@@ -116,3 +116,61 @@ func (r *apiV1Router) CreateTeam(ctx *gin.Context) {
 		Team: *team,
 	})
 }
+
+// DELETE: /api/v1/teams/leave
+// Response: status int
+//           error string
+// Headers:  Authorization -> token
+func (r *apiV1Router) LeaveTeam(ctx *gin.Context) {
+	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		r.logger.Error("could not fetch user", zap.String("user id", claims.Id), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	team, err := r.teamService.GetTeamWithID(ctx, user.Team.Hex())
+	if err != nil {
+		r.logger.Error("could not fetch user's team", zap.String("user id", claims.Id), zap.String("team id", user.Team.Hex()), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	if team.Creator == user.ID {
+		// Team creator left team, deleting team and removing all members from the team
+		err := r.userService.UpdateUsersWithTeam(ctx, team.ID.Hex(), map[string]interface{}{
+			"team": primitive.NilObjectID,
+		})
+		if err != nil {
+			r.logger.Error("could not remove users from team", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+		err = r.teamService.DeleteTeamWithID(ctx, team.ID.Hex())
+		if err != nil {
+			r.logger.Error("could not delete team", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+	} else {
+		err := r.userService.UpdateUserWithID(ctx, claims.Id, map[string]interface{}{
+			"team": primitive.NilObjectID,
+		})
+		if err != nil {
+			r.logger.Error("user could not leave their team", zap.String("user id", claims.Id), zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+	}
+
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
+	})
+}
