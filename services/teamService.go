@@ -3,6 +3,10 @@ package services
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/mongo"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+
 	"go.mongodb.org/mongo-driver/bson"
 
 	"github.com/unicsmcr/hs_auth/repositories"
@@ -14,6 +18,7 @@ import (
 // TeamService is the service for interactions with a remote teams repository
 type TeamService interface {
 	GetTeams(context.Context) ([]entities.Team, error)
+	GetTeamWithID(ctx context.Context, id string) (*entities.Team, error)
 }
 
 type teamService struct {
@@ -49,4 +54,29 @@ func (s *teamService) GetTeams(ctx context.Context) ([]entities.Team, error) {
 	}
 
 	return teams, nil
+}
+
+func (s *teamService) GetTeamWithID(ctx context.Context, id string) (*entities.Team, error) {
+	mongoID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, ErrInvalidID
+	}
+
+	res := s.teamRepository.FindOne(ctx, bson.M{
+		"_id": mongoID,
+	})
+
+	if err := res.Err(); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	var team entities.Team
+	if err := res.Decode(&team); err != nil {
+		return nil, err
+	}
+
+	return &team, nil
 }
