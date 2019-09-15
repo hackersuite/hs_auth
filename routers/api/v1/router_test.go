@@ -36,11 +36,13 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	mockUserService := mock_services.NewMockUserService(ctrl)
+	mockTeamService := mock_services.NewMockTeamService(ctrl)
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
+	mockTeamService.EXPECT().GetTeams(gomock.Any()).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, nil, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, mockTeamService, env)
 
 	tests := []struct {
 		route  string
@@ -80,6 +82,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 		},
 		{
 			route:  "/teams/",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/teams/",
 			method: http.MethodPost,
 		},
 	}
@@ -110,12 +116,14 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 
 	ctrl := gomock.NewController(t)
 	mockUserService := mock_services.NewMockUserService(ctrl)
+	mockTeamService := mock_services.NewMockTeamService(ctrl)
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, errors.New("service err")).AnyTimes()
+	mockTeamService.EXPECT().GetTeams(gomock.Any()).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, nil, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, mockTeamService, env)
 
 	tests := []struct {
 		route        string
@@ -141,6 +149,11 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 			route:        "/users/me",
 			method:       http.MethodPut,
 			minAuthLevel: authlevels.Applicant,
+		},
+		{
+			route:        "/teams/",
+			method:       http.MethodGet,
+			minAuthLevel: authlevels.Organizer,
 		},
 		{
 			route:        "/teams/",
