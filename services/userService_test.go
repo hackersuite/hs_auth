@@ -341,3 +341,51 @@ func Test_UpdateUserWithID__should_return_error(t *testing.T) {
 		})
 	}
 }
+
+func Test_GetUsersWithTeam__should_return_correct_users(t *testing.T) {
+	uRepo, uService := setupUserTest(t)
+	defer uRepo.Drop(context.Background())
+
+	teamID := primitive.NewObjectID()
+
+	testUsers := []interface{}{
+		entities.User{ID: primitive.NewObjectID(), Team: teamID},
+		entities.User{ID: primitive.NewObjectID(), Team: teamID},
+		entities.User{ID: primitive.NewObjectID(), Team: primitive.NewObjectID()},
+	}
+
+	_, err := uRepo.InsertMany(context.Background(), testUsers)
+	assert.NoError(t, err)
+
+	users, err := uService.GetUsersWithTeam(context.Background(), teamID.Hex())
+	assert.NoError(t, err)
+
+	assert.Len(t, users, 2)
+	assert.Equal(t, testUsers[0], users[0])
+	assert.Equal(t, testUsers[1], users[1])
+}
+
+func Test_GetUsersWithTeam__should_return_err(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		wantErr error
+	}{
+		{
+			name:    "when team id is invalid",
+			id:      "123213",
+			wantErr: ErrInvalidID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			uRepo, uService := setupUserTest(t)
+			defer uRepo.Drop(context.Background())
+
+			_, err := uService.GetUsersWithTeam(context.Background(), tt.id)
+
+			assert.Equal(t, tt.wantErr, err)
+		})
+	}
+}
