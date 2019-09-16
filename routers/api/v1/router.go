@@ -28,6 +28,7 @@ type APIV1Router interface {
 	LeaveTeam(*gin.Context)
 	JoinTeam(*gin.Context)
 	GetTeamMembers(*gin.Context)
+	GetPasswordResetEmail(*gin.Context)
 }
 
 type apiV1Router struct {
@@ -67,6 +68,7 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/verify", isAtLeastApplicant, r.Verify)
 	usersGroup.GET("/me", isAtLeastApplicant, r.GetMe)
 	usersGroup.PUT("/me", isAtLeastApplicant, r.PutMe)
+	usersGroup.GET("/password/reset", isAtLeastApplicant, r.GetPasswordResetEmail)
 
 	teamsGroup := routerGroup.Group("/teams")
 	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)

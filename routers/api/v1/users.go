@@ -349,3 +349,45 @@ func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
 		Status: http.StatusOK,
 	})
 }
+
+// GET: /api/v1/users/password/reset
+// Request:  token string
+// Response: status int
+//           error string
+func (r *apiV1Router) GetPasswordResetEmail(ctx *gin.Context) {
+	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		r.logger.Error("could not fetch user", zap.String("id", claims.Id), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 100, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
+	if err != nil {
+		r.logger.Error("could not make email token for user",
+			zap.String("user id", claims.Id),
+			zap.String("jwt secret env var name", environment.JWTSecret),
+			zap.Bool("jwt secret set", r.env.Get(environment.JWTSecret) == environment.DefaultEnvVarValue),
+			zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err = r.emailService.SendPasswordResetEmail(*user, emailToken)
+	if err != nil {
+		r.logger.Error("could not send password reset email", zap.String("user id", user.ID.Hex()), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
+	})
+}

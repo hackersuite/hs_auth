@@ -100,6 +100,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			route:  "/teams/123abd/members",
 			method: http.MethodGet,
 		},
+		{
+			route:  "/users/password/reset",
+			method: http.MethodGet,
+		},
 	}
 
 	for _, tt := range tests {
@@ -184,6 +188,11 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		},
 		{
 			route:        "/teams/123abd/members",
+			method:       http.MethodGet,
+			minAuthLevel: authlevels.Applicant,
+		},
+		{
+			route:        "/users/password/reset",
 			method:       http.MethodGet,
 			minAuthLevel: authlevels.Applicant,
 		},

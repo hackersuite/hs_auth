@@ -94,7 +94,7 @@ func setupUserTest(t *testing.T, envVars map[string]string, authLevel common.Aut
 
 	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
 		BaseAuthLevel: 0,
-	}, mockUService, nil, mockTService, env)
+	}, mockUService, mockEService, mockTService, env)
 
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
@@ -889,7 +889,7 @@ func Test_PutMe(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupTeamTest(t, nil, 0)
+			setup := setupUserTest(t, nil, 0)
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -903,6 +903,65 @@ func Test_PutMe(t *testing.T) {
 			setup.testCtx.Request = req
 
 			setup.router.PutMe(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_GetPasswordResetEmail(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		wantResCode int
+	}{
+		{
+			name: "should return 400 when auth claims are missing from request's context",
+			prep: func(setup *testSetup) {
+				setup.testCtx.Set(authClaimsKeyInCtx, nil)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 500 when query for user fails",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 500 when query to email service fails",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockEService.EXPECT().SendPasswordResetEmail(*setup.testUser, gomock.Any()).
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 when all is good",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockEService.EXPECT().SendPasswordResetEmail(*setup.testUser, gomock.Any()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUserTest(t, map[string]string{
+				environment.JWTSecret: "supersecret",
+			}, 0)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.router.GetPasswordResetEmail(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})
