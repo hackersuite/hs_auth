@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -548,6 +549,155 @@ func Test_JoinTeam(t *testing.T) {
 			setup.router.JoinTeam(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_GetTeamMembers(t *testing.T) {
+	tests := []struct {
+		name        string
+		teamID      string
+		authLevel   common.AuthLevel
+		prep        func(*teamTestSetup)
+		wantRes     *getTeamMembersRes
+		wantResCode int
+	}{
+		{
+			name:        "should return 400 when team id is not provided",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 400 if request context is missing auth claims",
+			teamID: "5d7fd41dcccdb2114ee34754",
+			prep: func(setup *teamTestSetup) {
+				setup.testCtx.Set(authClaimsKeyInCtx, nil)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 500 when user is not organizer and query to get user fails",
+			teamID: "5d7fd41dcccdb2114ee34754",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:   "should return 400 when user is not organizer and they are in a different team",
+			teamID: "5d7fd41dcccdb2114ee34754",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(&entities.User{Team: primitive.NewObjectID()}, nil).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:      "should return 400 when given team id is invalid",
+			authLevel: common.Organizer,
+			teamID:    "5d7fd41dcccdb2114",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114").
+					Return(nil, services.ErrInvalidID).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:      "should return 400 when team with given id doesn't exist",
+			authLevel: common.Organizer,
+			teamID:    "5d7fd41dcccdb2114ee34754",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:      "should return 500 when query to get users fails",
+			authLevel: common.Organizer,
+			teamID:    "5d7fd41dcccdb2114ee34754",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:      "should return 200 and expected response when user is organizer",
+			authLevel: common.Organizer,
+			teamID:    "5d7fd41dcccdb2114ee34754",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
+					Return([]entities.User{
+						{Name: "John Doe"},
+						{Name: "Jane Doe"},
+					}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &getTeamMembersRes{
+				Response: models.Response{
+					Status: http.StatusOK,
+				},
+				Users: []entities.User{
+					{Name: "John Doe"},
+					{Name: "Jane Doe"},
+				},
+			},
+		},
+		{
+			name:   "should return 200 and expected response when user is not organizer",
+			teamID: "5d7fd41dcccdb2114ee34754",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
+					Return([]entities.User{
+						{Name: "John Doe"},
+						{Name: "Jane Doe"},
+					}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &getTeamMembersRes{
+				Response: models.Response{
+					Status: http.StatusOK,
+				},
+				Users: []entities.User{
+					{Name: "John Doe"},
+					{Name: "Jane Doe"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTeamTest(t, nil, 0)
+			teamID, _ := primitive.ObjectIDFromHex(tt.teamID)
+			setup.testUser.Team = teamID
+			setup.claims.AuthLevel = tt.authLevel
+			setup.testCtx.Set(authClaimsKeyInCtx, setup.claims)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.testCtx.Params = gin.Params{
+				gin.Param{Key: "id", Value: tt.teamID},
+			}
+
+			setup.router.GetTeamMembers(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				actualResStr, err := ioutil.ReadAll(setup.w.Body)
+				assert.NoError(t, err)
+
+				var actualRes getTeamMembersRes
+				err = json.Unmarshal([]byte(actualResStr), &actualRes)
+
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
 		})
 	}
 }

@@ -3,6 +3,8 @@ package v1
 import (
 	"net/http"
 
+	"github.com/unicsmcr/hs_auth/utils/auth/common"
+
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"github.com/unicsmcr/hs_auth/services"
@@ -243,5 +245,71 @@ func (r *apiV1Router) JoinTeam(ctx *gin.Context) {
 
 	ctx.JSON(http.StatusOK, models.Response{
 		Status: http.StatusOK,
+	})
+}
+
+// GET: /api/v1/teams/:id/members
+// Response: status int
+//           error string
+//           users []entities.User
+// Headers:  Authorization -> token
+func (r *apiV1Router) GetTeamMembers(ctx *gin.Context) {
+	team := ctx.Param("id")
+	if len(team) == 0 {
+		r.logger.Warn("team id not provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "team id must be provided")
+		return
+	}
+
+	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
+		return
+	}
+
+	if claims.AuthLevel < common.Organizer {
+		user, err := r.userService.GetUserWithID(ctx, claims.Id)
+		if err != nil {
+			r.logger.Error("could not fetch user with id", zap.String("id", claims.Id), zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+
+		if user.Team.Hex() != team {
+			r.logger.Warn("user is not in team and has an auth level less than organizer",
+				zap.String("user id", claims.Id),
+				zap.String("user's team", user.Team.Hex()),
+				zap.Int("user's auth level", int(claims.AuthLevel)),
+				zap.String("team id in request", team))
+			// don't want to reveal to the user that a team with given id exists
+			// as the id can be used to join the team
+			models.SendAPIError(ctx, http.StatusBadRequest, "could not find team with given id")
+			return
+		}
+	}
+
+	users, err := r.userService.GetUsersWithTeam(ctx, team)
+	if err != nil {
+		if err == services.ErrInvalidID {
+			r.logger.Warn("invalid team id", zap.String("id", team))
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid team id")
+			return
+		} else if err == services.ErrNotFound {
+			r.logger.Warn("team with given id doesn't exist", zap.String("id", team))
+			models.SendAPIError(ctx, http.StatusBadRequest, "could not find team with given id")
+			return
+		} else {
+			r.logger.Error("could not fetch team with id", zap.String("id", team), zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			return
+		}
+	}
+
+	ctx.JSON(http.StatusOK, getTeamMembersRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Users: users,
 	})
 }
