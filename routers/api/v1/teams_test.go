@@ -36,9 +36,10 @@ import (
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 )
 
-type teamTestSetup struct {
+type testSetup struct {
 	mockUService *mock_services.MockUserService
 	mockTService *mock_services.MockTeamService
+	mockEService *mock_services.MockEmailService
 	env          *environment.Env
 	router       APIV1Router
 	testUser     *entities.User
@@ -46,9 +47,10 @@ type teamTestSetup struct {
 	testCtx      *gin.Context
 	testServer   *gin.Engine
 	claims       *auth.Claims
+	emailToken        string
 }
 
-func setupTeamTest(t *testing.T, envVars map[string]string, authLevel common.AuthLevel) *teamTestSetup {
+func setupTeamTest(t *testing.T, envVars map[string]string, authLevel common.AuthLevel) *testSetup {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
@@ -80,7 +82,7 @@ func setupTeamTest(t *testing.T, envVars map[string]string, authLevel common.Aut
 	testCtx, testServer := gin.CreateTestContext(w)
 	testCtx.Set(authClaimsKeyInCtx, claims)
 
-	return &teamTestSetup{
+	return &testSetup{
 		mockUService: mockUService,
 		mockTService: mockTService,
 		env:          env,
@@ -96,20 +98,20 @@ func setupTeamTest(t *testing.T, envVars map[string]string, authLevel common.Aut
 func Test_GetTeams(t *testing.T) {
 	tests := []struct {
 		name        string
-		prep        func(*teamTestSetup)
+		prep        func(*testSetup)
 		wantResCode int
 		wantRes     *getTeamsRes
 	}{
 		{
 			name: "should return 500 when fetching teams fails",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockTService.EXPECT().GetTeams(gomock.Any()).Return(nil, errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
 			name: "should return 200 and the correct teams",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockTService.EXPECT().GetTeams(gomock.Any()).Return([]entities.Team{
 					{Name: "test team 1"},
 					{Name: "test team 2"},
@@ -156,7 +158,7 @@ func Test_CreateTeam(t *testing.T) {
 	tests := []struct {
 		name        string
 		teamName    string
-		prep        func(*teamTestSetup)
+		prep        func(*testSetup)
 		wantResCode int
 	}{
 		{
@@ -166,7 +168,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 400 when there are no auth claim in request's context",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.testCtx.Set(authClaimsKeyInCtx, nil)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -174,7 +176,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 400 when user in auth claims doesn't exist",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(nil, services.ErrNotFound).Times(1)
 			},
@@ -183,7 +185,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 500 when query for user with id fails",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(nil, errors.New("service err")).Times(1)
 			},
@@ -192,7 +194,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 400 when user is already in a team",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{Team: primitive.NewObjectID()}, nil).Times(1)
 			},
@@ -201,7 +203,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 400 when team name is taken",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{}, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithName(gomock.Any(), "test team 1").
@@ -212,7 +214,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 500 when query for team with name fails",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{}, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithName(gomock.Any(), "test team 1").
@@ -223,7 +225,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 500 when query to create team fails",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{}, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithName(gomock.Any(), "test team 1").
@@ -236,7 +238,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 500 and try to delete new team when query to add user to new team fails",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{}, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithName(gomock.Any(), "test team 1").
@@ -254,7 +256,7 @@ func Test_CreateTeam(t *testing.T) {
 		{
 			name:     "should return 200 when team gets created and user gets added to the new team",
 			teamName: "test team 1",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{}, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithName(gomock.Any(), "test team 1").
@@ -295,19 +297,19 @@ func Test_LeaveTeam(t *testing.T) {
 	tests := []struct {
 		name        string
 		teamID      string
-		prep        func(*teamTestSetup)
+		prep        func(*testSetup)
 		wantResCode int
 	}{
 		{
 			name: "should return 400 if request context is missing auth claims",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.testCtx.Set(authClaimsKeyInCtx, nil)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
 			name: "should return 500 if query for user with id fails",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(nil, services.ErrNotFound).Times(1)
 			},
@@ -315,7 +317,7 @@ func Test_LeaveTeam(t *testing.T) {
 		},
 		{
 			name: "should return 400 if user is not in a team",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{Team: primitive.NilObjectID}, nil).Times(1)
 			},
@@ -323,7 +325,7 @@ func Test_LeaveTeam(t *testing.T) {
 		},
 		{
 			name: "should return 500 if query for team with id fails",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
@@ -333,7 +335,7 @@ func Test_LeaveTeam(t *testing.T) {
 		},
 		{
 			name: "should return 500 if removing the user from the team fails when the user is not the team's creator",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
@@ -348,7 +350,7 @@ func Test_LeaveTeam(t *testing.T) {
 		},
 		{
 			name: "should return 200 when removing a user from a team is successful and the user is not the team's creator",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
@@ -363,7 +365,7 @@ func Test_LeaveTeam(t *testing.T) {
 		},
 		{
 			name: "should return 500 when removing all team's members from the team fails",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
@@ -379,7 +381,7 @@ func Test_LeaveTeam(t *testing.T) {
 		},
 		{
 			name: "should return 500 when deleting team fails",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
@@ -397,7 +399,7 @@ func Test_LeaveTeam(t *testing.T) {
 		},
 		{
 			name: "should return 200 when team creator leaves team",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), setup.testUser.Team.Hex()).
@@ -437,7 +439,7 @@ func Test_JoinTeam(t *testing.T) {
 	tests := []struct {
 		name        string
 		teamID      string
-		prep        func(*teamTestSetup)
+		prep        func(*testSetup)
 		wantResCode int
 	}{
 		{
@@ -452,7 +454,7 @@ func Test_JoinTeam(t *testing.T) {
 		{
 			name:   "should return 400 if request context is missing auth claims",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.testCtx.Set(authClaimsKeyInCtx, nil)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -460,7 +462,7 @@ func Test_JoinTeam(t *testing.T) {
 		{
 			name:   "should return 500 when query for user fails",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(nil, errors.New("service err")).Times(1)
 			},
@@ -469,7 +471,7 @@ func Test_JoinTeam(t *testing.T) {
 		{
 			name:   "should return 400 if user already has a team",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 			},
@@ -478,7 +480,7 @@ func Test_JoinTeam(t *testing.T) {
 		{
 			name:   "should return 400 if team with given id doesn't exist",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.testUser.Team = primitive.NilObjectID
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
@@ -490,7 +492,7 @@ func Test_JoinTeam(t *testing.T) {
 		{
 			name:   "should return 500 if query for team fails",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.testUser.Team = primitive.NilObjectID
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
@@ -502,7 +504,7 @@ func Test_JoinTeam(t *testing.T) {
 		{
 			name:   "should return 500 if query for to update user's team fails",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				teamID := setup.testUser.Team
 				setup.testUser.Team = primitive.NilObjectID
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
@@ -518,7 +520,7 @@ func Test_JoinTeam(t *testing.T) {
 		{
 			name:   "should return 200 if everything goes well",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				teamID := setup.testUser.Team
 				setup.testUser.Team = primitive.NilObjectID
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
@@ -558,7 +560,7 @@ func Test_GetTeamMembers(t *testing.T) {
 		name        string
 		teamID      string
 		authLevel   common.AuthLevel
-		prep        func(*teamTestSetup)
+		prep        func(*testSetup)
 		wantRes     *getTeamMembersRes
 		wantResCode int
 	}{
@@ -569,7 +571,7 @@ func Test_GetTeamMembers(t *testing.T) {
 		{
 			name:   "should return 400 if request context is missing auth claims",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.testCtx.Set(authClaimsKeyInCtx, nil)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -577,7 +579,7 @@ func Test_GetTeamMembers(t *testing.T) {
 		{
 			name:   "should return 500 when user is not organizer and query to get user fails",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(nil, errors.New("service err")).Times(1)
 			},
@@ -586,7 +588,7 @@ func Test_GetTeamMembers(t *testing.T) {
 		{
 			name:   "should return 400 when user is not organizer and they are in a different team",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(&entities.User{Team: primitive.NewObjectID()}, nil).Times(1)
 			},
@@ -596,7 +598,7 @@ func Test_GetTeamMembers(t *testing.T) {
 			name:      "should return 400 when given team id is invalid",
 			authLevel: common.Organizer,
 			teamID:    "5d7fd41dcccdb2114",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114").
 					Return(nil, services.ErrInvalidID).Times(1)
 			},
@@ -606,7 +608,7 @@ func Test_GetTeamMembers(t *testing.T) {
 			name:      "should return 400 when team with given id doesn't exist",
 			authLevel: common.Organizer,
 			teamID:    "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
 					Return(nil, services.ErrNotFound).Times(1)
 			},
@@ -616,7 +618,7 @@ func Test_GetTeamMembers(t *testing.T) {
 			name:      "should return 500 when query to get users fails",
 			authLevel: common.Organizer,
 			teamID:    "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
 					Return(nil, errors.New("service err")).Times(1)
 			},
@@ -626,7 +628,7 @@ func Test_GetTeamMembers(t *testing.T) {
 			name:      "should return 200 and expected response when user is organizer",
 			authLevel: common.Organizer,
 			teamID:    "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
 					Return([]entities.User{
 						{Name: "John Doe"},
@@ -647,7 +649,7 @@ func Test_GetTeamMembers(t *testing.T) {
 		{
 			name:   "should return 200 and expected response when user is not organizer",
 			teamID: "5d7fd41dcccdb2114ee34754",
-			prep: func(setup *teamTestSetup) {
+			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.testUser.ID.Hex()).
 					Return(setup.testUser, nil).Times(1)
 				setup.mockUService.EXPECT().GetUsersWithTeam(gomock.Any(), "5d7fd41dcccdb2114ee34754").
