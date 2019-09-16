@@ -47,7 +47,7 @@ type testSetup struct {
 	testCtx      *gin.Context
 	testServer   *gin.Engine
 	claims       *auth.Claims
-	emailToken        string
+	emailToken   string
 }
 
 func setupTeamTest(t *testing.T, envVars map[string]string, authLevel common.AuthLevel) *testSetup {
