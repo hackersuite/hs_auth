@@ -45,7 +45,6 @@ func Test_NewJWT__should_return_correct_JWT(t *testing.T) {
 	assert.Equal(t, expectedToken, actualToken)
 }
 
-// TODO: outdated tests
 func Test_GetJWTClaims__should_return_correct_auth_claims_for_valid_JWT(t *testing.T) {
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
