@@ -136,6 +136,12 @@ func (r *apiV1Router) LeaveTeam(ctx *gin.Context) {
 		return
 	}
 
+	if user.Team == primitive.NilObjectID {
+		r.logger.Warn("user is not in a team", zap.String("user id", claims.Id))
+		models.SendAPIError(ctx, http.StatusBadRequest, "you are not in a team")
+		return
+	}
+
 	team, err := r.teamService.GetTeamWithID(ctx, user.Team.Hex())
 	if err != nil {
 		r.logger.Error("could not fetch user's team", zap.String("user id", claims.Id), zap.String("team id", user.Team.Hex()), zap.Error(err))
@@ -168,6 +174,71 @@ func (r *apiV1Router) LeaveTeam(ctx *gin.Context) {
 			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
 			return
 		}
+	}
+
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
+	})
+}
+
+// POST: /api/v1/teams/:id/join
+// Response: status int
+//           error string
+// Headers:  Authorization -> token
+func (r *apiV1Router) JoinTeam(ctx *gin.Context) {
+	team := ctx.Param("id")
+	if len(team) == 0 {
+		r.logger.Warn("team id not provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "team id must be provided")
+		return
+	}
+
+	teamID, err := primitive.ObjectIDFromHex(team)
+	if err != nil {
+		r.logger.Warn("invalid team id", zap.String("id", team))
+		models.SendAPIError(ctx, http.StatusBadRequest, "invalid team id")
+		return
+	}
+
+	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		r.logger.Error("could not fetch user with id", zap.String("id", claims.Id), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	if user.Team != primitive.NilObjectID {
+		r.logger.Warn("user already has a team", zap.String("user id", claims.Id), zap.String("team id", user.Team.Hex()))
+		models.SendAPIError(ctx, http.StatusBadRequest, "you are already in a team")
+		return
+	}
+
+	_, err = r.teamService.GetTeamWithID(ctx, team)
+	if err != nil {
+		if err == services.ErrNotFound {
+			r.logger.Warn("team with given id does not exist", zap.String("id", team))
+			models.SendAPIError(ctx, http.StatusBadRequest, "could not find team with given id")
+			return
+		}
+		r.logger.Error("could not fetch team with id", zap.String("id", team), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, claims.Id, map[string]interface{}{
+		"team": teamID,
+	})
+	if err != nil {
+		r.logger.Error("could not set users team", zap.String("user id", claims.Id), zap.String("team id", team), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
 	}
 
 	ctx.JSON(http.StatusOK, models.Response{

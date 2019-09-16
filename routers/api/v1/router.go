@@ -26,6 +26,7 @@ type APIV1Router interface {
 	GetTeams(*gin.Context)
 	CreateTeam(*gin.Context)
 	LeaveTeam(*gin.Context)
+	JoinTeam(*gin.Context)
 }
 
 type apiV1Router struct {
@@ -69,5 +70,6 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	teamsGroup := routerGroup.Group("/teams")
 	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)
 	teamsGroup.POST("/", isAtLeastApplicant, r.CreateTeam)
+	teamsGroup.POST("/:id/join", isAtLeastApplicant, r.JoinTeam)
 	teamsGroup.DELETE("/leave", isAtLeastApplicant, r.LeaveTeam)
 }
