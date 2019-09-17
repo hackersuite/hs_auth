@@ -20,7 +20,7 @@ const authClaimsKeyInCtx = "auth_claims"
 
 // AuthLevelVerifierFactory creates a middleware that checks if the user's
 // auth token has the required auth level and attaches the auth claims to
-// the reques context. Will return a 401 if the auth token is invalid or has
+// the request context. Will return a 401 if the auth token is invalid or has
 // an auth level that is too low
 func (r *apiV1Router) AuthLevelVerifierFactory(level authlevels.AuthLevel) func(*gin.Context) {
 	return func(ctx *gin.Context) {
