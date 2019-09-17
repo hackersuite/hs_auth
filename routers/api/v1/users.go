@@ -314,12 +314,12 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 	})
 }
 
-// POST: /api/v1/users/email?token={token}
-// Request:  token string
+// POST: /api/v1/users/email
 // Response: status int
 //           error string
+// Header:   Authorization -> token
 func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
-	token := ctx.Query("token")
+	token := ctx.GetHeader(authHeaderName)
 	if len(token) == 0 {
 		r.logger.Warn("token not specified")
 		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
