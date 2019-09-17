@@ -130,6 +130,11 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 // Headers:  Authorization -> token
 func (r *apiV1Router) Verify(ctx *gin.Context) {
 	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
+		return
+	}
 
 	r.logger.Info("claims", zap.Any("claims", claims))
 	ctx.JSON(http.StatusOK, verifyRes{
@@ -198,7 +203,22 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 		fieldsToUpdate["name"] = name
 	}
 	if len(team) > 0 {
-		// TODO: check if team exists (need to implement teams persistence first)
+		_, err := r.teamService.GetTeamWithID(ctx, team)
+		if err != nil {
+			if err == services.ErrInvalidID {
+				r.logger.Warn("invalid team id", zap.String("id", team))
+				models.SendAPIError(ctx, http.StatusBadRequest, "invalid team id")
+				return
+			} else if err == services.ErrNotFound {
+				r.logger.Warn("team with given id doesn't exist", zap.String("id", team))
+				models.SendAPIError(ctx, http.StatusBadRequest, "could not find team with given id")
+				return
+			} else {
+				r.logger.Error("could not fetch team with id", zap.String("id", team), zap.Error(err))
+				models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+				return
+			}
+		}
 		fieldsToUpdate["team"] = team
 	}
 

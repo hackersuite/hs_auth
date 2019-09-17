@@ -23,6 +23,11 @@ type APIV1Router interface {
 	Register(*gin.Context)
 	VerifyEmail(*gin.Context)
 	AuthLevelVerifierFactory(level authlevels.AuthLevel) func(*gin.Context)
+	GetTeams(*gin.Context)
+	CreateTeam(*gin.Context)
+	LeaveTeam(*gin.Context)
+	JoinTeam(*gin.Context)
+	GetTeamMembers(*gin.Context)
 }
 
 type apiV1Router struct {
@@ -31,16 +36,18 @@ type apiV1Router struct {
 	cfg          *config.AppConfig
 	userService  services.UserService
 	emailService services.EmailService
+	teamService  services.TeamService
 	env          *environment.Env
 }
 
 // NewAPIV1Router creates a APIV1Router
-func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, userService services.UserService, emailService services.EmailService, env *environment.Env) APIV1Router {
+func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, userService services.UserService, emailService services.EmailService, teamService services.TeamService, env *environment.Env) APIV1Router {
 	return &apiV1Router{
 		logger:       logger,
 		cfg:          cfg,
 		userService:  userService,
 		emailService: emailService,
+		teamService:  teamService,
 		env:          env,
 	}
 }
@@ -49,11 +56,10 @@ func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, userService servi
 func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("/", r.Heartbeat)
 
-	usersGroup := routerGroup.Group("/users")
-
 	isAtLeastApplicant := r.AuthLevelVerifierFactory(authlevels.Applicant)
 	isAtLeastOrganizer := r.AuthLevelVerifierFactory(authlevels.Organizer)
 
+	usersGroup := routerGroup.Group("/users")
 	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
@@ -61,4 +67,11 @@ func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/verify", isAtLeastApplicant, r.Verify)
 	usersGroup.GET("/me", isAtLeastApplicant, r.GetMe)
 	usersGroup.PUT("/me", isAtLeastApplicant, r.PutMe)
+
+	teamsGroup := routerGroup.Group("/teams")
+	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)
+	teamsGroup.POST("/", isAtLeastApplicant, r.CreateTeam)
+	teamsGroup.GET("/:id/members", isAtLeastApplicant, r.GetTeamMembers)
+	teamsGroup.POST("/:id/join", isAtLeastApplicant, r.JoinTeam)
+	teamsGroup.DELETE("/leave", isAtLeastApplicant, r.LeaveTeam)
 }

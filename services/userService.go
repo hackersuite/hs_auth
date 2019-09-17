@@ -21,9 +21,11 @@ import (
 type UserService interface {
 	GetUserWithID(context.Context, string) (*entities.User, error)
 	GetUserWithEmail(context.Context, string) (*entities.User, error)
+	GetUsersWithTeam(ctx context.Context, teamID string) ([]entities.User, error)
 	GetUsers(context.Context) ([]entities.User, error)
 	CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error)
 	UpdateUserWithID(context.Context, string, map[string]interface{}) error
+	UpdateUsersWithTeam(ctx context.Context, teamID string, fieldsToUpdate map[string]interface{}) error
 	DeleteUserWithEmail(ctx context.Context, email string) error
 }
 
@@ -157,4 +159,47 @@ func (s *userService) DeleteUserWithEmail(ctx context.Context, email string) err
 	})
 
 	return err
+}
+
+func (s *userService) UpdateUsersWithTeam(ctx context.Context, teamID string, fieldsToUpdate map[string]interface{}) error {
+	mongoID, err := primitive.ObjectIDFromHex(teamID)
+	if err != nil {
+		return ErrInvalidID
+	}
+
+	_, err = s.userRepository.UpdateMany(ctx, bson.M{
+		"team": mongoID,
+	}, bson.M{
+		"$set": fieldsToUpdate,
+	})
+
+	return err
+}
+
+func (s *userService) GetUsersWithTeam(ctx context.Context, teamID string) ([]entities.User, error) {
+	mongoID, err := primitive.ObjectIDFromHex(teamID)
+	if err != nil {
+		return nil, ErrInvalidID
+	}
+
+	cur, err := s.userRepository.Find(ctx, bson.M{
+		"team": mongoID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var users []entities.User
+	// Decoding result
+	for cur.Next(ctx) {
+		var user entities.User
+		err = cur.Decode(&user)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
 }

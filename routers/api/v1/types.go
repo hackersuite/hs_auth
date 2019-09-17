@@ -29,3 +29,18 @@ type registerRes struct {
 	models.Response
 	User entities.User `json:"user,omitempty"`
 }
+
+type getTeamsRes struct {
+	models.Response
+	Teams []entities.Team `json:"teams"`
+}
+
+type createTeamRes struct {
+	models.Response
+	Team entities.Team `json:"team"`
+}
+
+type getTeamMembersRes struct {
+	models.Response
+	Users []entities.User `json:"users"`
+}

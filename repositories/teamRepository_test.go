@@ -7,28 +7,28 @@ import (
 	"testing"
 
 	"github.com/unicsmcr/hs_auth/testutils"
+	"go.mongodb.org/mongo-driver/mongo"
 
 	"github.com/stretchr/testify/assert"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func Test_NewUserRepository__should_return_users_mongo_collection(t *testing.T) {
+func Test_NewTeamRepository__should_return_teams_mongo_collection(t *testing.T) {
 	db := testutils.ConnectToIntegrationTestDB(t)
 
-	uRepo, err := NewUserRepository(db)
+	tRepo, err := NewTeamRepository(db)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "users", uRepo.Name())
-	db.Collection("users").Drop(context.Background())
+	assert.Equal(t, "teams", tRepo.Name())
+	db.Collection("teams").Drop(context.Background())
 }
 
-func Test_NewUserRepository__create_required_number_of_indexes(t *testing.T) {
+func Test_NewTeamRepository__create_required_number_of_indexes(t *testing.T) {
 	db := testutils.ConnectToIntegrationTestDB(t)
 
-	_, err := NewUserRepository(db)
+	_, err := NewTeamRepository(db)
 	assert.NoError(t, err)
 
-	cur, err := db.Collection("users").Indexes().List(context.Background())
+	cur, err := db.Collection("teams").Indexes().List(context.Background())
 	assert.NoError(t, err)
 	defer cur.Close(context.Background())
 
@@ -41,5 +41,5 @@ func Test_NewUserRepository__create_required_number_of_indexes(t *testing.T) {
 	}
 
 	assert.Equal(t, 2, noOfIndexes)
-	db.Collection("users").Drop(context.Background())
+	db.Collection("teams").Drop(context.Background())
 }
