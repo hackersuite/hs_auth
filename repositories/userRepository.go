@@ -15,8 +15,8 @@ type UserRepository struct {
 }
 
 // NewUserRepository creates a new UserRepository
-func NewUserRepository(db *mongo.Database) UserRepository {
-	db.Collection("users").Indexes().CreateOne(
+func NewUserRepository(db *mongo.Database) (UserRepository, error) {
+	_, err := db.Collection("users").Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
 			Keys:    bsonx.Doc{{"email", bsonx.Int32(1)}},
@@ -24,7 +24,11 @@ func NewUserRepository(db *mongo.Database) UserRepository {
 		},
 	)
 
+	if err != nil {
+		return UserRepository{}, err
+	}
+
 	return UserRepository{
 		Collection: db.Collection("users"),
-	}
+	}, nil
 }

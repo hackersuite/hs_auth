@@ -120,6 +120,10 @@ func (s *userService) UpdateUserWithID(ctx context.Context, id string, fieldsToU
 		return ErrInvalidID
 	}
 
+	if len(fieldsToUpdate) == 0 {
+		return nil
+	}
+
 	_, err = s.userRepository.UpdateOne(ctx, bson.M{
 		"_id": mongoID,
 	}, bson.M{
@@ -129,7 +133,7 @@ func (s *userService) UpdateUserWithID(ctx context.Context, id string, fieldsToU
 	return err
 }
 
-// CreateUser creates a new user with a hashed password
+// CreateUser creates a new user
 func (s *userService) CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error) {
 	user := &entities.User{
 		ID:        primitive.NewObjectID(),
