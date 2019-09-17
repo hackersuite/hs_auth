@@ -652,34 +652,43 @@ func Test_Register__should_return_200_and_correct_user(t *testing.T) {
 func Test_VerifyEmail(t *testing.T) {
 	tests := []struct {
 		name        string
+		email       string
 		token       string
+		customToken bool
+		password    string
+		prep        func(*testSetup)
 		wantResCode int
-		prep        func(userID string, mockUService *mock_services.MockUserService)
 	}{
 		{
 			name:        "should return 401 when no token is specified",
+			customToken: true,
 			wantResCode: http.StatusUnauthorized,
 		},
 		{
 			name:        "should return 401 when token is invalid",
+			customToken: true,
 			token:       "notvalidtoken",
 			wantResCode: http.StatusUnauthorized,
 		},
 		{
-			name:  "should return 500 when email service returns error",
-			token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDdhOTM4NmU0OGZhMTY1NTZjNTY0MTEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MywidG9rZW5fdHlwZSI6ImVtYWlsIn0.Hsi2STFazVwcQ73sG8BKg3dmIx_XnijFoJx6BNYuGPc",
-			prep: func(userID string, mockUService *mock_services.MockUserService) {
-				mockUService.EXPECT().UpdateUserWithID(gomock.Any(), userID, map[string]interface{}{
+			name:        "should return 401 when token is not an email token",
+			customToken: true,
+			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDgxMmFiNTI2YTc5MjYxYjZjMWVlNWEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MCwidG9rZW5fdHlwZSI6ImF1dGgifQ.Pw6ojEkWRU5Nr84MUppWaAIoxuy9CAFW6yzvSRQ9QyE",
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 500 when email service returns error",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
 					"email_verified": true,
 				}).Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:  "should return 200 when everything is alright",
-			token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDdhOTM4NmU0OGZhMTY1NTZjNTY0MTEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MywidG9rZW5fdHlwZSI6ImVtYWlsIn0.Hsi2STFazVwcQ73sG8BKg3dmIx_XnijFoJx6BNYuGPc",
-			prep: func(userID string, mockUService *mock_services.MockUserService) {
-				mockUService.EXPECT().UpdateUserWithID(gomock.Any(), userID, map[string]interface{}{
+			name: "should return 200 when everything is alright",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
 					"email_verified": true,
 				}).Return(nil).Times(1)
 			},
@@ -689,18 +698,26 @@ func Test_VerifyEmail(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-				environment.JWTSecret: "testsecret",
-			})
+			setup := setupUserTest(t, map[string]string{
+				environment.JWTSecret: "supersecret",
+			}, 0)
 			if tt.prep != nil {
-				tt.prep(testUser.ID.Hex(), mockUService)
+				tt.prep(setup)
 			}
 
-			req := httptest.NewRequest("GET", fmt.Sprintf("/test?token=%s", tt.token), nil)
-			testCtx.Request = req
+			setup.testCtx.Set(authClaimsKeyInCtx, nil)
 
-			router.VerifyEmail(testCtx)
-			assert.Equal(t, tt.wantResCode, w.Code)
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test?email=%s", tt.email), nil)
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+			if !tt.customToken {
+				req.Header.Set(authHeaderName, setup.emailToken)
+			} else {
+				req.Header.Set(authHeaderName, tt.token)
+			}
+			setup.testCtx.Request = req
+			setup.router.VerifyEmail(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})
 	}
 }
