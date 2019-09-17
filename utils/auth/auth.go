@@ -28,8 +28,6 @@ type Claims struct {
 	TokenType TokenType        `json:"token_type"`
 }
 
-const lettersForEmailToken = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!"
-
 // GetJWTClaims checks if the given token is a valid JWT with given secret
 // and returns the claims inside the token. Returns nill if the token is invalid
 func GetJWTClaims(token string, secret []byte) *Claims {
