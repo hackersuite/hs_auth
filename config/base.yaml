@@ -1,2 +1,10 @@
 # Store non-sensitive project configuration here
 name: "Hacker Suite - Auth"
+# the default auth level for new users (auth levels defined in authLevel.go)
+base_auth_level: 0
+email:
+  noreply_email_addr: "noreply@unicsmcr.com"
+  noreply_email_name: "UniCS"
+  email_verification_email_subj: "Verify email"
+  password_reset_email_subj: "Reset password"
+app_url: "auth.unicsmcr.com"

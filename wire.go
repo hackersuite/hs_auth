@@ -4,6 +4,7 @@ package main
 
 import (
 	"github.com/google/wire"
+	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
@@ -17,12 +18,13 @@ func InitializeServer() (Server, error) {
 		NewServer,
 		routers.NewMainRouter,
 		v1.NewAPIV1Router,
+		services.NewEmailClient,
 		services.NewUserService,
 		repositories.NewUserRepository,
 		utils.NewDatabase,
 		environment.NewEnv,
 		utils.NewLogger,
-		// config.NewAppConfig,
+		config.NewAppConfig,
 	)
 	return Server{}, nil
 }

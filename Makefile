@@ -16,7 +16,7 @@ vet:
 # starts the app
 run: vet
 	@echo "=============vetting the code============="
-	go run main.go
+	go run main.go wire_gen.go server.go
 
 .PHONY: mocks
 mocks: clean-mocks
@@ -29,7 +29,7 @@ test: vet mocks
 
 # build target for CI
 ci: vet mocks
-	go test ./... -race -coverprofile=coverage.txt -covermode=atomic
+	go test ./... -coverprofile=coverage.txt -covermode=atomic
 
 # builds the executable
 build:
@@ -38,12 +38,7 @@ build:
 # builds the docker image
 build-docker:
 	@echo "=============building hs_auth============="
-	if docker image ls | grep -qw hs_auth; then \
-		echo "image already exists, skipping build"; \
-	else \
-		echo "creating new image"; \
-		docker build -f docker/dev/Dockerfile -t hs_auth . ;\
-	fi
+	docker build -f docker/hs_auth/Dockerfile -t hs_auth . ;
 
 # sets up the hacker suite docker network
 setup-network:
@@ -53,7 +48,7 @@ setup-network:
 # starts the app and MongoDB in docker containers
 up: vet build-docker setup-network
 	@echo "=============starting hs_auth============="
-	docker-compose up -d
+	docker-compose -f $(prod_docker_compose_file) up -d
 
 # starts the app and MongoDB in docker containers for dev environment
 up-dev: export ENVIRONMENT=dev
