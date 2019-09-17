@@ -50,8 +50,6 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 		models.SendAPIError(ctx, http.StatusInternalServerError, err.Error())
 		return
 	}
-	for i := 0; i < len(users); i++ {
-	}
 
 	ctx.JSON(http.StatusOK, getUsersRes{
 		Response: models.Response{
