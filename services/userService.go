@@ -3,6 +3,10 @@ package services
 import (
 	"context"
 
+	"go.uber.org/zap"
+
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
+
 	"go.mongodb.org/mongo-driver/mongo"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,18 +20,22 @@ import (
 // UserService is the service for interactions with a remote users repository
 type UserService interface {
 	GetUserWithID(context.Context, string) (*entities.User, error)
-	GetUserWithEmailAndPassword(context.Context, string, string) (*entities.User, error)
+	GetUserWithEmail(context.Context, string) (*entities.User, error)
 	GetUsers(context.Context) ([]entities.User, error)
+	CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error)
 	UpdateUserWithID(context.Context, string, map[string]interface{}) error
+	DeleteUserWithEmail(ctx context.Context, email string) error
 }
 
 type userService struct {
+	logger         *zap.Logger
 	userRepository repositories.UserRepository
 }
 
 // NewUserService creates a new UserService
-func NewUserService(userRepository repositories.UserRepository) UserService {
+func NewUserService(logger *zap.Logger, userRepository repositories.UserRepository) UserService {
 	return &userService{
+		logger:         logger,
 		userRepository: userRepository,
 	}
 }
@@ -57,11 +65,10 @@ func (s *userService) GetUserWithID(ctx context.Context, id string) (*entities.U
 	return &user, nil
 }
 
-// GetUserWithEmailAndPassword fetches a user with given email and password
-func (s *userService) GetUserWithEmailAndPassword(ctx context.Context, email string, password string) (*entities.User, error) {
+// GetUserWithEmail fetches a user with given email
+func (s *userService) GetUserWithEmail(ctx context.Context, email string) (*entities.User, error) {
 	res := s.userRepository.FindOne(ctx, bson.M{
-		"email":    email,
-		"password": password,
+		"email": email,
 	})
 
 	err := res.Err()
@@ -105,6 +112,8 @@ func (s *userService) GetUsers(ctx context.Context) ([]entities.User, error) {
 	return users, nil
 }
 
+// UpdateUserWithID updates a user with the given id with the values in fieldsToUpdate
+// where the key must match the json name for the field to update in the user model
 func (s *userService) UpdateUserWithID(ctx context.Context, id string, fieldsToUpdate map[string]interface{}) error {
 	mongoID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -115,6 +124,32 @@ func (s *userService) UpdateUserWithID(ctx context.Context, id string, fieldsToU
 		"_id": mongoID,
 	}, bson.M{
 		"$set": fieldsToUpdate,
+	})
+
+	return err
+}
+
+// CreateUser creates a new user with a hashed password
+func (s *userService) CreateUser(ctx context.Context, name, email, password string, authLevel authlevels.AuthLevel) (*entities.User, error) {
+	user := &entities.User{
+		ID:        primitive.NewObjectID(),
+		Name:      name,
+		Email:     email,
+		Password:  password,
+		AuthLevel: authLevel,
+	}
+
+	_, err := s.userRepository.InsertOne(ctx, *user)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
+func (s *userService) DeleteUserWithEmail(ctx context.Context, email string) error {
+	_, err := s.userRepository.DeleteOne(ctx, bson.M{
+		"email": email,
 	})
 
 	return err

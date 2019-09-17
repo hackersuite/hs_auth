@@ -12,13 +12,14 @@ import (
 
 func Test_NewEnv__should_return_correct_env(t *testing.T) {
 	vars := map[string]string{
-		Environment:   "testenv",
-		Port:          "testport",
-		MongoHost:     "testmongohost",
-		MongoDatabase: "testmongodatabase",
-		MongoUser:     "testmongouser",
-		MongoPassword: "testmongopassword",
-		JWTSecret:     "testsecret",
+		Environment:    "testenv",
+		Port:           "testport",
+		MongoHost:      "testmongohost",
+		MongoDatabase:  "testmongodatabase",
+		MongoUser:      "testmongouser",
+		MongoPassword:  "testmongopassword",
+		JWTSecret:      "testsecret",
+		SendgridAPIKey: "testkey",
 	}
 
 	restoreVars := testutils.SetEnvVars(vars)
@@ -34,13 +35,14 @@ func Test_NewEnv__should_return_correct_env(t *testing.T) {
 func Test_Get__should_return_correct_value(t *testing.T) {
 	env := &Env{
 		vars: map[string]string{
-			Environment:   "testenv",
-			Port:          "testport",
-			MongoHost:     "testmongohost",
-			MongoDatabase: "testmongodatabase",
-			MongoUser:     "testmongouser",
-			MongoPassword: "testmongopassword",
-			JWTSecret:     "testsecret",
+			Environment:    "testenv",
+			Port:           "testport",
+			MongoHost:      "testmongohost",
+			MongoDatabase:  "testmongodatabase",
+			MongoUser:      "testmongouser",
+			MongoPassword:  "testmongopassword",
+			JWTSecret:      "testsecret",
+			SendgridAPIKey: "testkey",
 		},
 	}
 
@@ -84,6 +86,11 @@ func Test_Get__should_return_correct_value(t *testing.T) {
 			want: env.vars[JWTSecret],
 			args: JWTSecret,
 		},
+		{
+			name: JWTSecret,
+			want: env.vars[JWTSecret],
+			args: JWTSecret,
+		},
 	}
 
 	for _, tt := range tests {
@@ -107,4 +114,15 @@ func Test_valueOfEnvVar__should_return_empty_string_when_var_not_set(t *testing.
 
 	value := valueOfEnvVar(zap.NewNop(), "testkey")
 	assert.Equal(t, "", value)
+}
+
+func Test_Get__should_return_not_set_when_env_var_is_not_set(t *testing.T) {
+	vars := map[string]string{}
+
+	restoreVars := testutils.SetEnvVars(vars)
+	defer restoreVars()
+
+	env := NewEnv(zap.NewNop())
+
+	assert.Equal(t, DefaultEnvVarValue, env.Get("not set var"))
 }

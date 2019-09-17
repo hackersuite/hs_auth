@@ -4,11 +4,11 @@ services:
   hs_auth:
     image: hs_auth:latest
     ports:
-      - 8080:80
+      - 8000:80
     env_file:
-      - app.env
+      - ../../app.env
     volumes:
-      - ./:/go/src/github.com/unicsmcr/hs_auth
+      - ../../:/go/src/github.com/unicsmcr/hs_auth
     depends_on:
       mongo:
         condition: service_healthy
@@ -21,10 +21,10 @@ services:
     image: mongo:4
     restart: always
     env_file:
-      - mongo.env
+      - ../../mongo.env
     volumes:
-      - ./data:/data/db
-      - ./initial_db_setup.sh:/docker-entrypoint-initdb.d/initial_db_setup.sh:ro
+      - ../../data:/data/db
+      - ../../initial_db_setup.sh:/docker-entrypoint-initdb.d/initial_db_setup.sh:ro
     healthcheck:
       test:
         - CMD
@@ -41,13 +41,13 @@ services:
   mongo_express:
     image: mongo-express
     restart: always
-    ports:
-      - 8081:8081
     env_file:
-      - mongo_express.env
+      - ../../mongo_express.env
     depends_on:
       mongo:
         condition: service_healthy
+    ports:
+      - 8001:8081
     networks:
       - internal
 

@@ -20,10 +20,11 @@ func NewDatabase(logger *zap.Logger, env *environment.Env) *mongo.Database {
 		env.Get(environment.MongoHost),
 		env.Get(environment.MongoDatabase))
 
-	logger.Info(fmt.Sprint(env.Get(environment.MongoUser),
-		env.Get(environment.MongoPassword),
-		env.Get(environment.MongoHost),
-		env.Get(environment.MongoDatabase)))
+	logger.Info("db connection details",
+		zap.String("user", env.Get(environment.MongoUser)),
+		zap.String("password env var name", environment.MongoPassword),
+		zap.String("host", env.Get(environment.MongoHost)),
+		zap.String("database", env.Get(environment.MongoDatabase)))
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(connectionURL))
 	if err != nil {

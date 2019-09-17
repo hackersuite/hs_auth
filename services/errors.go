@@ -9,4 +9,7 @@ var (
 	// ErrNotFound is the error returned by services when
 	// the requested object could not be found
 	ErrNotFound = errors.New("requested object could not be found")
+	// ErrSendgridRejectedRequest is the error returned by EmailService
+	// when Sendgrid rejects an email request
+	ErrSendgridRejectedRequest = errors.New("email request was rejected by Sendgrid")
 )
