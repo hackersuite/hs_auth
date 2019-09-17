@@ -22,4 +22,5 @@ func NewAPIError(status int, err string) APIError {
 // SendAPIError sends an error with given status and error message to the user
 func SendAPIError(ctx *gin.Context, status int, err string) {
 	ctx.JSON(status, NewAPIError(status, err))
+	ctx.Abort()
 }
