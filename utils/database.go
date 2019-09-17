@@ -13,7 +13,7 @@ import (
 )
 
 // NewDatabase creates a new connection to the database specified in given Env
-func NewDatabase(logger *zap.Logger, env *environment.Env) *mongo.Database {
+func NewDatabase(logger *zap.Logger, env *environment.Env) (*mongo.Database, error) {
 	connectionURL := fmt.Sprintf(`mongodb://%s:%s@%s/%s`,
 		env.Get(environment.MongoUser),
 		env.Get(environment.MongoPassword),
@@ -28,21 +28,24 @@ func NewDatabase(logger *zap.Logger, env *environment.Env) *mongo.Database {
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(connectionURL))
 	if err != nil {
-		logger.Fatal("could not connect to database", zap.Error(err))
+		logger.Error("could not connect to database", zap.Error(err))
+		return nil, err
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	err = client.Connect(ctx)
 	if err != nil {
-		logger.Fatal("could not connect to database", zap.Error(err))
+		logger.Error("could not connect to database", zap.Error(err))
+		return nil, err
 	}
 
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		logger.Fatal("could not connect to database", zap.Error(err))
+		logger.Error("could not connect to database", zap.Error(err))
+		return nil, err
 	}
 	logger.Info("connected to database")
 
-	return client.Database("hs_auth")
+	return client.Database("hs_auth"), nil
 }

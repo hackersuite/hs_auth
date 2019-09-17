@@ -5,6 +5,7 @@ GO111MODULE=on
 
 prod_docker_compose_file=./docker/hs_auth/docker-compose.yml
 dev_docker_compose_file=./docker/hs_auth_dev/docker-compose.yml
+test_docker_compose_file=./docker/hs_auth_test/docker-compose.yml
 
 default: build test
 
@@ -27,9 +28,14 @@ mocks: clean-mocks
 test: vet mocks
 	go test -cover ./...
 
+test-integration: vet mocks
+	docker-compose -f $(test_docker_compose_file) up -d
+	go test -cover ./... -tags integration
+
 # build target for CI
 ci: vet mocks
-	go test ./... -coverprofile=coverage.txt -covermode=atomic
+	docker-compose -f $(test_docker_compose_file) up -d
+	go test ./... -coverprofile=coverage.txt -covermode=atomic -tags integration
 
 # builds the executable
 build:
@@ -83,6 +89,7 @@ endif
 down:
 	docker-compose -f $(prod_docker_compose_file) down
 	docker-compose -f $(dev_docker_compose_file) down
+	docker-compose -f $(test_docker_compose_file) down
 
 # cleans up unused images, networks and containers
 # WARNING: this will delete ALL docker images on the system
