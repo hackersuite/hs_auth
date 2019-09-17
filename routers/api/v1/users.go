@@ -15,7 +15,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-const passwordReplacementString = "************"
 const authClaimsKeyInCtx = "auth_claims"
 
 // AuthLevelVerifierFactory creates a middleware that checks if the user's
@@ -52,7 +51,6 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 		return
 	}
 	for i := 0; i < len(users); i++ {
-		users[i].Password = passwordReplacementString
 	}
 
 	ctx.JSON(http.StatusOK, getUsersRes{
@@ -104,7 +102,6 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		models.SendAPIError(ctx, http.StatusUnauthorized, "user not found")
 		return
 	}
-	user.Password = passwordReplacementString
 
 	if !user.EmailVerified {
 		r.logger.Warn("user's email not verified'", zap.String("user id", user.ID.Hex()), zap.String("email", email))
@@ -168,7 +165,6 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 		}
 		return
 	}
-	user.Password = passwordReplacementString
 	ctx.JSON(http.StatusOK, getMeRes{
 		User: *user,
 	})
@@ -283,7 +279,6 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
 		return
 	}
-	user.Password = passwordReplacementString
 
 	// TODO: change validityDuration placeholder once token validity duration is implemented
 	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
