@@ -141,6 +141,8 @@ func (r *apiV1Router) Verify(ctx *gin.Context) {
 		Response: models.Response{
 			Status: http.StatusOK,
 		},
+		AuthLevel: claims.AuthLevel,
+		UserID:    claims.Id,
 	})
 }
 
