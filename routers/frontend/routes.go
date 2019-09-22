@@ -242,3 +242,86 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		},
 	})
 }
+
+func (r *frontendRouter) ForgotPasswordPage(ctx *gin.Context) {
+	ctx.HTML(http.StatusOK, "forgotPassword.gohtml", templateDataModel{
+		Cfg: r.cfg,
+	})
+}
+
+func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
+	email := ctx.PostForm("email")
+
+	if len(email) == 0 {
+		r.logger.Warn("email not specified")
+		ctx.HTML(http.StatusBadRequest, "forgotPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: models.Response{
+				Err: "Please enter your email",
+			},
+		})
+		return
+	}
+
+	type res struct {
+		Email string
+	}
+	user, err := r.userService.GetUserWithEmail(ctx, email)
+	if err != nil {
+		if err == services.ErrNotFound {
+			r.logger.Warn("user with email doesn't exist", zap.String("email", email))
+			// don't want to give the user a tool to figure which email addresses are registered
+			// as this would be a security issue
+			ctx.HTML(http.StatusOK, "forgotPasswordEnd.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Data: res{
+					Email: email,
+				},
+			})
+			return
+		}
+		r.logger.Error("could not fetch user", zap.String("email", email), zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: models.Response{
+				Err: "Something went wrong",
+			},
+		})
+		return
+	}
+
+	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 100, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
+	if err != nil {
+		r.logger.Error("could not make email token for user",
+			zap.String("user id", user.ID.Hex()),
+			zap.String("jwt secret env var name", environment.JWTSecret),
+			zap.Bool("jwt secret set", r.env.Get(environment.JWTSecret) == environment.DefaultEnvVarValue),
+			zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: models.Response{
+				Err: "Something went wrong",
+			},
+		})
+		return
+	}
+
+	err = r.emailService.SendPasswordResetEmail(*user, emailToken)
+	if err != nil {
+		r.logger.Error("could not send password reset email", zap.String("user id", user.ID.Hex()), zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: models.Response{
+				Err: "Something went wrong",
+			},
+		})
+		return
+	}
+
+	ctx.HTML(http.StatusOK, "forgotPasswordEnd.gohtml", templateDataModel{
+		Cfg: r.cfg,
+		Data: res{
+			Email: email,
+		},
+	})
+}
