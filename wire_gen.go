@@ -10,7 +10,8 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
-	v1 "github.com/unicsmcr/hs_auth/routers/api/v1"
+	"github.com/unicsmcr/hs_auth/routers/api/v1"
+	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
 )
@@ -43,7 +44,8 @@ func InitializeServer() (Server, error) {
 	}
 	teamService := services.NewTeamService(logger, teamRepository)
 	apiv1Router := v1.NewAPIV1Router(logger, appConfig, userService, emailService, teamService, env)
-	mainRouter := routers.NewMainRouter(logger, apiv1Router)
+	frontendRouter := frontend.NewFrontendRouter(logger, appConfig, env, userService, emailService)
+	mainRouter := routers.NewMainRouter(logger, apiv1Router, frontendRouter)
 	server := NewServer(mainRouter, env)
 	return server, nil
 }
