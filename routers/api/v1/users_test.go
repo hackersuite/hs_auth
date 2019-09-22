@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -330,7 +331,7 @@ func Test_Login__should_return_StatusUnauthorized_when_invalid_credentials_are_p
 	assert.Equal(t, "user not found", actualRes.Err)
 }
 
-func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
+func Test_Verify__should_return_correct_response_for_valid_token(t *testing.T) {
 	_, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
 		environment.JWTSecret: "testsecret",
 	})
@@ -341,7 +342,16 @@ func Test_Verify__should_return_StatusOK_for_valid_token(t *testing.T) {
 
 	router.Verify(testCtx)
 
+	actualResStr, err := ioutil.ReadAll(w.Body)
+	assert.NoError(t, err)
+
+	var actualRes verifyRes
+	err = json.Unmarshal([]byte(actualResStr), &actualRes)
+	assert.NoError(t, err)
+
 	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, common.AuthLevel(testAuthLevel), actualRes.AuthLevel)
+	assert.Equal(t, testUserID, actualRes.UserID)
 }
 
 func Test_GetMe__should_return_400_when_auth_claims_are_nil(t *testing.T) {

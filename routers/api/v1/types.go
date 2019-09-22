@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
+	"github.com/unicsmcr/hs_auth/utils/auth/common"
 )
 
 type getUsersRes struct {
@@ -18,6 +19,8 @@ type loginRes struct {
 
 type verifyRes struct {
 	models.Response
+	AuthLevel common.AuthLevel `json:"auth_level"`
+	UserID    string           `json:"user_id"`
 }
 
 type getMeRes struct {
