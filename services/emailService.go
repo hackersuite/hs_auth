@@ -85,5 +85,12 @@ func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken
 }
 
 func (s *emailService) SendPasswordResetEmail(user entities.User, emailToken string) error {
-	return nil
+	return s.SendEmail(
+		s.cfg.Email.PasswordResetEmailSubj,
+		emailToken,
+		emailToken,
+		s.cfg.Email.NoreplyEmailName,
+		s.cfg.Email.NoreplyEmailAddr,
+		user.Name,
+		user.Email)
 }
