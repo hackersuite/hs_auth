@@ -24,7 +24,8 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockAPIV1Router := mock_v1.NewMockAPIV1Router(ctrl)
 	mockFrontendRouter := mock_frontend.NewMockFrontendRouter(ctrl)
 
-	// checking APIV1Router gets registered on /api/v1
+	// checking routers get registered on correct paths
+	mockFrontendRouter.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/"}).Times(1)
 	mockAPIV1Router.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/api/v1"}).Times(1)
 
 	router := NewMainRouter(zap.NewNop(), mockAPIV1Router, mockFrontendRouter)
