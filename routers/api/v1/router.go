@@ -65,7 +65,7 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
-	usersGroup.GET("/email/verify", r.VerifyEmail)
+	usersGroup.POST("/email/verify", r.VerifyEmail)
 	usersGroup.GET("/verify", isAtLeastApplicant, r.Verify)
 	usersGroup.GET("/me", isAtLeastApplicant, r.GetMe)
 	usersGroup.PUT("/me", isAtLeastApplicant, r.PutMe)
