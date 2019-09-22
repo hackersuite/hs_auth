@@ -9,6 +9,7 @@ import (
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
 	v1 "github.com/unicsmcr/hs_auth/routers/api/v1"
+	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
 )
@@ -17,6 +18,7 @@ func InitializeServer() (Server, error) {
 	wire.Build(
 		NewServer,
 		routers.NewMainRouter,
+		frontend.NewFrontendRouter,
 		v1.NewAPIV1Router,
 		services.NewEmailClient,
 		services.NewUserService,

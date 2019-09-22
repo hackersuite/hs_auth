@@ -55,7 +55,7 @@ func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, userService servi
 }
 
 // RegisterRoutes registers all of the API's (v1) routes to the given router group
-func (r *apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
+func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("/", r.Heartbeat)
 
 	isAtLeastApplicant := r.AuthLevelVerifierFactory(authlevels.Applicant)

@@ -10,6 +10,7 @@ import (
 	"github.com/unicsmcr/hs_auth/testutils"
 
 	mock_v1 "github.com/unicsmcr/hs_auth/mocks/routers/api/v1"
+	mock_frontend "github.com/unicsmcr/hs_auth/mocks/routers/frontend"
 
 	"github.com/gin-gonic/gin"
 
@@ -21,11 +22,12 @@ import (
 func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockAPIV1Router := mock_v1.NewMockAPIV1Router(ctrl)
+	mockFrontendRouter := mock_frontend.NewMockFrontendRouter(ctrl)
 
 	// checking APIV1Router gets registered on /api/v1
 	mockAPIV1Router.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/api/v1"}).Times(1)
 
-	router := NewMainRouter(zap.NewNop(), mockAPIV1Router)
+	router := NewMainRouter(zap.NewNop(), mockAPIV1Router, mockFrontendRouter)
 
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
