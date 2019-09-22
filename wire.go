@@ -18,7 +18,7 @@ func InitializeServer() (Server, error) {
 	wire.Build(
 		NewServer,
 		routers.NewMainRouter,
-		frontend.NewFrontendRouter,
+		frontend.NewRouter,
 		v1.NewAPIV1Router,
 		services.NewEmailClient,
 		services.NewUserService,

@@ -16,6 +16,7 @@ var (
 
 // EmailConfig stores the configuration to be used by the email service
 type EmailConfig struct {
+	HelpEmailAddr             string `yaml:"help_email_addr"`
 	NoreplyEmailAddr          string `yaml:"noreply_email_addr"`
 	NoreplyEmailName          string `yaml:"noreply_email_name"`
 	EmailVerficationEmailSubj string `yaml:"email_verification_email_subj"`

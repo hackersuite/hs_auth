@@ -44,8 +44,8 @@ func InitializeServer() (Server, error) {
 	}
 	teamService := services.NewTeamService(logger, teamRepository)
 	apiv1Router := v1.NewAPIV1Router(logger, appConfig, userService, emailService, teamService, env)
-	frontendRouter := frontend.NewFrontendRouter(logger, appConfig, env, userService, emailService)
-	mainRouter := routers.NewMainRouter(logger, apiv1Router, frontendRouter)
+	router := frontend.NewRouter(logger, appConfig, env, userService, emailService)
+	mainRouter := routers.NewMainRouter(logger, apiv1Router, router)
 	server := NewServer(mainRouter, env)
 	return server, nil
 }

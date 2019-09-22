@@ -19,11 +19,11 @@ type mainRouter struct {
 	models.BaseRouter
 	logger         *zap.Logger
 	apiV1          v1.APIV1Router
-	frontendRouter frontend.FrontendRouter
+	frontendRouter frontend.Router
 }
 
 // NewMainRouter creates a new MainRouter
-func NewMainRouter(logger *zap.Logger, apiV1Router v1.APIV1Router, frontendRouter frontend.FrontendRouter) MainRouter {
+func NewMainRouter(logger *zap.Logger, apiV1Router v1.APIV1Router, frontendRouter frontend.Router) MainRouter {
 	return &mainRouter{
 		logger:         logger,
 		apiV1:          apiV1Router,

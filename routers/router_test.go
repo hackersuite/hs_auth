@@ -22,7 +22,7 @@ import (
 func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockAPIV1Router := mock_v1.NewMockAPIV1Router(ctrl)
-	mockFrontendRouter := mock_frontend.NewMockFrontendRouter(ctrl)
+	mockFrontendRouter := mock_frontend.NewMockRouter(ctrl)
 
 	// checking routers get registered on correct paths
 	mockFrontendRouter.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/"}).Times(1)
