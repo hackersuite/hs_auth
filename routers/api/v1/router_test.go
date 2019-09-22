@@ -78,7 +78,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 		},
 		{
 			route:  "/users/email/verify",
-			method: http.MethodGet,
+			method: http.MethodPost,
 		},
 		{
 			route:  "/teams/",
