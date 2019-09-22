@@ -17,6 +17,8 @@ type Router interface {
 	Register(*gin.Context)
 	ForgotPasswordPage(*gin.Context)
 	ForgotPassword(*gin.Context)
+	ResetPasswordPage(*gin.Context)
+	ResetPassword(*gin.Context)
 }
 
 type templateDataModel struct {
@@ -50,4 +52,6 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.POST("register", r.Register)
 	routerGroup.GET("forgotpwd", r.ForgotPasswordPage)
 	routerGroup.POST("forgotpwd", r.ForgotPassword)
+	routerGroup.GET("resetpwd", r.ResetPasswordPage)
+	routerGroup.POST("resetpwd", r.ResetPassword)
 }

@@ -13,12 +13,18 @@ import (
 )
 
 func (r *frontendRouter) LoginPage(ctx *gin.Context) {
+	err := ctx.GetHeader("error")
+	r.logger.Info("test", zap.String("t", err))
+
 	referer := ctx.GetHeader("Referer")
 	if len(referer) > 0 {
 		ctx.SetCookie("Referer", referer, 100, "", "", false, true)
 	}
 	ctx.HTML(http.StatusOK, "login.gohtml", templateDataModel{
 		Cfg: r.cfg,
+		Data: models.Response{
+			Err: err,
+		},
 	})
 }
 
@@ -323,5 +329,151 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 		Data: res{
 			Email: email,
 		},
+	})
+}
+
+func (r *frontendRouter) ResetPasswordPage(ctx *gin.Context) {
+	token := ctx.Query("token")
+	email := ctx.Query("email")
+
+	type res struct {
+		Token string
+		Email string
+	}
+	ctx.HTML(http.StatusOK, "resetPassword.gohtml", templateDataModel{
+		Cfg: r.cfg,
+		Data: res{
+			Token: token,
+			Email: email,
+		},
+	})
+}
+
+func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
+	email := ctx.PostForm("email")
+	token := ctx.PostForm("token")
+	password := ctx.PostForm("password")
+	passwordConfirm := ctx.PostForm("passwordConfirm")
+
+	type res struct {
+		models.Response
+		Token string
+		Email string
+	}
+
+	if len(email) == 0 || len(password) == 0 || len(passwordConfirm) == 0 {
+		r.logger.Warn("one of email, password, passwordConfirm not specified", zap.String("email", email), zap.Int("password len", len(password)), zap.Int("passwordConfirm len", len(passwordConfirm)))
+		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: res{
+				Response: models.Response{
+					Err: "All fields are required",
+				},
+				Token: token,
+				Email: email,
+			},
+		})
+		return
+	}
+
+	if password != passwordConfirm {
+		r.logger.Warn("password passwordConfirm do not match")
+		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: res{
+				Response: models.Response{
+					Err: "Passwords do not match",
+				},
+				Token: token,
+				Email: email,
+			},
+		})
+		return
+	}
+
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		r.logger.Warn("invalid token")
+		ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: res{
+				Response: models.Response{
+					Err: "Invalid token",
+				},
+				Token: token,
+				Email: email,
+			},
+		})
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		r.logger.Error("could not fetch user", zap.String("user id", claims.Id), zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: res{
+				Response: models.Response{
+					Err: "Something went wrong",
+				},
+				Token: token,
+				Email: email,
+			},
+		})
+		return
+	}
+
+	if user.Email != email {
+		r.logger.Warn("user's in token email is different than email in request", zap.String("user's email", user.Email), zap.String("given email", email))
+		ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: res{
+				Response: models.Response{
+					Err: "Invalid token",
+				},
+				Token: token,
+				Email: email,
+			},
+		})
+		return
+	}
+
+	hashedPassword, err := auth.GetHashForPassword(password)
+	if err != nil {
+		r.logger.Error("could not make hash for password", zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: res{
+				Response: models.Response{
+					Err: "Something went wrong",
+				},
+				Token: token,
+				Email: email,
+			},
+		})
+		return
+	}
+
+	user.Password = hashedPassword
+	err = r.userService.UpdateUserWithID(ctx, claims.Id, map[string]interface{}{
+		"password": user.Password,
+	})
+	if err != nil {
+		r.logger.Error("could not user's password", zap.String("user id", user.ID.Hex()), zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: res{
+				Response: models.Response{
+					Err: "Something went wrong",
+				},
+				Token: token,
+				Email: email,
+			},
+		})
+		return
+	}
+
+	ctx.HTML(http.StatusOK, "resetPasswordEnd.gohtml", templateDataModel{
+		Cfg: r.cfg,
 	})
 }
