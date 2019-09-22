@@ -100,6 +100,14 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			route:  "/teams/123abd/members",
 			method: http.MethodGet,
 		},
+		{
+			route:  "/users/password/reset",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/users/password/reset",
+			method: http.MethodPut,
+		},
 	}
 
 	for _, tt := range tests {

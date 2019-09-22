@@ -67,10 +67,10 @@ func GetHashForPassword(password string) (string, error) {
 	return string(hash), nil
 }
 
-// NewJWT creates a new JWT token for the specified user with the specified secret
+// NewJWT creates a new JWT for the specified user with the specified secret
 func NewJWT(user entities.User, timestamp int64, validityDuration time.Duration, tokenType TokenType, secret []byte) (string, error) {
 	if len(secret) == 0 {
-		return "", errors.New("JWT token secret undefined")
+		return "", errors.New("JWT secret undefined")
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
