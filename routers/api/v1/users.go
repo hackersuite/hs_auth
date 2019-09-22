@@ -461,7 +461,7 @@ func (r *apiV1Router) ResetPassword(ctx *gin.Context) {
 		"password": user.Password,
 	})
 	if err != nil {
-		r.logger.Error("could not user's password", zap.String("user id", user.ID.Hex()), zap.Error(err))
+		r.logger.Error("could not set user's password", zap.String("user id", user.ID.Hex()), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
 		return
 	}

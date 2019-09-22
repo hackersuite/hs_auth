@@ -72,7 +72,7 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 }
 
 func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken string) error {
-	verificationURL := fmt.Sprintf("http://%s/api/v1/users/email/verify?token=%s", s.cfg.AppURL, emailToken)
+	verificationURL := fmt.Sprintf("http://%s/emailverify?token=%s", s.cfg.AppURL, emailToken)
 
 	return s.SendEmail(
 		s.cfg.Email.EmailVerficationEmailSubj,
@@ -85,10 +85,12 @@ func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken
 }
 
 func (s *emailService) SendPasswordResetEmail(user entities.User, emailToken string) error {
+	resetURL := fmt.Sprintf("http://%s/resetpwd?email=%s&token=%s", s.cfg.AppURL, user.Email, emailToken)
+
 	return s.SendEmail(
 		s.cfg.Email.PasswordResetEmailSubj,
-		emailToken,
-		emailToken,
+		resetURL,
+		resetURL,
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
 		user.Name,
