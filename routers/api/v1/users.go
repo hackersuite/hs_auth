@@ -249,7 +249,7 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 	password := ctx.PostForm("password")
 
 	if len(name) == 0 || len(email) == 0 || len(password) == 0 {
-		r.logger.Warn("one of name, email or password not specified", zap.String("name", name), zap.String("email", email), zap.String("password", password))
+		r.logger.Warn("one of name, email or password not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)))
 		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the user's name, email and passowrd")
 		return
 	}

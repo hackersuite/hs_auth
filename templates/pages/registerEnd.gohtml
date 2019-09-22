@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  {{template "header.gohtml" .Cfg}}
+  <link rel="stylesheet" type="text/css" href="static/css/login.css">
+</head>
+
+<body>
+  <div class="container">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="card mx-auto align-middle w-50">
+          <div class="card-header card-header-primary">
+            <h2>Registration Successful!</h2>
+          </div>
+          <div class="card-body">
+            <h2>Success!</h2>
+            <h4>You have successfully registered!
+            A verification email has been sent to {{.Data.Email}}.
+            Check your spam folder if you can't find it and if it's not there,
+            drop us a message at <a href="mailto:{{.Cfg.Email.HelpEmailAddr}}?Subject=Can't%20verify%20email" target="_top">{{.Cfg.Email.HelpEmailAddr}}</a>
+            </h4>
+            <h4>Once you verify your email you will be able to <a href="/login">login</a></h4>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+{{template "errorNotifier.gohtml" .Data.Err}}
+{{template "cookieDisclaimer.gohtml"}}
+</html>

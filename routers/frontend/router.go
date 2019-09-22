@@ -9,10 +9,11 @@ import (
 	"go.uber.org/zap"
 )
 
-type FrontendRouter interface {
+type Router interface {
 	models.Router
 	LoginPage(*gin.Context)
 	Login(*gin.Context)
+	RegisterPage(*gin.Context)
 }
 
 type templateDataModel struct {
@@ -29,7 +30,7 @@ type frontendRouter struct {
 	emailService services.EmailService
 }
 
-func NewFrontendRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, emailService services.EmailService) FrontendRouter {
+func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, emailService services.EmailService) Router {
 	return &frontendRouter{
 		logger:       logger,
 		cfg:          cfg,
@@ -42,4 +43,6 @@ func NewFrontendRouter(logger *zap.Logger, cfg *config.AppConfig, env *environme
 func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("login", r.LoginPage)
 	routerGroup.POST("login", r.Login)
+	routerGroup.GET("register", r.RegisterPage)
+	routerGroup.POST("register", r.Register)
 }
