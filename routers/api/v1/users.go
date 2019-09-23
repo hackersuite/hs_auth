@@ -341,7 +341,7 @@ func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
 	err := r.userService.UpdateUserWithID(ctx, claims.Id, fieldsToUpdate)
 	if err != nil {
 		r.logger.Error("could not update user", zap.String("user id", claims.Id), zap.Any("fields to udpate", fieldsToUpdate))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went with verifying user's email")
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
