@@ -13,18 +13,12 @@ import (
 )
 
 func (r *frontendRouter) LoginPage(ctx *gin.Context) {
-	err := ctx.GetHeader("error")
-	r.logger.Info("test", zap.String("t", err))
-
 	referer := ctx.GetHeader("Referer")
 	if len(referer) > 0 {
 		ctx.SetCookie("Referer", referer, 100, "", "", false, true)
 	}
 	ctx.HTML(http.StatusOK, "login.gohtml", templateDataModel{
 		Cfg: r.cfg,
-		Data: models.Response{
-			Err: err,
-		},
 	})
 }
 
@@ -474,6 +468,41 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, "resetPasswordEnd.gohtml", templateDataModel{
+		Cfg: r.cfg,
+	})
+}
+
+func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
+	token := ctx.Query("token")
+	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+
+	if claims == nil || claims.TokenType != auth.Email {
+		r.logger.Warn("invalid token")
+		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: models.Response{
+				Err: "Invalid token",
+			},
+		})
+		return
+	}
+
+	fieldsToUpdate := map[string]interface{}{
+		"email_verified": true,
+	}
+	err := r.userService.UpdateUserWithID(ctx, claims.Id, fieldsToUpdate)
+	if err != nil {
+		r.logger.Error("could not update user", zap.String("user id", claims.Id), zap.Any("fields to udpate", fieldsToUpdate))
+		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Data: models.Response{
+				Err: "Something went wrong",
+			},
+		})
+		return
+	}
+
+	ctx.HTML(http.StatusOK, "verifyEmail.gohtml", templateDataModel{
 		Cfg: r.cfg,
 	})
 }

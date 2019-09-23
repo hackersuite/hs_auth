@@ -72,7 +72,7 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 }
 
 func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken string) error {
-	verificationURL := fmt.Sprintf("http://%s/emailverify?token=%s", s.cfg.AppURL, emailToken)
+	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s", s.cfg.AppURL, emailToken)
 
 	return s.SendEmail(
 		s.cfg.Email.EmailVerficationEmailSubj,
