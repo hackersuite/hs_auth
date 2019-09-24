@@ -13,9 +13,9 @@ import (
 )
 
 func (r *frontendRouter) LoginPage(ctx *gin.Context) {
-	referer := ctx.GetHeader("Referer")
-	if len(referer) > 0 {
-		ctx.SetCookie("Referer", referer, 100, "", "", false, true)
+	returnTo := ctx.Query("returnto")
+	if len(returnTo) > 0 {
+		ctx.SetCookie("ReturnTo", returnTo, 100, "", "", false, true)
 	}
 	ctx.HTML(http.StatusOK, "login.gohtml", templateDataModel{
 		Cfg: r.cfg,
@@ -106,12 +106,12 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 
 	ctx.Header(auth.AuthHeaderName, token)
 	ctx.SetCookie(auth.AuthHeaderName, token, 100000, "", "", false, true)
-	referer, err := ctx.Cookie("Referer")
-	if err != nil {
-		referer = "/"
+	returnTo, err := ctx.Cookie("ReturnTo")
+	if err != nil && len(returnTo) == 0 {
+		returnTo = "/"
 	}
-	ctx.SetCookie("Referer", "", 0, "", "", false, true)
-	ctx.Redirect(http.StatusMovedPermanently, referer)
+	ctx.SetCookie("ReturnTo", returnTo, 0, "", "", false, true)
+	ctx.Redirect(http.StatusMovedPermanently, returnTo)
 }
 
 func (r *frontendRouter) RegisterPage(ctx *gin.Context) {
