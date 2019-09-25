@@ -2,12 +2,10 @@ package auth
 
 import (
 	"errors"
-	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/utils/auth/common"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -32,27 +30,11 @@ type Claims struct {
 // and returns the claims inside the token. Returns nill if the token is invalid
 func GetJWTClaims(token string, secret []byte) *Claims {
 	var claims Claims
-	parsedToken, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
+	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
 
 	if err != nil {
-		return nil
-	}
-
-	userID, err := primitive.ObjectIDFromHex(claims.Id)
-	if err != nil {
-		return nil
-	}
-	expectedToken, err := NewJWT(entities.User{
-		ID:        userID,
-		AuthLevel: claims.AuthLevel,
-	}, claims.IssuedAt, 0, claims.TokenType, secret)
-	if err != nil {
-		return nil
-	}
-
-	if parsedToken.Raw != expectedToken {
 		return nil
 	}
 	return &claims
@@ -68,15 +50,16 @@ func GetHashForPassword(password string) (string, error) {
 }
 
 // NewJWT creates a new JWT for the specified user with the specified secret
-func NewJWT(user entities.User, timestamp int64, validityDuration time.Duration, tokenType TokenType, secret []byte) (string, error) {
+func NewJWT(user entities.User, timestamp int64, validityDuration int64, tokenType TokenType, secret []byte) (string, error) {
 	if len(secret) == 0 {
 		return "", errors.New("JWT secret undefined")
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
 		StandardClaims: jwt.StandardClaims{
-			Id:       user.ID.Hex(),
-			IssuedAt: timestamp,
+			Id:        user.ID.Hex(),
+			IssuedAt:  timestamp,
+			ExpiresAt: timestamp + validityDuration,
 		},
 		AuthLevel: user.AuthLevel,
 		TokenType: tokenType,
