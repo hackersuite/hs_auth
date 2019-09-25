@@ -29,6 +29,8 @@
   </div>
 </body>
 
+{{if .Data}}
 {{template "errorNotifier.gohtml" .Data.Err}}
+{{end}}
 {{template "cookieDisclaimer.gohtml"}}
 </html>
