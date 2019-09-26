@@ -13,6 +13,6 @@ type User struct {
 	Password      string             `json:"-" bson:"password" validate:"required,min=6,max=160"`
 	EmailVerified bool               `json:"email_verified,omitempty" bson:"email_verified,omitempty"`
 	EmailToken    string             `json:"email_token,omitempty" bson:"email_token,omitempty"`
-	AuthLevel     common.AuthLevel   `json:"auth_level,omitempty" bson:"auth_level,omitempty" validate:"min=0,max=3"`
+	AuthLevel     common.AuthLevel   `json:"auth_level" bson:"auth_level" validate:"min=0,max=3"`
 	Team          primitive.ObjectID `json:"team,omitempty" bson:"team,omitempty"`
 }
