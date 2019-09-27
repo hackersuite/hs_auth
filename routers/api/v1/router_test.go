@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/utils/auth"
@@ -208,7 +209,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 				token, err := auth.NewJWT(entities.User{
 					ID:        primitive.NewObjectID(),
 					AuthLevel: authlevels.AuthLevel(i),
-				}, 0, 100, auth.Auth, []byte(env.Get(environment.JWTSecret)))
+				}, time.Now().Unix(), 100, auth.Auth, []byte(env.Get(environment.JWTSecret)))
 				assert.NoError(t, err)
 
 				req := httptest.NewRequest(tt.method, tt.route, nil)

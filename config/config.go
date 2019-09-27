@@ -24,10 +24,11 @@ type EmailConfig struct {
 
 // AppConfig is a struct to store non-private configuration for the project
 type AppConfig struct {
-	Name          string               `yaml:"name"`
-	BaseAuthLevel authlevels.AuthLevel `yaml:"base_auth_level"`
-	AppURL        string               `yaml:"app_url"`
-	Email         EmailConfig          `yaml:"email"`
+	Name              string               `yaml:"name"`
+	BaseAuthLevel     authlevels.AuthLevel `yaml:"base_auth_level"`
+	AuthTokenLifetime int64                `yaml:"auth_token_lifetime"`
+	AppURL            string               `yaml:"app_url"`
+	Email             EmailConfig          `yaml:"email"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment

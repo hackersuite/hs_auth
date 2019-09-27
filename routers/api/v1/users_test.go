@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/unicsmcr/hs_auth/config"
 
@@ -70,7 +71,7 @@ func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUser
 	var token string
 	if env.Get(environment.JWTSecret) != "" {
 		var err error
-		token, err = auth.NewJWT(testUser, 100, 0, auth.Email, []byte(env.Get(environment.JWTSecret)))
+		token, err = auth.NewJWT(testUser, time.Now().Unix(), 100, auth.Email, []byte(env.Get(environment.JWTSecret)))
 		assert.NoError(t, err)
 		testCtx.Set(authClaimsKeyInCtx, &auth.Claims{
 			AuthLevel: testAuthLevel,
@@ -120,7 +121,7 @@ func setupUserTest(t *testing.T, envVars map[string]string, authLevel common.Aut
 	var emailToken string
 	if env.Get(environment.JWTSecret) != "" {
 		var err error
-		emailToken, err = auth.NewJWT(testUser, 100, 0, auth.Email, []byte(env.Get(environment.JWTSecret)))
+		emailToken, err = auth.NewJWT(testUser, time.Now().Unix(), 100, auth.Email, []byte(env.Get(environment.JWTSecret)))
 		assert.NoError(t, err)
 	}
 
@@ -785,7 +786,7 @@ func Test_AuthLevelVerifierFactory__should_return_middleware(t *testing.T) {
 					AuthLevel: tt.givenAuthLevel,
 					ID:        primitive.NewObjectID(),
 				}
-				token, err := auth.NewJWT(testUser, 100, 0, auth.Auth, []byte("testsecret"))
+				token, err := auth.NewJWT(testUser, time.Now().Unix(), 100, auth.Auth, []byte("testsecret"))
 				assert.NoError(t, err)
 				req.Header.Set(authHeaderName, token)
 			} else {
