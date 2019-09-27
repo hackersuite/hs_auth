@@ -107,7 +107,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
+	token, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating authentication token")
@@ -285,8 +285,7 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: change validityDuration placeholder once token validity duration is implemented
-	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
+	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not generate JWT token",
 			zap.String("user id", user.ID.Hex()),
@@ -378,7 +377,7 @@ func (r *apiV1Router) GetPasswordResetEmail(ctx *gin.Context) {
 		return
 	}
 
-	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 100, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
+	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not make email token for user",
 			zap.String("user id", user.ID.Hex()),
