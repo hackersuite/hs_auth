@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/unicsmcr/hs_auth/environment"
-	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.uber.org/zap"
@@ -28,9 +27,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		r.logger.Warn("email was not provided")
 		ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Email is required",
-			},
+			Err: "Email is required",
 		})
 		return
 	}
@@ -40,9 +37,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		r.logger.Warn("password was not provided")
 		ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Password is required",
-			},
+			Err: "Password is required",
 		})
 		return
 	}
@@ -53,17 +48,13 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 			r.logger.Warn("user not found", zap.String("email", email))
 			ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Data: models.Response{
-					Err: "User not found",
-				},
+				Err: "User not found",
 			})
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
 			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Data: models.Response{
-					Err: "Something went wrong",
-				},
+				Err: "Something went wrong",
 			})
 		}
 		return
@@ -74,9 +65,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		r.logger.Warn("user not found", zap.String("email", email))
 		ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "User not found",
-			},
+			Err: "User not found",
 		})
 		return
 	}
@@ -85,9 +74,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		r.logger.Warn("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
 		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "User's email not verified",
-			},
+			Err: "User's email not verified",
 		})
 		return
 	}
@@ -97,9 +84,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}
@@ -130,9 +115,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		r.logger.Warn("one of name, email, password, passwordConfirm not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)), zap.Int("passwordConfirm length", len(passwordConfirm)))
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "All fields are required",
-			},
+			Err: "All fields are required",
 		})
 		return
 	}
@@ -141,9 +124,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		r.logger.Warn("password and passwordConfirm do not match")
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Passwords do not match",
-			},
+			Err: "Passwords do not match",
 		})
 		return
 	}
@@ -153,9 +134,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		r.logger.Warn("email taken", zap.String("email", email))
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Email taken",
-			},
+			Err: "Email taken",
 		})
 		return
 	}
@@ -164,9 +143,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		r.logger.Error("could not query for user with email", zap.String("email", email), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}
@@ -176,9 +153,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		r.logger.Error("could not make hash for password", zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}
@@ -192,9 +167,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 			zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}
@@ -208,9 +181,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 			zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		r.userService.DeleteUserWithEmail(ctx, email)
 		return
@@ -224,9 +195,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 			zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		r.userService.DeleteUserWithEmail(ctx, email)
 		return
@@ -256,9 +225,7 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 		r.logger.Warn("email not specified")
 		ctx.HTML(http.StatusBadRequest, "forgotPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Please enter your email",
-			},
+			Err: "Please enter your email",
 		})
 		return
 	}
@@ -283,9 +250,7 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 		r.logger.Error("could not fetch user", zap.String("email", email), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}
@@ -299,9 +264,7 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 			zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}
@@ -311,9 +274,7 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 		r.logger.Error("could not send password reset email", zap.String("user id", user.ID.Hex()), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}
@@ -350,7 +311,6 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 	passwordConfirm := ctx.PostForm("passwordConfirm")
 
 	type res struct {
-		models.Response
 		Token string
 		Email string
 	}
@@ -359,10 +319,8 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		r.logger.Warn("one of email, password, passwordConfirm not specified", zap.String("email", email), zap.Int("password len", len(password)), zap.Int("passwordConfirm len", len(passwordConfirm)))
 		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
+			Err: "All fields are required",
 			Data: res{
-				Response: models.Response{
-					Err: "All fields are required",
-				},
 				Token: token,
 				Email: email,
 			},
@@ -374,10 +332,8 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		r.logger.Warn("password passwordConfirm do not match")
 		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
+			Err: "Passwords do not match",
 			Data: res{
-				Response: models.Response{
-					Err: "Passwords do not match",
-				},
 				Token: token,
 				Email: email,
 			},
@@ -390,10 +346,8 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		r.logger.Warn("invalid token")
 		ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
+			Err: "Invalid token",
 			Data: res{
-				Response: models.Response{
-					Err: "Invalid token",
-				},
 				Token: token,
 				Email: email,
 			},
@@ -406,10 +360,8 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		r.logger.Error("could not fetch user", zap.String("user id", claims.Id), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
+			Err: "Something went wrong",
 			Data: res{
-				Response: models.Response{
-					Err: "Something went wrong",
-				},
 				Token: token,
 				Email: email,
 			},
@@ -421,10 +373,8 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		r.logger.Warn("user's in token email is different than email in request", zap.String("user's email", user.Email), zap.String("given email", email))
 		ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
+			Err: "Invalid token",
 			Data: res{
-				Response: models.Response{
-					Err: "Invalid token",
-				},
 				Token: token,
 				Email: email,
 			},
@@ -437,10 +387,8 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		r.logger.Error("could not make hash for password", zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
+			Err: "Something went wrong",
 			Data: res{
-				Response: models.Response{
-					Err: "Something went wrong",
-				},
 				Token: token,
 				Email: email,
 			},
@@ -456,10 +404,8 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		r.logger.Error("could not user's password", zap.String("user id", user.ID.Hex()), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
+			Err: "Something went wrong",
 			Data: res{
-				Response: models.Response{
-					Err: "Something went wrong",
-				},
 				Token: token,
 				Email: email,
 			},
@@ -480,9 +426,7 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 		r.logger.Warn("invalid token")
 		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Invalid token",
-			},
+			Err: "Invalid token",
 		})
 		return
 	}
@@ -495,9 +439,7 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 		r.logger.Error("could not update user", zap.String("user id", claims.Id), zap.Any("fields to udpate", fieldsToUpdate))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Data: models.Response{
-				Err: "Something went wrong",
-			},
+			Err: "Something went wrong",
 		})
 		return
 	}

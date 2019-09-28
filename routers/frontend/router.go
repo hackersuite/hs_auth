@@ -24,6 +24,7 @@ type Router interface {
 
 type templateDataModel struct {
 	Cfg  *config.AppConfig
+	Err  string
 	Data interface{}
 }
 
