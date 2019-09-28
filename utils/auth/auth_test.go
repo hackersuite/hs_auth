@@ -1,8 +1,8 @@
 package auth
 
 import (
-	"fmt"
 	"testing"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
@@ -31,18 +31,32 @@ func Test_NewJWT__should_return_correct_JWT(t *testing.T) {
 
 	expectedToken, err := jwt.NewWithClaims(jwt.SigningMethodHS256, Claims{
 		StandardClaims: jwt.StandardClaims{
-			Id:       testUser.ID.Hex(),
-			IssuedAt: 100,
+			Id:        testUser.ID.Hex(),
+			IssuedAt:  100,
+			ExpiresAt: 300,
 		},
 		AuthLevel: 3,
 		TokenType: Auth,
 	}).SignedString(testSecret)
 	assert.NoError(t, err)
 
-	actualToken, err := NewJWT(testUser, 100, 0, Auth, testSecret)
+	actualToken, err := NewJWT(testUser, 100, 200, Auth, testSecret)
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedToken, actualToken)
+}
+
+func Test_GetJWTClaims__should_return_nil_for_expired_token(t *testing.T) {
+	testUser := entities.User{
+		ID:        primitive.NewObjectID(),
+		AuthLevel: 3,
+	}
+	testSecret := []byte(`test_secret`)
+	token, err := NewJWT(testUser, time.Now().Unix(), -100, Email, testSecret)
+	assert.NoError(t, err)
+
+	claims := GetJWTClaims(token, testSecret)
+	assert.Nil(t, claims)
 }
 
 func Test_GetJWTClaims__should_return_correct_auth_claims_for_valid_JWT(t *testing.T) {
@@ -52,8 +66,7 @@ func Test_GetJWTClaims__should_return_correct_auth_claims_for_valid_JWT(t *testi
 	}
 	testSecret := []byte(`test_secret`)
 
-	token, err := NewJWT(testUser, 101, 0, Email, testSecret)
-	fmt.Println(token)
+	token, err := NewJWT(testUser, time.Now().Unix(), 10000, Email, testSecret)
 	assert.NoError(t, err)
 
 	claims := GetJWTClaims(token, testSecret)
