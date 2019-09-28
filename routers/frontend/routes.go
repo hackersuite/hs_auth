@@ -81,7 +81,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
+	token, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
@@ -175,7 +175,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 	}
 
 	// TODO: change validityDuration placeholder once token validity duration is implemented
-	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 0, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
+	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not generate JWT token",
 			zap.String("user id", user.ID.Hex()),
@@ -257,7 +257,7 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 		return
 	}
 
-	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), 100, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
+	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not make email token for user",
 			zap.String("user id", user.ID.Hex()),
@@ -422,7 +422,10 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 
 func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 	token := ctx.Query("token")
+	r.logger.Info("token", zap.Any("token", token))
 	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
+
+	r.logger.Info("claims", zap.Any("claims", claims))
 
 	if claims == nil || claims.TokenType != auth.Email {
 		r.logger.Warn("invalid token")
