@@ -37,7 +37,10 @@ func InitializeServer() (Server, error) {
 		return Server{}, err
 	}
 	userService := services.NewUserService(logger, userRepository)
-	emailService := services.NewEmailClient(logger, appConfig, env)
+	emailService, err := services.NewEmailClient(logger, appConfig, env)
+	if err != nil {
+		return Server{}, err
+	}
 	teamRepository, err := repositories.NewTeamRepository(database)
 	if err != nil {
 		return Server{}, err

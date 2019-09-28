@@ -12,6 +12,9 @@ import (
 // AuthHeaderName is the name of the header to be user to store auth tokens
 const AuthHeaderName = "Authorization"
 
+// AuthTokenKeyInCtx is the key where the auth token is stored inside a request's context
+const AuthTokenKeyInCtx = "Authorization"
+
 // TokenType represent an auth token type
 type TokenType string
 

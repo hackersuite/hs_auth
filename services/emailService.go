@@ -1,9 +1,14 @@
 package services
 
 import (
+	"bytes"
 	"fmt"
+	"html/template"
+	"io/ioutil"
 	"net/http"
+	"os"
 
+	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
@@ -20,23 +25,43 @@ type EmailService interface {
 	SendPasswordResetEmail(user entities.User, emailToken string) error
 }
 
+type emailTemplateDataModel struct {
+	Link       string
+	SenderName string
+}
+
 type emailService struct {
 	*sendgrid.Client
 	logger *zap.Logger
 	cfg    *config.AppConfig
 	env    *environment.Env
+
+	paswordResetEmailTemplate *template.Template
+	emailVerifyEmailTemplate  *template.Template
 }
 
 // NewEmailClient creates a new email client that uses Sendgrid
-func NewEmailClient(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env) EmailService {
+func NewEmailClient(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env) (EmailService, error) {
 	sendgridClient := sendgrid.NewSendClient(env.Get(environment.SendgridAPIKey))
 
-	return &emailService{
-		Client: sendgridClient,
-		logger: logger,
-		cfg:    cfg,
-		env:    env,
+	paswordResetEmailTemplate, err := loadTemplate("password reset", "templates/emails/passwordReset_email.gohtml")
+	if err != nil {
+		return nil, errors.Wrap(err, "could not load password reset template")
 	}
+
+	emailVerifyEmailTemplate, err := loadTemplate("email verify", "templates/emails/emailVerify_email.gohtml")
+	if err != nil {
+		return nil, errors.Wrap(err, "could not load email verify template")
+	}
+
+	return &emailService{
+		Client:                    sendgridClient,
+		logger:                    logger,
+		cfg:                       cfg,
+		env:                       env,
+		paswordResetEmailTemplate: paswordResetEmailTemplate,
+		emailVerifyEmailTemplate:  emailVerifyEmailTemplate,
+	}, nil
 }
 
 func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error {
@@ -74,10 +99,19 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken string) error {
 	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s", s.cfg.AppURL, emailToken)
 
+	var contentBuff bytes.Buffer
+	err := s.paswordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
+		Link:       verificationURL,
+		SenderName: s.cfg.Email.NoreplyEmailName,
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not construct email")
+	}
+
 	return s.SendEmail(
 		s.cfg.Email.EmailVerficationEmailSubj,
-		verificationURL,
-		verificationURL,
+		contentBuff.String(),
+		contentBuff.String(),
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
 		user.Name,
@@ -87,12 +121,40 @@ func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken
 func (s *emailService) SendPasswordResetEmail(user entities.User, emailToken string) error {
 	resetURL := fmt.Sprintf("http://%s/resetpwd?email=%s&token=%s", s.cfg.AppURL, user.Email, emailToken)
 
+	var contentBuff bytes.Buffer
+	err := s.paswordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
+		Link:       resetURL,
+		SenderName: s.cfg.Email.NoreplyEmailName,
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not construct email")
+	}
+
 	return s.SendEmail(
 		s.cfg.Email.PasswordResetEmailSubj,
-		resetURL,
-		resetURL,
+		contentBuff.String(),
+		contentBuff.String(),
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
 		user.Name,
 		user.Email)
+}
+
+func loadTemplate(templateName string, templatePath string) (*template.Template, error) {
+	file, err := os.Open(templatePath)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not open template file %s", templatePath)
+	}
+
+	templateStr, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not read template file %s", templatePath)
+	}
+
+	template, err := template.New(templateName).Parse(string(templateStr))
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not parse template %s", templateName)
+	}
+
+	return template, nil
 }

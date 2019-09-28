@@ -11,10 +11,12 @@ import (
 	"go.uber.org/zap"
 )
 
+const ReturnToCookie = "ReturnTo"
+
 func (r *frontendRouter) LoginPage(ctx *gin.Context) {
 	returnTo := ctx.Query("returnto")
 	if len(returnTo) > 0 {
-		ctx.SetCookie("ReturnTo", returnTo, 100, "", "", false, true)
+		ctx.SetCookie(ReturnToCookie, returnTo, 100, "", "", false, true)
 	}
 	ctx.HTML(http.StatusOK, "login.gohtml", templateDataModel{
 		Cfg: r.cfg,
@@ -91,11 +93,11 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 
 	ctx.Header(auth.AuthHeaderName, token)
 	ctx.SetCookie(auth.AuthHeaderName, token, 100000, "", "", false, true)
-	returnTo, err := ctx.Cookie("ReturnTo")
+	returnTo, err := ctx.Cookie(ReturnToCookie)
 	if err != nil && len(returnTo) == 0 {
 		returnTo = "/"
 	}
-	ctx.SetCookie("ReturnTo", returnTo, 0, "", "", false, true)
+	ctx.SetCookie(ReturnToCookie, returnTo, 0, "", "", false, true)
 	ctx.Redirect(http.StatusMovedPermanently, returnTo)
 }
 
