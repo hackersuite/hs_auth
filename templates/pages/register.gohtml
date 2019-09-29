@@ -28,13 +28,18 @@
               </div>
               <div class="form-group">
                 <i for="passwordInput" class="fa fa-lock prefix"></i>
-                <input type="password" name="password" class="form-control" id="passwordInput" placeholder="Password"
+              <input type="password" name="password" class="form-control" id="passwordInput" placeholder="Password"
                   required="required">
+                <span id="nameHelp" class="help">Min 6 and max 160 characters</span>
               </div>
               <div class="form-group">
                 <i for="passwordConfirmInput"></i>
                 <input type="password" name="passwordConfirm" class="form-control" id="passwordConfirmInput" placeholder="Confirm password"
                   required="required">
+              </div>
+              <div class="form-group">
+                <input type="checkbox" name="passwordConfirm" required="required">
+                I agree with the <a href="{{.Cfg.DataPolicyURL}}">Data Policy</a>
               </div>
               <button type="submit" class="btn btn-primary">Submit</button>
             </form>

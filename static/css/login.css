@@ -15,9 +15,13 @@
     min-height: 38px;
     border-radius: 2px;
 }
-.btn {        
+.btn {
     font-size: 15px;
     font-weight: bold;
+}
+
+.help {
+    font-size: 0.7em;
 }
 
 @media screen and (max-width: 736px) {

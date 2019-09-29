@@ -122,6 +122,15 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		return
 	}
 
+	if len(password) < 6 || len(password) > 160 {
+		r.logger.Warn("invalid password lenght", zap.Int("length", len(password)))
+		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Err: "Password must contain between 6 and 160 characters",
+		})
+		return
+	}
+
 	if password != passwordConfirm {
 		r.logger.Warn("password and passwordConfirm do not match")
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
@@ -174,7 +183,6 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: change validityDuration placeholder once token validity duration is implemented
 	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not generate JWT token",
