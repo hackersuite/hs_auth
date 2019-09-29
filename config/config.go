@@ -30,6 +30,7 @@ type AppConfig struct {
 	AuthTokenLifetime int64                `yaml:"auth_token_lifetime"`
 	AppURL            string               `yaml:"app_url"`
 	Email             EmailConfig          `yaml:"email"`
+	DataPolicyURL     string               `yaml:"data_policy_url"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment
