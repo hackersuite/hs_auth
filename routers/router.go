@@ -33,8 +33,6 @@ func NewMainRouter(logger *zap.Logger, apiV1Router v1.APIV1Router, frontendRoute
 
 // RegisterRoutes registers all of the app's routes
 func (r *mainRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
-	routerGroup.GET("/", r.Heartbeat)
-
 	frontendGroup := routerGroup.Group("/")
 	r.frontendRouter.RegisterRoutes(frontendGroup)
 

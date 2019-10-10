@@ -5,19 +5,62 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
 const ReturnToCookie = "ReturnTo"
+
+func (r *frontendRouter) ProfilePage(ctx *gin.Context) {
+	authCookie, err := ctx.Cookie(auth.AuthHeaderName)
+	if err != nil {
+		r.logger.Debug("no auth cookie")
+		ctx.Redirect(http.StatusPermanentRedirect, "/login")
+		return
+	}
+
+	claims := auth.GetJWTClaims(authCookie, []byte(r.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		r.logger.Debug("invalid token in auth cookie")
+		ctx.Redirect(http.StatusPermanentRedirect, "/login")
+		return
+	}
+
+	user, _ := r.userService.GetUserWithID(ctx, claims.Id)
+	// TODO: error handling
+
+	var team *entities.Team
+	var teammates []entities.User
+	if user.Team != primitive.NilObjectID {
+		team, _ = r.teamService.GetTeamWithID(ctx, user.Team.Hex())
+		teammates, _ = r.userService.GetUsersWithTeam(ctx, user.Team.Hex())
+	}
+
+	ctx.HTML(http.StatusOK, "profile.gohtml", templateDataModel{
+		Cfg: r.cfg,
+		Data: struct {
+			User      *entities.User
+			Team      *entities.Team
+			Teammates []entities.User
+		}{
+			User:      user,
+			Team:      team,
+			Teammates: teammates,
+		},
+	})
+
+}
 
 func (r *frontendRouter) LoginPage(ctx *gin.Context) {
 	returnTo := ctx.Query("returnto")
 	if len(returnTo) > 0 {
 		ctx.SetCookie(ReturnToCookie, returnTo, 100, "", "", false, true)
 	}
+
 	ctx.HTML(http.StatusOK, "login.gohtml", templateDataModel{
 		Cfg: r.cfg,
 	})
@@ -91,7 +134,6 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.Header(auth.AuthHeaderName, token)
 	ctx.SetCookie(auth.AuthHeaderName, token, 100000, "", "", false, true)
 	returnTo, err := ctx.Cookie(ReturnToCookie)
 	if err != nil && len(returnTo) == 0 {
