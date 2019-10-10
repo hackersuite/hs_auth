@@ -24,6 +24,10 @@
     font-size: 0.7em;
 }
 
+.w-30 {
+    width: 50% !important;
+}
+
 @media screen and (max-width: 736px) {
     .w-50 {
         width: 80% !important;
