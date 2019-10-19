@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -15,21 +16,27 @@ import (
 
 const ReturnToCookie = "ReturnTo"
 
-func (r *frontendRouter) ProfilePage(ctx *gin.Context) {
+func getClaimsFromAuthCookie(ctx *gin.Context, jwtSecret string) *auth.Claims {
 	authCookie, err := ctx.Cookie(auth.AuthHeaderName)
 	if err != nil {
-		r.logger.Debug("no auth cookie")
-		ctx.Redirect(http.StatusPermanentRedirect, "/login")
-		return
+		return nil
 	}
 
-	claims := auth.GetJWTClaims(authCookie, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		r.logger.Debug("invalid token in auth cookie")
-		ctx.Redirect(http.StatusPermanentRedirect, "/login")
-		return
+	claims := auth.GetJWTClaims(authCookie, []byte(jwtSecret))
+	if claims == nil || claims.TokenType != auth.Auth {
+		return nil
 	}
 
+	return claims
+}
+
+type basicUserInfo struct {
+	User      *entities.User
+	Team      *entities.Team
+	Teammates []entities.User
+}
+
+func (r *frontendRouter) getBasicUserInfo(ctx *gin.Context, claims *auth.Claims) (basicUserInfo, error) {
 	user, _ := r.userService.GetUserWithID(ctx, claims.Id)
 	// TODO: error handling
 
@@ -40,25 +47,45 @@ func (r *frontendRouter) ProfilePage(ctx *gin.Context) {
 		teammates, _ = r.userService.GetUsersWithTeam(ctx, user.Team.Hex())
 	}
 
-	ctx.HTML(http.StatusOK, "profile.gohtml", templateDataModel{
-		Cfg: r.cfg,
-		Data: struct {
-			User      *entities.User
-			Team      *entities.Team
-			Teammates []entities.User
-		}{
-			User:      user,
-			Team:      team,
-			Teammates: teammates,
-		},
-	})
+	for index, teammate := range teammates {
+		if teammate.ID == user.ID { // removing the user themself from the teammates
+			teammates = append(teammates[:index], teammates[index+1:]...)
+			break
+		}
+	}
 
+	return basicUserInfo{
+		User:      user,
+		Team:      team,
+		Teammates: teammates,
+	}, nil
+}
+
+func (r *frontendRouter) ProfilePage(ctx *gin.Context) {
+	claims := getClaimsFromAuthCookie(ctx, r.env.Get(environment.JWTSecret))
+	if claims == nil {
+		r.logger.Debug("invalid auth token")
+		ctx.Redirect(http.StatusPermanentRedirect, "/login")
+		return
+	}
+
+	userInfo, err := r.getBasicUserInfo(ctx, claims)
+	if err != nil {
+		r.logger.Error("could not get user's basic info", zap.Error(err))
+		ctx.Redirect(http.StatusPermanentRedirect, "/login")
+		return
+	}
+
+	ctx.HTML(http.StatusOK, "profile.gohtml", templateDataModel{
+		Cfg:  r.cfg,
+		Data: userInfo,
+	})
 }
 
 func (r *frontendRouter) LoginPage(ctx *gin.Context) {
 	returnTo := ctx.Query("returnto")
 	if len(returnTo) > 0 {
-		ctx.SetCookie(ReturnToCookie, returnTo, 100, "", "", false, true)
+		ctx.SetCookie(ReturnToCookie, returnTo, 100, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
 	}
 
 	ctx.HTML(http.StatusOK, "login.gohtml", templateDataModel{
@@ -134,12 +161,12 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.SetCookie(auth.AuthHeaderName, token, 100000, "", "", false, true)
+	ctx.SetCookie(auth.AuthHeaderName, token, 100000, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
 	returnTo, err := ctx.Cookie(ReturnToCookie)
 	if err != nil && len(returnTo) == 0 {
 		returnTo = "/"
 	}
-	ctx.SetCookie(ReturnToCookie, returnTo, 0, "", "", false, true)
+	ctx.SetCookie(ReturnToCookie, returnTo, 0, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
 	ctx.Redirect(http.StatusMovedPermanently, returnTo)
 }
 
@@ -475,8 +502,6 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 	r.logger.Info("token", zap.Any("token", token))
 	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
 
-	r.logger.Info("claims", zap.Any("claims", claims))
-
 	if claims == nil || claims.TokenType != auth.Email {
 		r.logger.Warn("invalid token")
 		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
@@ -502,4 +527,220 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "verifyEmail.gohtml", templateDataModel{
 		Cfg: r.cfg,
 	})
+}
+
+func (r *frontendRouter) Logout(ctx *gin.Context) {
+	ctx.SetCookie(auth.AuthHeaderName, "", 0, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
+	ctx.HTML(http.StatusOK, "login.gohtml", templateDataModel{
+		Cfg: r.cfg,
+	})
+}
+
+func (r *frontendRouter) CreateTeam(ctx *gin.Context) {
+	claims := getClaimsFromAuthCookie(ctx, r.env.Get(environment.JWTSecret))
+	if claims == nil {
+		r.logger.Debug("invalid auth token")
+		ctx.Redirect(http.StatusSeeOther, "/login")
+		return
+	}
+
+	name := ctx.PostForm("name")
+	if len(name) == 0 {
+		r.logger.Warn("team name not specified", zap.String("name", name))
+		ctx.Set("err", "Please speicify team name")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		if err == services.ErrNotFound {
+			r.logger.Warn("could not find user in auth claims", zap.String("id", claims.Id))
+			ctx.Redirect(http.StatusSeeOther, "/login")
+			return
+		}
+		r.logger.Error("could not query for user with id", zap.String("id", claims.Id), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	if user.Team != primitive.NilObjectID {
+		r.logger.Warn("user is in a team already", zap.String("id", claims.Id), zap.String("team", user.Team.Hex()))
+		ctx.Header("err", "You are already in a team")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	_, err = r.teamService.GetTeamWithName(ctx, name)
+	if err == nil {
+		r.logger.Warn("team name taken", zap.String("name", name))
+		ctx.Set("err", "Team name is already taken")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	} else if err != services.ErrNotFound {
+		r.logger.Error("could not query for team with name", zap.String("name", name), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	team, err := r.teamService.CreateTeam(ctx, name, claims.Id)
+	if err != nil {
+		r.logger.Error("could not create team", zap.String("name", name), zap.String("creator", claims.Id), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, claims.Id, map[string]interface{}{
+		"team": team.ID,
+	})
+	if err != nil {
+		r.logger.Error("could not add user to newly created team",
+			zap.String("user id", claims.Id),
+			zap.String("team id", team.ID.Hex()),
+			zap.Error(err))
+		if err := r.teamService.DeleteTeamWithID(ctx, team.ID.Hex()); err != nil {
+			r.logger.Error("could not delete team after failing to update user's team",
+				zap.String("user id", claims.Id),
+				zap.String("team id", team.ID.Hex()),
+				zap.Error(err))
+		}
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	ctx.Redirect(http.StatusSeeOther, "/")
+}
+
+func (r *frontendRouter) JoinTeam(ctx *gin.Context) {
+	claims := getClaimsFromAuthCookie(ctx, r.env.Get(environment.JWTSecret))
+	if claims == nil {
+		r.logger.Debug("invalid auth token")
+		ctx.Redirect(http.StatusSeeOther, "/login")
+		return
+	}
+
+	team := ctx.PostForm("id")
+	if len(team) == 0 {
+		r.logger.Warn("team id not provided")
+		ctx.Set("err", "Please specify the ID of the team to join")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	teamID, err := primitive.ObjectIDFromHex(team)
+	if err != nil {
+		r.logger.Warn("invalid team id", zap.String("id", team))
+		models.SendAPIError(ctx, http.StatusBadRequest, "invalid team id")
+		ctx.Set("err", "Invalid team ID")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		r.logger.Error("could not fetch user with id", zap.String("id", claims.Id), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	if user.Team != primitive.NilObjectID {
+		r.logger.Warn("user already has a team", zap.String("user id", claims.Id), zap.String("team id", user.Team.Hex()))
+		ctx.Set("err", "You are already in a team")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	_, err = r.teamService.GetTeamWithID(ctx, team)
+	if err != nil {
+		if err == services.ErrNotFound {
+			r.logger.Warn("team with given id does not exist", zap.String("id", team))
+			ctx.Set("err", "Could not find team with given ID")
+			ctx.Redirect(http.StatusSeeOther, "/")
+			return
+		}
+		r.logger.Error("could not fetch team with id", zap.String("id", team), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, claims.Id, map[string]interface{}{
+		"team": teamID,
+	})
+	if err != nil {
+		r.logger.Error("could not set users team", zap.String("user id", claims.Id), zap.String("team id", team), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	ctx.Redirect(http.StatusSeeOther, "/")
+}
+func (r *frontendRouter) LeaveTeam(ctx *gin.Context) {
+	claims := getClaimsFromAuthCookie(ctx, r.env.Get(environment.JWTSecret))
+	if claims == nil {
+		r.logger.Debug("invalid auth token")
+		ctx.Redirect(http.StatusSeeOther, "/login")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		r.logger.Error("could not fetch user", zap.String("user id", claims.Id), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	if user.Team == primitive.NilObjectID {
+		r.logger.Warn("user is not in a team", zap.String("user id", claims.Id))
+		ctx.Set("err", "You are not in a team")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	team, err := r.teamService.GetTeamWithID(ctx, user.Team.Hex())
+	if err != nil {
+		r.logger.Error("could not fetch user's team", zap.String("user id", claims.Id), zap.String("team id", user.Team.Hex()), zap.Error(err))
+		ctx.Set("err", "Something went wrong")
+		ctx.Redirect(http.StatusSeeOther, "/")
+		return
+	}
+
+	if team.Creator == user.ID {
+		// Team creator left team, deleting team and removing all members from the team
+		err := r.userService.UpdateUsersWithTeam(ctx, team.ID.Hex(), map[string]interface{}{
+			"team": primitive.NilObjectID,
+		})
+		if err != nil {
+			r.logger.Error("could not remove users from team", zap.Error(err))
+			ctx.Set("err", "Something went wrong")
+			ctx.Redirect(http.StatusSeeOther, "/")
+			return
+		}
+		err = r.teamService.DeleteTeamWithID(ctx, team.ID.Hex())
+		if err != nil {
+			r.logger.Error("could not delete team", zap.Error(err))
+			ctx.Set("err", "Something went wrong")
+			ctx.Redirect(http.StatusSeeOther, "/")
+			return
+		}
+	} else {
+		err := r.userService.UpdateUserWithID(ctx, claims.Id, map[string]interface{}{
+			"team": primitive.NilObjectID,
+		})
+		if err != nil {
+			r.logger.Error("user could not leave their team", zap.String("user id", claims.Id), zap.Error(err))
+			ctx.Set("err", "Something went wrong")
+			ctx.Redirect(http.StatusSeeOther, "/")
+			return
+		}
+	}
+
+	ctx.Redirect(http.StatusSeeOther, "/")
 }
