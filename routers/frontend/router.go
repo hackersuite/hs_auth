@@ -13,6 +13,7 @@ type Router interface {
 	models.Router
 	LoginPage(*gin.Context)
 	Login(*gin.Context)
+	Logout(*gin.Context)
 	RegisterPage(*gin.Context)
 	Register(*gin.Context)
 	ForgotPasswordPage(*gin.Context)
@@ -20,6 +21,9 @@ type Router interface {
 	ResetPasswordPage(*gin.Context)
 	ResetPassword(*gin.Context)
 	VerifyEmail(*gin.Context)
+	CreateTeam(*gin.Context)
+	JoinTeam(*gin.Context)
+	LeaveTeam(*gin.Context)
 }
 
 type templateDataModel struct {
@@ -53,6 +57,7 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("", r.ProfilePage)
 	routerGroup.GET("login", r.LoginPage)
 	routerGroup.POST("login", r.Login)
+	routerGroup.GET("logout", r.Logout)
 	routerGroup.GET("register", r.RegisterPage)
 	routerGroup.POST("register", r.Register)
 	routerGroup.GET("forgotpwd", r.ForgotPasswordPage)
@@ -60,4 +65,7 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("resetpwd", r.ResetPasswordPage)
 	routerGroup.POST("resetpwd", r.ResetPassword)
 	routerGroup.GET("verifyemail", r.VerifyEmail)
+	routerGroup.POST("team/create", r.CreateTeam)
+	routerGroup.POST("team/join", r.JoinTeam)
+	routerGroup.POST("team/leave", r.LeaveTeam)
 }

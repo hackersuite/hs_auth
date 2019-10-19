@@ -4,11 +4,12 @@
 <head>
   {{template "header.gohtml" .Cfg}}
   <title>HS Auth - Profile</title>
-  <script src="static/js/profile.js"></script>
 </head>
 
 <body>
+
   <div class="wrapper">
+    {{template "navbar.gohtml" .}}
     <div class="main-panel">
       <div class="content">
         <div class="container-fluid">
@@ -22,21 +23,7 @@
                   <h2>{{ .Data.User.Name }}</h2>
                   <h3 id="emailText">{{ .Data.User.Email }}</h3>
                 </div>
-                {{if .Data.Team}}
-                <div class="card-body">
-                  <div class="form-group">
-                    <label for="teamName">Team Name </label>
-                    {{if ne .Data.Team.Creator.Hex .Data.User.ID.Hex}}
-                    <input type="text" class="form-control" id="teamName" placeholder="Hackathon Team" value="{{.Data.Team.Name}}" disabled>
-                    {{else}}
-                    <input type="text" class="form-control" id="teamName" placeholder="Hackathon Team" value="{{.Data.Team.Name}}">
-                    <button class="btn btn-success" onclick="updateName($('#teamName').val())">Save</button>
-                    {{end}}
-                  </div>
-                </div>
-                {{end}}
               </div>
-
             </div>
             {{ if .Data.Team}}
             <div class="col-md-6 col-lg-6">
@@ -48,13 +35,17 @@
                     <h2 class="text-center text">Team name: {{.Data.Team.Name}}</h2>
                     <h3 class="text-center text">Team code: {{.Data.Team.ID.Hex}}</h3>
                   <div class="form-group">
+                    {{ if  ne (len .Data.Teammates)  0 }}
                     <div id="teamMemberList">
                       <h3>Teammates:</h3>
                       {{range .Data.Teammates}}
-                        <p>{{.Name}}</p>
+                      <p>{{.Name}} {{if eq .ID.String $.Data.Team.Creator.String}}<i class="fas fa-crown" style="color: Gold"></i>{{end}}</p>
                       {{end}}
+                    {{end}}
                     </div>
-                    <button class="btn btn-danger" onclick="leaveTeam()">Leave Team</button>
+                    <form action="/team/leave" method="post">
+                      <button type="submit" class="btn btn-danger">Leave team</button>
+                    </form>
                   </div>
                 </div>
               </div>
@@ -70,14 +61,20 @@
                 </div>
                 <div class="card-body">
                   <div class="form-group">
-                    <button class="btn btn-warning" onclick="createTeam()">Create a team</button>
+                    <form action="/team/create" method="post">
+                      <label for="teamNameInput">Team name</label>
+                      <input type="text" name="name" class="form-control" id="teamNameInput" placeholder="aWeRsOmEtEaM" required>
+                      <button type="submit" class="btn btn-warning">Create a team</button>
+                    </form>
                   </div>
                 </div>
                 <div class="card-body">
                   <div class="form-group">
-                    <label for="teamCodeInput">Team name or code</label>
-                    <input type="text" class="form-control" id="teamCodeInput" placeholder="aWeRsOmEtEaM">
-                    <button class="btn btn-success" onclick="joinTeam($('#teamCodeInput').val())">Join team</button>
+                    <form action="/team/join" method="post">
+                      <label for="teamCodeInput">Team code</label>
+                      <input type="text" class="form-control" name="id" id="teamCodeInput" placeholder="aWeRsOmEtEaM" required>
+                      <button type="submit" class="btn btn-success">Join team</button>
+                    </form>
                   </div>
                 </div>
               </div>
