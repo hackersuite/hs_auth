@@ -27,9 +27,10 @@ type Router interface {
 }
 
 type templateDataModel struct {
-	Cfg  *config.AppConfig
-	Err  string
-	Data interface{}
+	Cfg      *config.AppConfig
+	Err      string
+	Data     interface{}
+	ReturnTo string
 }
 
 type frontendRouter struct {
