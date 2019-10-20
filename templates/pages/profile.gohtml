@@ -31,7 +31,7 @@
                 </div>
                 <div class="card-body">
                     <h2 class="text-center text">Team name: {{.Data.Team.Name}}</h2>
-                    <h3 class="text-center text">Team code: {{.Data.Team.ID.Hex}}</h3>
+                    <h3 class="text-center text">Team ID: {{.Data.Team.ID.Hex}}</h3>
                   <div class="form-group">
                     {{ if  ne (len .Data.Teammates)  0 }}
                     <div id="teamMemberList">
@@ -69,7 +69,7 @@
                 <div class="card-body">
                   <div class="form-group">
                     <form action="/team/join" method="post">
-                      <label for="teamCodeInput">Team code</label>
+                      <label for="teamCodeInput">Team ID</label>
                       <input type="text" class="form-control" name="id" id="teamCodeInput" placeholder="aWeRsOmEtEaM" required>
                       <button type="submit" class="btn btn-success">Join team</button>
                     </form>
