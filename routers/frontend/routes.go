@@ -46,11 +46,21 @@ func (r *frontendRouter) renderProfilePage(ctx *gin.Context, claims *auth.Claims
 		return
 	}
 
-	ctx.HTML(statusCode, "profile.gohtml", templateDataModel{
-		Cfg:  r.cfg,
-		Data: userInfo,
-		Err:  err,
-	})
+	returnTo, cookieErr := ctx.Cookie("ReturnTo")
+	if cookieErr == nil {
+		ctx.HTML(statusCode, "profile.gohtml", templateDataModel{
+			Cfg:      r.cfg,
+			Data:     userInfo,
+			Err:      err,
+			ReturnTo: returnTo,
+		})
+	} else {
+		ctx.HTML(statusCode, "profile.gohtml", templateDataModel{
+			Cfg:  r.cfg,
+			Data: userInfo,
+			Err:  err,
+		})
+	}
 }
 
 func (r *frontendRouter) getBasicUserInfo(ctx *gin.Context, claims *auth.Claims) (basicUserInfo, error) {
@@ -99,17 +109,7 @@ func (r *frontendRouter) ProfilePage(ctx *gin.Context) {
 		return
 	}
 
-	userInfo, err := r.getBasicUserInfo(ctx, claims)
-	if err != nil {
-		r.logger.Error("could not get user's basic info", zap.Error(err))
-		ctx.Redirect(http.StatusPermanentRedirect, "/login")
-		return
-	}
-
-	ctx.HTML(http.StatusOK, "profile.gohtml", templateDataModel{
-		Cfg:  r.cfg,
-		Data: userInfo,
-	})
+	r.renderProfilePage(ctx, claims, http.StatusOK, "")
 }
 
 func (r *frontendRouter) LoginPage(ctx *gin.Context) {
