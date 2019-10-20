@@ -7,14 +7,12 @@
 </head>
 
 <body>
-
   <div class="wrapper">
-    {{template "navbar.gohtml" .}}
-    <div class="main-panel">
       <div class="content">
         <div class="container-fluid">
-          <div class="row">
-            <div class="col-md-6 col-lg-6">
+          {{template "navbar.gohtml" .}}
+          <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
               <div class="card">
                 <div class="card-header card-header-tabs card-header-primary">
                   <h4 class="card-title">Personal Information</h4>
@@ -26,7 +24,7 @@
               </div>
             </div>
             {{ if .Data.Team}}
-            <div class="col-md-6 col-lg-6">
+            <div class="col-md-6 col-lg-5">
               <div class="card">
                 <div class="card-header card-header-tabs card-header-primary">
                   <h4 class="card-title">Team Information</h4>
@@ -83,7 +81,6 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 </body>
 {{if .Err}}
