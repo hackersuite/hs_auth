@@ -23,7 +23,7 @@ services:
     env_file:
       - ../../mongo.env
     volumes:
-      - ../../data:/data/db
+      - auth_db_store:/data/db
       - ../../initial_db_setup.sh:/docker-entrypoint-initdb.d/initial_db_setup.sh:ro
     healthcheck:
       test:
@@ -50,6 +50,9 @@ services:
       - 8001:8081
     networks:
       - internal
+
+volumes:
+  auth_db_store:
 
 networks:
   # internal network for hs_auth services
