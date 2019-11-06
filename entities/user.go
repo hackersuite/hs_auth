@@ -5,6 +5,19 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
+type UserField string
+
+const (
+	UserID            UserField = "_id"
+	UserName          UserField = "name"
+	UserEmail         UserField = "email"
+	UserPassword      UserField = "password"
+	UserEmailVerified UserField = "email_verified"
+	UserEmailToken    UserField = "auth_level"
+	UserAuthLevel     UserField = "team"
+	UserTeam          UserField = "team"
+)
+
 // User is the struct to store registered users
 type User struct {
 	ID            primitive.ObjectID `json:"_id" bson:"_id"`
