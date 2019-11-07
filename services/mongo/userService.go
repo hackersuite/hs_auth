@@ -1,7 +1,9 @@
-package services
+package mongo
 
 import (
 	"context"
+
+	"github.com/unicsmcr/hs_auth/services"
 
 	"go.mongodb.org/mongo-driver/mongo"
 
@@ -45,10 +47,10 @@ type UserServiceV2 interface {
 type mongoUserService struct {
 	logger         *zap.Logger
 	env            *environment.Env
-	userRepository repositories.UserRepository
+	userRepository repositories.MongoRepository
 }
 
-func NewUserServiceV2(logger *zap.Logger, env *environment.Env, userRepository repositories.UserRepository) UserServiceV2 {
+func NewMongoUserService(logger *zap.Logger, env *environment.Env, userRepository repositories.MongoRepository) UserServiceV2 {
 	return &mongoUserService{
 		logger:         logger,
 		env:            env,
@@ -64,7 +66,7 @@ func (s *mongoUserService) CreateUser(ctx context.Context, name, email, password
 
 	err := res.Err()
 	if err == nil {
-		return nil, ErrEmailTaken
+		return nil, services.ErrEmailTaken
 	} else if err != mongo.ErrNoDocuments {
 		return nil, errors.Wrap(err, "could not query for user with email")
 	}
@@ -109,7 +111,7 @@ func (s *mongoUserService) GetUsers(ctx context.Context) ([]entities.User, error
 func (s *mongoUserService) GetUsersWithTeam(ctx context.Context, teamID string) ([]entities.User, error) {
 	mongoID, err := primitive.ObjectIDFromHex(teamID)
 	if err != nil {
-		return nil, ErrInvalidID
+		return nil, services.ErrInvalidID
 	}
 
 	cur, err := s.userRepository.Find(ctx, bson.M{
@@ -148,7 +150,7 @@ func (s *mongoUserService) GetUsersWithAuthLevel(ctx context.Context, authLevel 
 func (s *mongoUserService) GetUserWithID(ctx context.Context, userID string) (*entities.User, error) {
 	mongoID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return nil, ErrInvalidID
+		return nil, services.ErrInvalidID
 	}
 
 	res := s.userRepository.FindOne(ctx, bson.M{
@@ -157,7 +159,7 @@ func (s *mongoUserService) GetUserWithID(ctx context.Context, userID string) (*e
 
 	user, err := decodeUserResult(res)
 	if errors.Cause(err) != mongo.ErrNoDocuments {
-		return nil, ErrNotFound
+		return nil, services.ErrNotFound
 	} else if err != nil {
 		return nil, errors.Wrap(err, "could not query for user with ID")
 	}
@@ -172,7 +174,7 @@ func (s *mongoUserService) GetUserWithEmail(ctx context.Context, email string) (
 
 	user, err := decodeUserResult(res)
 	if errors.Cause(err) != mongo.ErrNoDocuments {
-		return nil, ErrNotFound
+		return nil, services.ErrNotFound
 	} else if err != nil {
 		return nil, errors.Wrap(err, "could not query for user with email")
 	}
@@ -188,7 +190,7 @@ func (s *mongoUserService) GetUserWithEmailAndPwd(ctx context.Context, email, pw
 
 	err = auth.CompareHashAndPassword(user.Password, pwd)
 	if err != nil {
-		return nil, ErrNotFound
+		return nil, services.ErrNotFound
 	}
 
 	return user, nil
@@ -197,7 +199,7 @@ func (s *mongoUserService) GetUserWithEmailAndPwd(ctx context.Context, email, pw
 func (s *mongoUserService) GetUserWithJWT(ctx context.Context, jwt string) (*entities.User, error) {
 	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
 	if claims == nil {
-		return nil, ErrInvalidToken
+		return nil, services.ErrInvalidToken
 	}
 
 	return s.GetUserWithID(ctx, claims.Id)
@@ -206,7 +208,7 @@ func (s *mongoUserService) GetUserWithJWT(ctx context.Context, jwt string) (*ent
 func (s *mongoUserService) UpdateUsersWithTeam(ctx context.Context, teamID string, params UserUpdateParams) error {
 	mongoID, err := primitive.ObjectIDFromHex(teamID)
 	if err != nil {
-		return ErrInvalidID
+		return services.ErrInvalidID
 	}
 
 	_, err = s.userRepository.UpdateMany(ctx, bson.M{
@@ -237,7 +239,7 @@ func (s *mongoUserService) UpdateUsersWithAuthLevel(ctx context.Context, authLev
 func (s *mongoUserService) UpdateUserWithID(ctx context.Context, userID string, params UserUpdateParams) error {
 	mongoID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return ErrInvalidID
+		return services.ErrInvalidID
 	}
 
 	_, err = s.userRepository.UpdateOne(ctx, bson.M{
@@ -268,7 +270,7 @@ func (s *mongoUserService) UpdateUserWithEmail(ctx context.Context, email string
 func (s *mongoUserService) UpdateUserWithJWT(ctx context.Context, jwt string, params UserUpdateParams) error {
 	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
 	if claims == nil {
-		return ErrInvalidToken
+		return services.ErrInvalidToken
 	}
 
 	return s.UpdateUserWithID(ctx, claims.Id, params)
@@ -277,7 +279,7 @@ func (s *mongoUserService) UpdateUserWithJWT(ctx context.Context, jwt string, pa
 func (s *mongoUserService) DeleteUserWithID(ctx context.Context, userID string) error {
 	mongoID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
-		return ErrInvalidID
+		return services.ErrInvalidID
 	}
 
 	_, err = s.userRepository.DeleteOne(ctx, bson.M{
