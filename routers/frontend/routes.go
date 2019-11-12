@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -749,6 +750,47 @@ func (r *frontendRouter) LeaveTeam(ctx *gin.Context) {
 			r.renderProfilePage(ctx, claims, http.StatusInternalServerError, "Something went wrong")
 			return
 		}
+	}
+
+	r.renderProfilePage(ctx, claims, http.StatusOK, "")
+}
+
+func (r *frontendRouter) SetTeamTableNo(ctx *gin.Context) {
+	claims := getClaimsFromAuthCookie(ctx, r.env.Get(environment.JWTSecret))
+	if claims == nil {
+		r.logger.Debug("invalid auth token")
+		ctx.Redirect(http.StatusSeeOther, "/login")
+		return
+	}
+
+	table := ctx.PostForm("table")
+	if len(table) == 0 {
+		r.logger.Warn("table number not provided")
+		r.renderProfilePage(ctx, claims, http.StatusBadRequest, "Please specify a table number")
+		return
+	}
+
+	tableNo, err := strconv.Atoi(table)
+	if err != nil {
+		r.logger.Warn("invalid table number provided")
+		r.renderProfilePage(ctx, claims, http.StatusBadRequest, "Please specify a valid table number")
+		return
+	}
+
+	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	if err != nil {
+		r.logger.Error("could not fetch user", zap.String("user id", claims.Id), zap.Error(err))
+		r.renderProfilePage(ctx, claims, http.StatusInternalServerError, "Something went wrong")
+		return
+	}
+
+	err = r.teamService.UpdateTeamWithID(ctx, user.Team.Hex(), map[string]interface{}{
+		"table_no": tableNo,
+	})
+	if err != nil {
+		r.logger.Error("could not update team", zap.String("team id", user.Team.Hex()), zap.Error(err))
+		r.renderProfilePage(ctx, claims, http.StatusInternalServerError, "Something went wrong")
+		return
 	}
 
 	r.renderProfilePage(ctx, claims, http.StatusOK, "")

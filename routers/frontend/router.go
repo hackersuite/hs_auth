@@ -24,6 +24,7 @@ type Router interface {
 	CreateTeam(*gin.Context)
 	JoinTeam(*gin.Context)
 	LeaveTeam(*gin.Context)
+	SetTeamTableNo(ctx *gin.Context)
 }
 
 type templateDataModel struct {
@@ -69,4 +70,5 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.POST("team/create", r.CreateTeam)
 	routerGroup.POST("team/join", r.JoinTeam)
 	routerGroup.POST("team/leave", r.LeaveTeam)
+	routerGroup.POST("team/table", r.SetTeamTableNo)
 }
