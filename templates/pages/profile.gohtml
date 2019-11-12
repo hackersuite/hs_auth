@@ -41,6 +41,14 @@
                       {{end}}
                     {{end}}
                     </div>
+                    <form action="/team/table" method="post">
+                    <label for="tableNumInput">Team table number</label>
+                    <input type="text" name="table" class="form-control" id="tableNumInput" required
+                      {{if ne .Data.Team.TableNo 0}} value="{{.Data.Team.TableNo}}" {{end}}>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                    </form>
+                    <br>
+                    <br>
                     <form action="/team/leave" method="post">
                       <button type="submit" class="btn btn-danger">Leave team</button>
                     </form>
