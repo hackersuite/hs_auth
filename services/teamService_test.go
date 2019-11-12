@@ -108,6 +108,26 @@ func Test_DeleteTeamWithID__should_delete_correct_team(t *testing.T) {
 	assert.Equal(t, ErrNotFound, err)
 }
 
+func Test_UpdateTeamWithID__should_correctly_update_team(t *testing.T) {
+	tRepo, tService := setupTeamTest(t)
+	defer tRepo.Drop(context.Background())
+
+	testTeam, err := tService.CreateTeam(context.Background(), "test team 1", primitive.NewObjectID().Hex())
+	assert.NoError(t, err)
+
+	err = tService.UpdateTeamWithID(context.Background(), testTeam.ID.Hex(), map[string]interface{}{
+		"table_no": 5,
+	})
+	assert.NoError(t, err)
+
+	testTeam.TableNo = 5
+
+	actualTeam, err := tService.GetTeamWithID(context.Background(), testTeam.ID.Hex())
+	assert.NoError(t, err)
+
+	assert.Equal(t, testTeam, actualTeam)
+}
+
 func Test_GetTeamWithName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -198,6 +218,30 @@ func Test_DeleteTeamWithID__should_return_error(t *testing.T) {
 			}
 
 			err := tService.DeleteTeamWithID(context.Background(), tt.id)
+			assert.Error(t, err)
+
+			assert.Equal(t, tt.wantErr, err)
+		})
+	}
+}
+
+func Test_UpdateTeamWithID__should_return_error(t *testing.T) {
+	tests := []errTeamTestCase{
+		{
+			name:    "when given id is invalid",
+			wantErr: ErrInvalidID,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tRepo, tService := setupTeamTest(t)
+			defer tRepo.Drop(context.Background())
+			if tt.prep != nil {
+				tt.prep(t, tRepo)
+			}
+
+			err := tService.UpdateTeamWithID(context.Background(), tt.id, nil)
 			assert.Error(t, err)
 
 			assert.Equal(t, tt.wantErr, err)

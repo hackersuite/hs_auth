@@ -22,6 +22,7 @@ type TeamService interface {
 	GetTeamWithName(ctx context.Context, name string) (*entities.Team, error)
 	CreateTeam(ctx context.Context, name, creatorID string) (*entities.Team, error)
 	DeleteTeamWithID(ctx context.Context, id string) error
+	UpdateTeamWithID(ctx context.Context, id string, fieldsToUpdate map[string]interface{}) error
 }
 
 type teamService struct {
@@ -133,5 +134,20 @@ func (s *teamService) DeleteTeamWithID(ctx context.Context, id string) error {
 	_, err = s.teamRepository.DeleteOne(ctx, bson.M{
 		"_id": mongoID,
 	})
+	return err
+}
+
+func (s *teamService) UpdateTeamWithID(ctx context.Context, id string, fieldsToUpdate map[string]interface{}) error {
+	mongoID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return ErrInvalidID
+	}
+
+	_, err = s.teamRepository.UpdateOne(ctx, bson.M{
+		"_id": mongoID,
+	}, bson.M{
+		"$set": fieldsToUpdate,
+	})
+
 	return err
 }

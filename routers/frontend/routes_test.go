@@ -49,7 +49,7 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 
 	router := NewRouter(zap.NewNop(), &config.AppConfig{
 		BaseAuthLevel: 0,
-	}, env, mockUService, mockEService)
+	}, env, mockUService, nil, mockEService)
 
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
