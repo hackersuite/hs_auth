@@ -37,12 +37,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	tests := []struct {
 		route  string
 		method string
-	}{
-		{
-			route:  "/",
-			method: http.MethodGet,
-		},
-	}
+	}{}
 
 	for _, tt := range tests {
 		t.Run(tt.route, func(t *testing.T) {
