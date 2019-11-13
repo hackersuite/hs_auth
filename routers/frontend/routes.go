@@ -771,7 +771,7 @@ func (r *frontendRouter) SetTeamTableNo(ctx *gin.Context) {
 	}
 
 	tableNo, err := strconv.Atoi(table)
-	if err != nil {
+	if err != nil || tableNo <= 0 {
 		r.logger.Warn("invalid table number provided")
 		r.renderProfilePage(ctx, claims, http.StatusBadRequest, "Please specify a valid table number")
 		return
