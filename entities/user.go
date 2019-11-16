@@ -13,8 +13,8 @@ const (
 	UserEmail         UserField = "email"
 	UserPassword      UserField = "password"
 	UserEmailVerified UserField = "email_verified"
-	UserEmailToken    UserField = "auth_level"
-	UserAuthLevel     UserField = "team"
+	UserEmailToken    UserField = "email_token"
+	UserAuthLevel     UserField = "auth_level"
 	UserTeam          UserField = "team"
 )
 
