@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/services"
@@ -132,12 +133,14 @@ func (s *mongoUserService) GetUserWithID(ctx context.Context, userID string) (*e
 		return nil, services.ErrInvalidID
 	}
 
+	fmt.Println(mongoID)
+
 	res := s.userRepository.FindOne(ctx, bson.M{
 		string(entities.UserID): mongoID,
 	})
 
 	user, err := decodeUserResult(res)
-	if errors.Cause(err) != mongo.ErrNoDocuments {
+	if errors.Cause(err) == mongo.ErrNoDocuments {
 		return nil, services.ErrNotFound
 	} else if err != nil {
 		return nil, errors.Wrap(err, "could not query for user with ID")
@@ -152,7 +155,7 @@ func (s *mongoUserService) GetUserWithEmail(ctx context.Context, email string) (
 	})
 
 	user, err := decodeUserResult(res)
-	if errors.Cause(err) != mongo.ErrNoDocuments {
+	if errors.Cause(err) == mongo.ErrNoDocuments {
 		return nil, services.ErrNotFound
 	} else if err != nil {
 		return nil, errors.Wrap(err, "could not query for user with email")
@@ -269,22 +272,30 @@ func (s *mongoUserService) DeleteUserWithID(ctx context.Context, userID string) 
 		return services.ErrInvalidID
 	}
 
-	_, err = s.userRepository.DeleteOne(ctx, bson.M{
+	res, err := s.userRepository.DeleteOne(ctx, bson.M{
 		string(entities.UserID): mongoID,
 	})
 	if err != nil {
 		return errors.Wrap(err, "could not delete user with ID")
 	}
 
+	if res.DeletedCount == 0 {
+		return services.ErrNotFound
+	}
+
 	return nil
 }
 
 func (s *mongoUserService) DeleteUserWithEmail(ctx context.Context, email string) error {
-	_, err := s.userRepository.DeleteOne(ctx, bson.M{
+	res, err := s.userRepository.DeleteOne(ctx, bson.M{
 		string(entities.UserEmail): email,
 	})
 	if err != nil {
 		return errors.Wrap(err, "could not delete user with email")
+	}
+
+	if res.DeletedCount == 0 {
+		return services.ErrNotFound
 	}
 
 	return nil
