@@ -35,6 +35,53 @@ func (r *apiV1Router) GetTeams(ctx *gin.Context) {
 	})
 }
 
+// GET: /api/v1/teams/:id
+// Response: status int
+//           error string
+//           team entities.Team
+// Headers:  Authorization -> token
+func (r *apiV1Router) GetMyTeam(ctx *gin.Context) {
+	team := ctx.Param("id")
+	if len(team) == 0 {
+		r.logger.Warn("team id not provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "team id must be provided")
+		return
+	}
+
+	_, err := primitive.ObjectIDFromHex(team)
+	if err != nil {
+		r.logger.Warn("invalid team id", zap.String("id", team))
+		models.SendAPIError(ctx, http.StatusBadRequest, "invalid team id")
+		return
+	}
+
+	claims := extractClaimsFromCtx(ctx)
+	if claims == nil {
+		r.logger.Warn("could not extract auth claims from request context")
+		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
+		return
+	}
+
+	userTeam, err := r.teamService.GetTeamWithID(ctx, team)
+	if err != nil {
+		if err == services.ErrNotFound {
+			r.logger.Warn("team with given id does not exist", zap.String("id", team))
+			models.SendAPIError(ctx, http.StatusBadRequest, "could not find team with given id")
+			return
+		}
+		r.logger.Error("could not fetch team with id", zap.String("id", team), zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	ctx.JSON(http.StatusOK, getTeamRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Team: *userTeam,
+	})
+}
+
 // POST: /api/v1/teams
 // x-www-form-urlencoded
 // Request:  name string

@@ -75,6 +75,7 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	teamsGroup := routerGroup.Group("/teams")
 	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)
 	teamsGroup.POST("/", isAtLeastApplicant, r.CreateTeam)
+	teamsGroup.GET("/:id", isAtLeastApplicant, r.GetMyTeam)
 	teamsGroup.GET("/:id/members", isAtLeastApplicant, r.GetTeamMembers)
 	teamsGroup.POST("/:id/join", isAtLeastApplicant, r.JoinTeam)
 	teamsGroup.DELETE("/leave", isAtLeastApplicant, r.LeaveTeam)
