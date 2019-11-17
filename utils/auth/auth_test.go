@@ -1,18 +1,17 @@
 package auth
 
 import (
+	"net/http/httptest"
 	"testing"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/dgrijalva/jwt-go"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
-
 	"github.com/unicsmcr/hs_auth/entities"
+	"github.com/unicsmcr/hs_auth/utils/auth/common"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func Test_NewJWT__should_throw_error_when_secret_empty(t *testing.T) {
@@ -108,4 +107,106 @@ func Test_CompareHashAndPassword__should_return_nil_for_invalid_hash_and_passwor
 	password += "invalid"
 
 	assert.Error(t, CompareHashAndPassword(string(hash), password))
+}
+
+func Test_ExtractClaimsFromCtx__should_return_nil_when_ctx_doesnt_have_auth_claims(t *testing.T) {
+	testCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	claims := ExtractClaimsFromCtx(testCtx)
+	assert.Nil(t, claims)
+}
+
+func Test_ExtractClaimsFromCtx__should_return_nil_when_claims_in_ctx_are_of_different_type(t *testing.T) {
+	testCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	testCtx.Set(AuthTokenKeyInCtx, true)
+
+	claims := ExtractClaimsFromCtx(testCtx)
+	assert.Nil(t, claims)
+}
+
+func Test_ExtractClaimsFromCtx__should_return_correct_claims(t *testing.T) {
+	testCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	expectedClaims := &Claims{
+		StandardClaims: jwt.StandardClaims{
+			Id: "test id",
+		},
+	}
+
+	testCtx.Set(AuthTokenKeyInCtx, expectedClaims)
+
+	claims := ExtractClaimsFromCtx(testCtx)
+	assert.Equal(t, expectedClaims, claims)
+}
+
+func Test_AuthLevelVerifierFactory__should_return_middleware(t *testing.T) {
+	tests := []struct {
+		name           string
+		token          string
+		givenAuthLevel common.AuthLevel
+		wantNextCalled bool
+		wantAuthLevel  common.AuthLevel
+	}{
+		{
+			name:  "that calls failCallback when given token is invalid",
+			token: "not valid token",
+		},
+		{
+			name:  "that calls failCallback when given token is an email token",
+			token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDdhOTM4NmU0OGZhMTY1NTZjNTY0MTEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MywidG9rZW5fdHlwZSI6ImVtYWlsIn0.Hsi2STFazVwcQ73sG8BKg3dmIx_XnijFoJx6BNYuGPc",
+		},
+		{
+			name:           "that calls failCallback when auth level is too low",
+			givenAuthLevel: 0,
+			wantAuthLevel:  3,
+		},
+		{
+			name:           "that calls next handler when auth level is equal to required",
+			givenAuthLevel: 3,
+			wantAuthLevel:  3,
+			wantNextCalled: true,
+		},
+		{
+			name:           "that calls next handler when auth level is above required",
+			givenAuthLevel: 4,
+			wantAuthLevel:  3,
+			wantNextCalled: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := tt.token
+			if token == "" {
+				testUser := entities.User{
+					AuthLevel: tt.givenAuthLevel,
+					ID:        primitive.NewObjectID(),
+				}
+				var err error
+				token, err = NewJWT(testUser, time.Now().Unix(), 10000000, Auth, []byte("testsecret"))
+				assert.NoError(t, err)
+			}
+
+			failures := 0
+			levelVerifier := AuthLevelVerifierFactory(tt.wantAuthLevel, func(*gin.Context) string {
+				return token
+			}, []byte("testsecret"), func(*gin.Context) {
+				failures++
+			})
+
+			w := httptest.NewRecorder()
+			testCtx, _ := gin.CreateTestContext(w)
+
+			levelVerifier(testCtx)
+
+			claims := ExtractClaimsFromCtx(testCtx)
+			if tt.wantNextCalled {
+				assert.Zero(t, failures)
+				assert.NotNil(t, claims)
+			} else {
+				assert.Equal(t, 1, failures)
+				assert.Nil(t, claims)
+			}
+		})
+	}
 }
