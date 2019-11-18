@@ -7,24 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/unicsmcr/hs_auth/entities"
-	"github.com/unicsmcr/hs_auth/utils/auth"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
-
-	"github.com/unicsmcr/hs_auth/testutils"
-
-	"github.com/unicsmcr/hs_auth/environment"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/gin-gonic/gin"
-
-	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
-
 	"github.com/golang/mock/gomock"
-
+	"github.com/stretchr/testify/assert"
+	"github.com/unicsmcr/hs_auth/entities"
+	"github.com/unicsmcr/hs_auth/environment"
+	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	"github.com/unicsmcr/hs_auth/testutils"
+	"github.com/unicsmcr/hs_auth/utils/auth"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
