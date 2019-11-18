@@ -24,6 +24,20 @@ type TeamService interface {
 	DeleteTeamWithID(ctx context.Context, id string) error
 }
 
+type TeamServiceV2 interface {
+	CreateTeam(ctx context.Context, name, creatorID string) (*entities.Team, error)
+
+	GetTeams(context.Context) ([]entities.Team, error)
+
+	GetTeamWithID(ctx context.Context, id string) (*entities.Team, error)
+	GetTeamWithName(ctx context.Context, name string) (*entities.Team, error)
+	GetTeamForUserWithID(ctx context.Context, userID string) (*entities.Team, error)
+	GetTeamForUserWithEmail(ctx context.Context, email string) (*entities.Team, error)
+	GetTeamForUserWithJWT(ctx context.Context, jwt string) (*entities.Team, error)
+
+	DeleteTeamWithID(ctx context.Context, id string) error
+}
+
 type teamService struct {
 	logger         *zap.Logger
 	teamRepository repositories.TeamRepository
