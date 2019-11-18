@@ -4,40 +4,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.uber.org/zap"
-
-	"github.com/unicsmcr/hs_auth/routers/api/models"
-
-	"github.com/gin-gonic/gin"
 )
 
 const authClaimsKeyInCtx = "auth_claims"
-
-// AuthLevelVerifierFactory creates a middleware that checks if the user's
-// auth token has the required auth level and attaches the auth claims to
-// the request context. Will return a 401 if the auth token is invalid or has
-// an auth level that is too low
-func (r *apiV1Router) AuthLevelVerifierFactory(level authlevels.AuthLevel) func(*gin.Context) {
-	return func(ctx *gin.Context) {
-		token := ctx.GetHeader(authHeaderName)
-		claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-		if claims == nil || claims.TokenType != auth.Auth {
-			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-			ctx.Abort()
-			return
-		} else if claims.AuthLevel < level {
-			models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this endpoint")
-			ctx.Abort()
-			return
-		}
-		ctx.Set(authClaimsKeyInCtx, claims)
-		ctx.Next()
-	}
-}
 
 // GET: /api/v1/users/
 // Response: status int
@@ -82,7 +58,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 		return
 	}
 
-	user, err := r.userService.GetUserWithEmail(ctx, email)
+	user, err := r.userService.GetUserWithEmailAndPwd(ctx, email, password)
 	if err != nil {
 		if err == services.ErrNotFound {
 			r.logger.Warn("user not found", zap.String("email", email))
@@ -91,19 +67,6 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 			r.logger.Error("could not fetch user", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
 		}
-		return
-	}
-
-	err = auth.CompareHashAndPassword(user.Password, password)
-	if err != nil {
-		r.logger.Warn("user not found", zap.String("email", email))
-		models.SendAPIError(ctx, http.StatusUnauthorized, "user not found")
-		return
-	}
-
-	if !user.EmailVerified {
-		r.logger.Warn("user's email not verified'", zap.String("user id", user.ID.Hex()), zap.String("email", email))
-		models.SendAPIError(ctx, http.StatusUnauthorized, "user's email has not been verified")
 		return
 	}
 
@@ -124,45 +87,19 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 	})
 }
 
-// GET: /api/v1/users/verify
-// Response: status int
-//           error string
-// Headers:  Authorization -> token
-func (r *apiV1Router) Verify(ctx *gin.Context) {
-	claims := extractClaimsFromCtx(ctx)
-	if claims == nil {
-		r.logger.Warn("could not extract auth claims from request context")
-		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
-		return
-	}
-
-	r.logger.Info("claims", zap.Any("claims", claims))
-	ctx.JSON(http.StatusOK, verifyRes{
-		Response: models.Response{
-			Status: http.StatusOK,
-		},
-		AuthLevel: claims.AuthLevel,
-		UserID:    claims.Id,
-	})
-}
-
 // GET: /api/v1/users/me
 // Response: status int
 //           error string
 //           user entities.User
 // Headers:  Authorization -> token
 func (r *apiV1Router) GetMe(ctx *gin.Context) {
-	claims := extractClaimsFromCtx(ctx)
-	if claims == nil {
-		r.logger.Warn("could not extract auth claims from request context")
-		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
-		return
-	}
-
-	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	user, err := r.userService.GetUserWithJWT(ctx, ctx.GetHeader(authHeaderName))
 	if err != nil {
-		if err == services.ErrNotFound {
-			r.logger.Warn("user not found", zap.Any("id", claims.Id))
+		if err == services.ErrInvalidToken {
+			r.logger.Warn("invalid token")
+			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+		} else if err == services.ErrNotFound {
+			r.logger.Warn("user not found")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -171,6 +108,9 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, getMeRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
 		User: *user,
 	})
 }
@@ -192,17 +132,10 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 		return
 	}
 
-	claims := extractClaimsFromCtx(ctx)
-	if claims == nil {
-		r.logger.Warn("could not extract auth claims from request context")
-		models.SendAPIError(ctx, http.StatusBadRequest, "missing auth information")
-		return
-	}
-
-	fieldsToUpdate := map[string]interface{}{}
+	fieldsToUpdate := services.UserUpdateParams{}
 
 	if len(name) > 0 {
-		fieldsToUpdate["name"] = name
+		fieldsToUpdate[entities.UserName] = name
 	}
 	if len(team) > 0 {
 		_, err := r.teamService.GetTeamWithID(ctx, team)
@@ -221,13 +154,18 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 				return
 			}
 		}
-		fieldsToUpdate["team"] = team
+		fieldsToUpdate[entities.UserTeam] = team
 	}
 
-	err := r.userService.UpdateUserWithID(ctx, claims.Id, fieldsToUpdate)
+	err := r.userService.UpdateUserWithJWT(ctx, ctx.GetHeader(authHeaderName), fieldsToUpdate)
 	if err != nil {
-		r.logger.Error("could not update user", zap.String("id", claims.Id), zap.Any("fields to update", fieldsToUpdate), zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with updating the user")
+		if err == services.ErrInvalidToken {
+			r.logger.Warn("invalid token")
+			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+		} else {
+			r.logger.Error("could not update user", zap.Any("fields to update", fieldsToUpdate), zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with updating the user")
+		}
 		return
 	}
 	ctx.JSON(http.StatusOK, models.Response{
@@ -254,48 +192,18 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 		return
 	}
 
-	_, err := r.userService.GetUserWithEmail(ctx, email)
-	if err == nil {
+	user, err := r.userService.CreateUser(ctx, name, email, password)
+	if err == services.ErrEmailTaken {
 		r.logger.Warn("email taken", zap.String("email", email))
-		models.SendAPIError(ctx, http.StatusBadRequest, "email taken")
+		models.SendAPIError(ctx, http.StatusBadRequest, "user with given email already exists")
 		return
-	}
-
-	if err != services.ErrNotFound {
-		r.logger.Error("could not query for user with email", zap.String("email", email), zap.Error(err))
+	} else if err != nil {
+		r.logger.Error("could not create user", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
 		return
 	}
 
-	hashedPassword, err := auth.GetHashForPassword(password)
-	if err != nil {
-		r.logger.Error("could not make hash for password", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
-		return
-	}
-
-	user, err := r.userService.CreateUser(ctx, name, email, hashedPassword, r.cfg.BaseAuthLevel)
-	if err != nil {
-		r.logger.Error("could not create user",
-			zap.String("name", name),
-			zap.String("email", email),
-			zap.Int("auth level", int(r.cfg.BaseAuthLevel)),
-			zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
-		return
-	}
-
-	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
-	if err != nil {
-		r.logger.Error("could not generate JWT token",
-			zap.String("user id", user.ID.Hex()),
-			zap.Bool("JWT_SECRET set", r.env.Get(environment.JWTSecret) != environment.DefaultEnvVarValue),
-			zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
-		r.userService.DeleteUserWithEmail(ctx, email)
-		return
-	}
-	err = r.emailService.SendEmailVerificationEmail(*user, emailToken)
+	err = r.emailService.SendEmailVerificationEmail(*user)
 	if err != nil {
 		r.logger.Error("could not send email verification email",
 			zap.String("user email", user.Email),
@@ -320,27 +228,19 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 //           error string
 // Header:   Authorization -> token
 func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
-	token := ctx.GetHeader(authHeaderName)
-	if len(token) == 0 {
-		r.logger.Warn("token not specified")
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-		return
+	// TODO: this should increase user's auth level
+	fieldsToUpdate := services.UserUpdateParams{
+		entities.UserEmailVerified: true,
 	}
-
-	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil || claims.TokenType != auth.Email {
-		r.logger.Warn("invalid token", zap.String("token", token))
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-		return
-	}
-
-	fieldsToUpdate := map[string]interface{}{
-		"email_verified": true,
-	}
-	err := r.userService.UpdateUserWithID(ctx, claims.Id, fieldsToUpdate)
+	err := r.userService.UpdateUserWithJWT(ctx, ctx.GetHeader(authHeaderName), fieldsToUpdate)
 	if err != nil {
-		r.logger.Error("could not update user", zap.String("user id", claims.Id), zap.Any("fields to udpate", fieldsToUpdate))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		if err == services.ErrInvalidToken {
+			r.logger.Warn("invalid token")
+			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+		} else {
+			r.logger.Error("could not update user", zap.Any("fields to udpate", fieldsToUpdate))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
 		return
 	}
 
@@ -361,36 +261,9 @@ func (r *apiV1Router) GetPasswordResetEmail(ctx *gin.Context) {
 		return
 	}
 
-	user, err := r.userService.GetUserWithEmail(ctx, email)
+	err := r.emailService.SendPasswordResetEmailForUserWithEmail(ctx, email)
 	if err != nil {
-		if err == services.ErrNotFound {
-			r.logger.Warn("user with email doesn't exist", zap.String("email", email))
-			// don't want to give the user a tool to figure which email addresses are registered
-			// as this would be a security issue
-			ctx.JSON(http.StatusOK, models.Response{
-				Status: http.StatusOK,
-			})
-			return
-		}
-		r.logger.Error("could not fetch user", zap.String("email", email), zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
-	emailToken, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Email, []byte(r.env.Get(environment.JWTSecret)))
-	if err != nil {
-		r.logger.Error("could not make email token for user",
-			zap.String("user id", user.ID.Hex()),
-			zap.String("jwt secret env var name", environment.JWTSecret),
-			zap.Bool("jwt secret set", r.env.Get(environment.JWTSecret) == environment.DefaultEnvVarValue),
-			zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
-	err = r.emailService.SendPasswordResetEmail(*user, emailToken)
-	if err != nil {
-		r.logger.Error("could not send password reset email", zap.String("user id", user.ID.Hex()), zap.Error(err))
+		r.logger.Error("could not send password reset email", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
 		return
 	}
@@ -421,46 +294,13 @@ func (r *apiV1Router) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	token := ctx.GetHeader(authHeaderName)
-	if len(token) == 0 {
-		r.logger.Warn("token not specified")
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-		return
-	}
-
-	claims := auth.GetJWTClaims(token, []byte(r.env.Get(environment.JWTSecret)))
-	if claims == nil || claims.TokenType != auth.Email {
-		r.logger.Warn("invalid token")
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-		return
-	}
-
-	user, err := r.userService.GetUserWithID(ctx, claims.Id)
+	err := r.userService.ResetPasswordForUserWithJWTAndEmail(ctx, ctx.GetHeader(authHeaderName), email, password)
 	if err != nil {
-		r.logger.Error("could not fetch user", zap.String("user id", claims.Id), zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
-	if user.Email != email {
-		r.logger.Warn("user's in token email is different than email in request", zap.String("user's email", user.Email), zap.String("given email", email))
-		models.SendAPIError(ctx, http.StatusUnauthorized, "invalid token")
-		return
-	}
-
-	hashedPassword, err := auth.GetHashForPassword(password)
-	if err != nil {
-		r.logger.Error("could not make hash for password", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong while creating new user")
-		return
-	}
-
-	user.Password = hashedPassword
-	err = r.userService.UpdateUserWithID(ctx, claims.Id, map[string]interface{}{
-		"password": user.Password,
-	})
-	if err != nil {
-		r.logger.Error("could not set user's password", zap.String("user id", user.ID.Hex()), zap.Error(err))
+		if err == services.ErrInvalidToken {
+			r.logger.Warn("invalid token")
+			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+		}
+		r.logger.Error("could not set user's password", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
 		return
 	}
