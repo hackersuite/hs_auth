@@ -2,813 +2,331 @@ package v1
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
 
-	"github.com/unicsmcr/hs_auth/config"
-
-	"github.com/unicsmcr/hs_auth/services"
-
-	"github.com/unicsmcr/hs_auth/utils/auth"
-
-	"github.com/unicsmcr/hs_auth/utils/auth/common"
-
-	"github.com/dgrijalva/jwt-go"
-
-	"github.com/unicsmcr/hs_auth/environment"
-	"github.com/unicsmcr/hs_auth/testutils"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	"github.com/unicsmcr/hs_auth/routers/api/models"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/gin-gonic/gin"
-
-	"go.uber.org/zap"
-
-	"github.com/unicsmcr/hs_auth/entities"
-
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/entities"
+	"github.com/unicsmcr/hs_auth/environment"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	"github.com/unicsmcr/hs_auth/routers/api/models"
+	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/testutils"
+	"github.com/unicsmcr/hs_auth/utils/auth"
+	"github.com/unicsmcr/hs_auth/utils/auth/common"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.uber.org/zap"
 )
 
-const testPassword = "password123"
-const testUserID = "5d7a9386e48fa16556c56411"
-const testAuthLevel = 3
-const testEmailVerified = true
+const (
+	baseTestAuthLevel     = common.Applicant
+	testAuthTokenLifetime = 10000000
+)
 
-func setupTest(t *testing.T, envVars map[string]string) (*mock_services.MockUserService, *mock_services.MockEmailService, *httptest.ResponseRecorder, *gin.Context, *gin.Engine, APIV1Router, entities.User, string) {
-	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserService(ctrl)
-	mockESercive := mock_services.NewMockEmailService(ctrl)
-	w := httptest.NewRecorder()
-	testCtx, testServer := gin.CreateTestContext(w)
-	restoreVars := testutils.SetEnvVars(envVars)
-	env := environment.NewEnv(zap.NewNop())
-	restoreVars()
-	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
-		BaseAuthLevel: 0,
-	}, mockUService, mockESercive, nil, env)
-	password, err := auth.GetHashForPassword(testPassword)
-	assert.NoError(t, err)
-	userID, err := primitive.ObjectIDFromHex(testUserID)
-	assert.NoError(t, err)
-	testUser := entities.User{
-		AuthLevel:     testAuthLevel,
-		Password:      password,
-		ID:            userID,
-		EmailVerified: testEmailVerified,
-	}
-	var token string
-	if env.Get(environment.JWTSecret) != "" {
-		var err error
-		token, err = auth.NewJWT(testUser, time.Now().Unix(), 100, auth.Email, []byte(env.Get(environment.JWTSecret)))
-		assert.NoError(t, err)
-		testCtx.Set(authClaimsKeyInCtx, &auth.Claims{
-			AuthLevel: testAuthLevel,
-			TokenType: auth.Auth,
-			StandardClaims: jwt.StandardClaims{
-				Id: userID.Hex(),
-			},
-		})
-	}
-
-	return mockUService, mockESercive, w, testCtx, testServer, router, testUser, token
+type usersTestSetup struct {
+	mockUService *mock_services.MockUserServiceV2
+	mockEService *mock_services.MockEmailServiceV2
+	mockTService *mock_services.MockTeamService
+	env          *environment.Env
+	router       APIV1Router
+	testServer   *gin.Engine
+	w            *httptest.ResponseRecorder
+	testCtx      *gin.Context
+	testUser     *entities.User
+	claims       *auth.Claims
+	jwt          string
 }
 
-func setupUserTest(t *testing.T, envVars map[string]string, authLevel common.AuthLevel) *testSetup {
+func setupUsersTest(t *testing.T, envVars map[string]string) *usersTestSetup {
 	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserService(ctrl)
-	mockTService := mock_services.NewMockTeamService(ctrl)
-	mockEService := mock_services.NewMockEmailService(ctrl)
+	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockESercive := mock_services.NewMockEmailServiceV2(ctrl)
+	mockTSercive := mock_services.NewMockTeamService(ctrl)
 
 	restore := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
 	restore()
 
 	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
-		BaseAuthLevel: 0,
-	}, mockUService, mockEService, mockTService, env)
+		BaseAuthLevel:     baseTestAuthLevel,
+		AuthTokenLifetime: testAuthTokenLifetime,
+	}, env, mockUService, mockESercive, mockTSercive)
 
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
-		Name:      "John Doe",
-		Email:     "john@doe.com",
-		AuthLevel: authLevel,
+		Name:      "Bob the Tester",
+		Email:     "test@email.com",
+		AuthLevel: baseTestAuthLevel,
 		Team:      primitive.NewObjectID(),
+		Password:  "password123",
 	}
 
-	claims := &auth.Claims{
-		StandardClaims: jwt.StandardClaims{
-			Id: testUser.ID.Hex(),
-		},
-		AuthLevel: testUser.AuthLevel,
-	}
+	jwt, _ := auth.NewJWT(testUser, time.Now().Unix(), testAuthTokenLifetime, auth.Auth, []byte(env.Get(environment.JWTSecret)))
+	claims := auth.GetJWTClaims(jwt, []byte(env.Get(environment.JWTSecret)))
 
 	w := httptest.NewRecorder()
 	testCtx, testServer := gin.CreateTestContext(w)
-	testCtx.Set(authClaimsKeyInCtx, claims)
+	testCtx.Set(auth.AuthTokenKeyInCtx, claims)
 
-	var emailToken string
-	if env.Get(environment.JWTSecret) != "" {
-		var err error
-		emailToken, err = auth.NewJWT(testUser, time.Now().Unix(), 100, auth.Email, []byte(env.Get(environment.JWTSecret)))
-		assert.NoError(t, err)
-	}
-
-	return &testSetup{
+	return &usersTestSetup{
 		mockUService: mockUService,
-		mockTService: mockTService,
-		mockEService: mockEService,
+		mockEService: mockESercive,
+		mockTService: mockTSercive,
+		testUser:     &testUser,
 		env:          env,
 		router:       router,
-		testUser:     &testUser,
+		testServer:   testServer,
 		w:            w,
 		testCtx:      testCtx,
-		testServer:   testServer,
 		claims:       claims,
-		emailToken:   emailToken,
+		jwt:          jwt,
 	}
 }
 
-func Test_GetUsers__should_call_GetUsers_on_UserService(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	expectedRes := getUsersRes{
-		Response: models.Response{
-			Status: http.StatusOK,
-		},
-		Users: []entities.User{entities.User{Name: "Bob Tester"}},
-	}
-	mockUService.EXPECT().GetUsers(gomock.Any()).Return(expectedRes.Users, nil).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set(authHeaderName, token)
-	testCtx.Request = req
-	router.GetUsers(testCtx)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes getUsersRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, expectedRes, actualRes)
-}
-
-func Test_GetUsers__should_return_error_when_UserService_returns_error(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	expectedAPIError := models.NewAPIError(http.StatusInternalServerError, "service err")
-
-	mockUService.EXPECT().GetUsers(gomock.Any()).Return(nil, errors.New(expectedAPIError.Err)).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", nil)
-	req.Header.Set(authHeaderName, token)
-	testCtx.Request = req
-	router.GetUsers(testCtx)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes models.APIError
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedAPIError.Status, w.Code)
-	assert.Equal(t, expectedAPIError, actualRes)
-}
-
-func Test_Login__should_call_UserService_and_return_correct_token_and_user(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	mockUService.EXPECT().
-		GetUserWithEmail(gomock.Any(), "john@doe.com").
-		Return(&testUser, nil).Times(1)
-
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Login(testCtx)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes loginRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	assert.Equal(t, http.StatusOK, actualRes.Status)
-	assert.Zero(t, actualRes.Err)
-
-	var claims auth.Claims
-	_, err = jwt.ParseWithClaims(actualRes.Token, &claims, func(*jwt.Token) (interface{}, error) {
-		return []byte("testsecret"), nil
-	})
-	assert.NoError(t, err)
-	assert.Equal(t, testUser.ID.Hex(), claims.Id)
-	assert.Equal(t, testUser.AuthLevel, claims.AuthLevel)
-
-	assert.NotNil(t, auth.GetJWTClaims(actualRes.Token, []byte("testsecret")))
-	testUser.Password = actualRes.User.Password
-	assert.Equal(t, testUser, actualRes.User)
-}
-
-func Test_Login__should_return_500_when_user_service_returns_error(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	mockUService.EXPECT().
-		GetUserWithEmail(gomock.Any(), "john@doe.com").
-		Return(nil, errors.New("service err")).Times(1)
-
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Login(testCtx)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func Test_Login__should_return_StatusBadRequest_when_no_email_is_provided(t *testing.T) {
-	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-	data := url.Values{}
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Login(testCtx)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes loginRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	assert.Equal(t, http.StatusBadRequest, actualRes.Status)
-	assert.Equal(t, "email must be provided", actualRes.Err)
-}
-
-func Test_Login__should_return_StatusBadRequest_when_no_password_is_provided(t *testing.T) {
-	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Login(testCtx)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes loginRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	assert.Equal(t, http.StatusBadRequest, actualRes.Status)
-	assert.Equal(t, "password must be provided", actualRes.Err)
-}
-
-func Test_Login__should_return_StatusUnauthorized_when_invalid_credentials_are_provided(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").
-		Return(nil, services.ErrNotFound).Times(1)
-
-	router.Login(testCtx)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes loginRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	assert.Equal(t, http.StatusUnauthorized, actualRes.Status)
-	assert.Equal(t, "user not found", actualRes.Err)
-}
-
-func Test_Verify__should_return_correct_response_for_valid_token(t *testing.T) {
-	_, _, w, testCtx, _, router, _, token := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	req := httptest.NewRequest(http.MethodGet, "/verify", nil)
-	req.Header.Set(authHeaderName, token)
-	testCtx.Request = req
-
-	router.Verify(testCtx)
-
-	actualResStr, err := ioutil.ReadAll(w.Body)
-	assert.NoError(t, err)
-
-	var actualRes verifyRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-	assert.Equal(t, common.AuthLevel(testAuthLevel), actualRes.AuthLevel)
-	assert.Equal(t, testUserID, actualRes.UserID)
-}
-
-func Test_GetMe__should_return_400_when_auth_claims_are_nil(t *testing.T) {
-	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	testCtx.Set(authClaimsKeyInCtx, nil)
-	router.GetMe(testCtx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func Test_GetMe__should_return_400_if_user_in_claims_doesnt_exist(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(nil, services.ErrNotFound).Times(1)
-	router.GetMe(testCtx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func Test_GetMe__should_return_500_if_user_service_returns_err(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(nil, errors.New("service err")).Times(1)
-
-	router.GetMe(testCtx)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func Test_GetMe__should_return_correct_user(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "testsecret",
-	})
-
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), testUser.ID.Hex()).Return(&testUser, nil).Times(1)
-	router.GetMe(testCtx)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes getMeRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	testUser.Password = actualRes.User.Password
-	assert.Equal(t, testUser, actualRes.User)
-}
-
-func Test_Login__should_return_401_when_users_email_not_verified(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "supersecret",
-	})
-
-	testUser.EmailVerified = false
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).
-		Return(&testUser, nil).Times(1)
-
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Login(testCtx)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func Test_Login__should_return_500_when_making_JWT_token_returns_err(t *testing.T) {
-	// leaving env var JWT_SECRET undefined to case NewJWT to throw error
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "",
-	})
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).
-		Return(&testUser, nil).Times(1)
-
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Login(testCtx)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func Test_Login__should_return_401_when_users_password_is_incorrect(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{})
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).
-		Return(&testUser, nil).Times(1)
-
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password1232")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Login(testCtx)
-
-	assert.Equal(t, http.StatusUnauthorized, w.Code)
-}
-
-func Test_Register__should_return_400_if_name_is_unspecified(t *testing.T) {
-	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
-
-	data := url.Values{}
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func Test_Register__should_return_400_if_email_is_unspecified(t *testing.T) {
-	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("password", "password123")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func Test_Register__should_return_400_if_password_is_unspecified(t *testing.T) {
-	_, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("email", "john@doe.com")
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func Test_Register__should_return_400_if_email_is_taken(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, nil).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-}
-
-func Test_Register__should_return_500_if_GetUserReturns_err_that_is_not_ErrNotFound(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, errors.New("service err")).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func Test_Register__should_return_500_if_CreateUser_returns_error(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, _, _ := setupTest(t, map[string]string{})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
-	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(nil, errors.New("service err")).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func Test_Register__should_return_500_and_delete_user_if_creating_email_JWT_fails(t *testing.T) {
-	mockUService, _, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "",
-	})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
-	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(&testUser, nil).Times(1)
-	mockUService.EXPECT().DeleteUserWithEmail(gomock.Any(), "john@doe.com").Return(nil).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func Test_Register__should_return_500_and_delete_user_if_sending_email_fails(t *testing.T) {
-	mockUService, mockEService, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "supersecret",
-	})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
-	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(&testUser, nil).Times(1)
-	mockUService.EXPECT().DeleteUserWithEmail(gomock.Any(), "john@doe.com").Return(nil).Times(1)
-	mockEService.EXPECT().SendEmailVerificationEmail(gomock.Any(), gomock.Any()).Return(errors.New("service err")).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusInternalServerError, w.Code)
-}
-
-func Test_Register__should_return_200_and_correct_user(t *testing.T) {
-	mockUService, mockEService, w, testCtx, _, router, testUser, _ := setupTest(t, map[string]string{
-		environment.JWTSecret: "supersecret",
-	})
-
-	data := url.Values{}
-	data.Add("name", "John Doe")
-	data.Add("email", "john@doe.com")
-	data.Add("password", "password123")
-
-	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").Return(nil, services.ErrNotFound).Times(1)
-	mockUService.EXPECT().CreateUser(gomock.Any(), "John Doe", "john@doe.com", gomock.Not(gomock.Eq("password123")), common.AuthLevel(0)).Return(&testUser, nil).Times(1)
-	mockUService.EXPECT().DeleteUserWithEmail(gomock.Any(), "john@doe.com").Return(nil).Times(1)
-	mockEService.EXPECT().SendEmailVerificationEmail(gomock.Any(), gomock.Any()).Return(nil).Times(1)
-
-	req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBufferString(data.Encode()))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-	testCtx.Request = req
-
-	router.Register(testCtx)
-
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	actualResStr, err := w.Body.ReadString('\x00')
-	assert.Equal(t, "EOF", err.Error())
-
-	var actualRes registerRes
-	err = json.Unmarshal([]byte(actualResStr), &actualRes)
-	assert.NoError(t, err)
-
-	assert.Equal(t, testUser.ID, actualRes.User.ID)
-}
-
-func Test_VerifyEmail(t *testing.T) {
+func Test_GetUsers(t *testing.T) {
 	tests := []struct {
 		name        string
-		email       string
-		token       string
-		customToken bool
-		password    string
-		prep        func(*testSetup)
+		prep        func(*usersTestSetup)
 		wantResCode int
+		wantRes     *getUsersRes
 	}{
 		{
-			name:        "should return 401 when no token is specified",
-			customToken: true,
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name:        "should return 401 when token is invalid",
-			customToken: true,
-			token:       "notvalidtoken",
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name:        "should return 401 when token is not an email token",
-			customToken: true,
-			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDgxMmFiNTI2YTc5MjYxYjZjMWVlNWEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MCwidG9rZW5fdHlwZSI6ImF1dGgifQ.Pw6ojEkWRU5Nr84MUppWaAIoxuy9CAFW6yzvSRQ9QyE",
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name: "should return 500 when email service returns error",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
-					"email_verified": true,
-				}).Return(errors.New("service err")).Times(1)
+			name: "should return 500 when fetching users fails",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
+					Return(nil, errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name: "should return 200 when everything is alright",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
-					"email_verified": true,
-				}).Return(nil).Times(1)
+			name: "should return 200 and expected users",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
+					Return([]entities.User{
+						{Name: "Bob the Tester"},
+						{Name: "Rob the Tester"},
+					}, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
+			wantRes: &getUsersRes{
+				Response: models.Response{
+					Status: http.StatusOK,
+				},
+				Users: []entities.User{
+					{Name: "Bob the Tester"},
+					{Name: "Rob the Tester"},
+				},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupUserTest(t, map[string]string{
-				environment.JWTSecret: "supersecret",
-			}, 0)
+			setup := setupUsersTest(t, nil)
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
 
-			setup.testCtx.Set(authClaimsKeyInCtx, nil)
+			setup.router.GetUsers(setup.testCtx)
 
-			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test?email=%s", tt.email), nil)
-			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-			if !tt.customToken {
-				req.Header.Set(authHeaderName, setup.emailToken)
-			} else {
-				req.Header.Set(authHeaderName, tt.token)
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes getUsersRes
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
 			}
-			setup.testCtx.Request = req
-			setup.router.VerifyEmail(setup.testCtx)
+		})
+	}
+}
+
+func Test_Login(t *testing.T) {
+	tests := []struct {
+		name        string
+		email       string
+		password    string
+		prep        func(*usersTestSetup)
+		wantResCode int
+		jwtSecret   string
+	}{
+		{
+			name:        "should return 400 when email is not provided",
+			password:    "password123",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:        "should return 400 when password is not provided",
+			email:       "test@email.com",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:        "should return 401 when user service returns ErrNotFound",
+			email:       "test@email.com",
+			password:    "password123",
+			wantResCode: http.StatusUnauthorized,
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "password123").
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+		},
+		{
+			name:        "should return 500 when user service returns unknown error",
+			email:       "test@email.com",
+			password:    "password123",
+			wantResCode: http.StatusInternalServerError,
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "password123").
+					Return(nil, errors.New("service err")).Times(1)
+			},
+		},
+		{
+			name:        "should return 500 when generating JWT fails due to undefined JWT secret",
+			email:       "test@email.com",
+			password:    "password123",
+			wantResCode: http.StatusInternalServerError,
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "password123").
+					Return(setup.testUser, nil).Times(1)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t, map[string]string{
+				environment.JWTSecret: tt.jwtSecret,
+			})
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx,
+				http.MethodPost,
+				map[string]string{
+					"email":    tt.email,
+					"password": tt.password,
+				},
+			)
+
+			setup.router.Login(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})
 	}
 }
 
-func Test_AuthLevelVerifierFactory__should_return_middleware(t *testing.T) {
+func Test_Login__should_return_expected_result(t *testing.T) {
+	setup := setupUsersTest(t, map[string]string{
+		environment.JWTSecret: "verysecret",
+	})
+	setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "password123").
+		Return(setup.testUser, nil).Times(1)
+
+	testutils.AddRequestWithFormParamsToCtx(setup.testCtx,
+		http.MethodPost,
+		map[string]string{
+			"email":    "test@email.com",
+			"password": "password123",
+		},
+	)
+
+	setup.router.Login(setup.testCtx)
+
+	assert.Equal(t, http.StatusOK, setup.w.Code)
+
+	var actualRes loginRes
+	err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+	assert.NoError(t, err)
+
+	setup.testUser.Password = ""
+	assert.Equal(t, loginRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Token: setup.jwt,
+		User:  *setup.testUser,
+	}, actualRes)
+}
+
+func Test_GetMe(t *testing.T) {
 	tests := []struct {
-		name           string
-		token          string
-		givenAuthLevel common.AuthLevel
-		wantNextCalled bool
-		wantAuthLevel  common.AuthLevel
-		wantResCode    int
+		name        string
+		prep        func(*usersTestSetup)
+		jwt         string
+		wantResCode int
+		wantRes     *getMeRes
 	}{
 		{
-			name:        "that returns 401 when given token is invalid",
-			token:       "not valid token",
+			name: "should return 401 when user service returns ErrInvalidToken",
+			jwt:  "invalid token",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "invalid token").
+					Return(nil, services.ErrInvalidToken).Times(1)
+			},
 			wantResCode: http.StatusUnauthorized,
 		},
 		{
-			name:        "that returns 401 when given token is an email token",
-			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDdhOTM4NmU0OGZhMTY1NTZjNTY0MTEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MywidG9rZW5fdHlwZSI6ImVtYWlsIn0.Hsi2STFazVwcQ73sG8BKg3dmIx_XnijFoJx6BNYuGPc",
-			wantResCode: http.StatusUnauthorized,
+			name: "should return 400 when user service return ErrNotFound",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "").
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:           "that returns 401 when auth level is too low",
-			givenAuthLevel: 0,
-			wantAuthLevel:  3,
-			wantResCode:    http.StatusUnauthorized,
+			name: "should return 500 when user service return unknown error",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "").
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:           "that returns 200 when auth level is equal to required",
-			givenAuthLevel: 3,
-			wantAuthLevel:  3,
-			wantResCode:    http.StatusOK,
-			wantNextCalled: true,
-		},
-		{
-			name:           "that returns 200 when auth level is above required",
-			givenAuthLevel: 4,
-			wantAuthLevel:  3,
-			wantResCode:    http.StatusOK,
-			wantNextCalled: true,
+			name: "should return expected user",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "").
+					Return(&entities.User{
+						Name: "Bob the Tester",
+					}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &getMeRes{
+				Response: models.Response{Status: http.StatusOK},
+				User:     entities.User{Name: "Bob the Tester"},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, w, testCtx, testServer, router, _, _ := setupTest(t, map[string]string{
-				environment.JWTSecret: "testsecret",
-			})
-
-			req := httptest.NewRequest(http.MethodPost, "/test", nil)
-			if tt.token == "" {
-				testUser := entities.User{
-					AuthLevel: tt.givenAuthLevel,
-					ID:        primitive.NewObjectID(),
-				}
-				token, err := auth.NewJWT(testUser, time.Now().Unix(), 100, auth.Auth, []byte("testsecret"))
-				assert.NoError(t, err)
-				req.Header.Set(authHeaderName, token)
-			} else {
-				req.Header.Set(authHeaderName, tt.token)
+			setup := setupUsersTest(t, nil)
+			if tt.prep != nil {
+				tt.prep(setup)
 			}
-			testCtx.Request = req
 
-			nextMiddlewareCalled := false
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req.Header.Set(authHeaderName, tt.jwt)
+			setup.testCtx.Request = req
 
-			testServer.RouterGroup.POST("/test",
-				router.AuthLevelVerifierFactory(tt.wantAuthLevel),
-				func(ctx *gin.Context) {
-					nextMiddlewareCalled = true
-					claimsInterface, exists := ctx.Get(authClaimsKeyInCtx)
-					assert.True(t, exists)
-					_, ok := claimsInterface.(*auth.Claims)
-					assert.True(t, ok)
-				})
-			testServer.ServeHTTP(w, req)
+			setup.router.GetMe(setup.testCtx)
 
-			assert.Equal(t, tt.wantNextCalled, nextMiddlewareCalled)
-			assert.Equal(t, tt.wantResCode, w.Code)
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes getMeRes
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
 		})
 	}
 }
@@ -816,117 +334,299 @@ func Test_AuthLevelVerifierFactory__should_return_middleware(t *testing.T) {
 func Test_PutMe(t *testing.T) {
 	tests := []struct {
 		name        string
-		userName    string
-		teamID      string
-		prep        func(*testSetup)
+		prep        func(*usersTestSetup)
+		jwt         string
+		testName    string
+		testTeam    string
 		wantResCode int
+		wantRes     *models.Response
 	}{
 		{
-			name:        "should return 400 when neither team nor name provided",
+			name:        "should return 400 when neither name nor team provided",
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:     "should return 400 when auth claims are missing from request's context",
-			userName: "testname",
-			teamID:   "test team",
-			prep: func(setup *testSetup) {
-				setup.testCtx.Set(authClaimsKeyInCtx, nil)
-			},
-			wantResCode: http.StatusBadRequest,
-		},
-		{
-			name:   "should return 400 when team id is invalid",
-			teamID: "test team",
-			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "test team").
+			name:     "should return 400 when team service returns ErrInvalidID",
+			testTeam: "some team",
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "some team").
 					Return(nil, services.ErrInvalidID).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:   "should return 400 when team with given id doesn't exist",
-			teamID: "test team",
-			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "test team").
+			name:     "should return 400 when team service returns ErrNotFound",
+			testTeam: "some team",
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "some team").
 					Return(nil, services.ErrNotFound).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:   "should return 500 when query for team fails",
-			teamID: "test team",
-			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "test team").
+			name:     "should return 500 when team service returns unknown error",
+			testTeam: "some team",
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "some team").
 					Return(nil, errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:     "should return 500 when query to update user fails",
-			userName: "test name",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
-					"name": "test name",
+			name:     "should return 401 when user service returns ErrInvalidToken",
+			jwt:      "token",
+			testName: "Rob the Tester",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "token", services.UserUpdateParams{
+					entities.UserName: "Rob the Tester",
+				}).Return(services.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:     "should return 500 when user service returns unknown error",
+			jwt:      "token",
+			testName: "Rob the Tester",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "token", services.UserUpdateParams{
+					entities.UserName: "Rob the Tester",
 				}).Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:     "should return 200 when successfully updating user's name",
-			userName: "test name",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
-					"name": "test name",
-				}).Return(nil).Times(1)
-			},
-			wantResCode: http.StatusOK,
-		},
-		{
-			name:   "should return 200 when successfully updating user's team",
-			teamID: "test team",
-			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "test team").
+			name:     "should return 200 when user service returns nil",
+			jwt:      "token",
+			testName: "Rob the Tester",
+			testTeam: "some team",
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "some team").
 					Return(&entities.Team{}, nil).Times(1)
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
-					"team": "test team",
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "token", services.UserUpdateParams{
+					entities.UserName: "Rob the Tester",
+					entities.UserTeam: "some team",
 				}).Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
-		},
-		{
-			name:     "should return 200 when successfully updating both user's name and team",
-			teamID:   "test team",
-			userName: "test name",
-			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), "test team").
-					Return(&entities.Team{}, nil).Times(1)
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.testUser.ID.Hex(), map[string]interface{}{
-					"team": "test team",
-					"name": "test name",
-				}).Return(nil).Times(1)
+			wantRes: &models.Response{
+				Status: http.StatusOK,
 			},
-			wantResCode: http.StatusOK,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupUserTest(t, nil, 0)
+			setup := setupUsersTest(t, nil)
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
 
-			data := url.Values{}
-			data.Add("name", tt.userName)
-			data.Add("team", tt.teamID)
-
-			req := httptest.NewRequest(http.MethodPut, "/", bytes.NewBufferString(data.Encode()))
-			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-			setup.testCtx.Request = req
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx,
+				http.MethodPut,
+				map[string]string{
+					"name": tt.testName,
+					"team": tt.testTeam,
+				},
+			)
+			setup.testCtx.Request.Header.Set(authHeaderName, tt.jwt)
 
 			setup.router.PutMe(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes models.Response
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
+		})
+	}
+}
+
+func Test_Register(t *testing.T) {
+	tests := []struct {
+		name         string
+		prep         func(*usersTestSetup)
+		testName     string
+		testEmail    string
+		testPassword string
+		wantResCode  int
+		wantRes      *registerRes
+	}{
+		{
+			name:         "should return 400 when name is not provided",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			wantResCode:  http.StatusBadRequest,
+		},
+		{
+			name:         "should return 400 when email is not provided",
+			testName:     "Bob the Tester",
+			testPassword: "password123",
+			wantResCode:  http.StatusBadRequest,
+		},
+		{
+			name:        "should return 400 when password is not provided",
+			testName:    "Bob the Tester",
+			testEmail:   "test@email.com",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:         "should return 400 when user service returns ErrEmailTaken",
+			testName:     "Bob the Tester",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "Bob the Tester", "test@email.com", "password123").
+					Return(nil, services.ErrEmailTaken).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:         "should return 500 when user service returns unknown error",
+			testName:     "Bob the Tester",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "Bob the Tester", "test@email.com", "password123").
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:         "should return 500 and delete created user when email service returns error",
+			testName:     "Bob the Tester",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "Bob the Tester", "test@email.com", "password123").
+					Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+
+				setup.mockEService.EXPECT().SendEmailVerificationEmail(entities.User{Name: "Bob the Tester"}).
+					Return(errors.New("service err")).Times(1)
+
+				setup.mockUService.EXPECT().DeleteUserWithEmail(gomock.Any(), "test@email.com").
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:         "should return 200 and expected result",
+			testName:     "Bob the Tester",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "Bob the Tester", "test@email.com", "password123").
+					Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+
+				setup.mockEService.EXPECT().SendEmailVerificationEmail(entities.User{Name: "Bob the Tester"}).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &registerRes{
+				Response: models.Response{Status: http.StatusOK},
+				User: entities.User{
+					Name: "Bob the Tester",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t, nil)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx,
+				http.MethodPost,
+				map[string]string{
+					"name":     tt.testName,
+					"email":    tt.testEmail,
+					"password": tt.testPassword,
+				},
+			)
+
+			setup.router.Register(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes registerRes
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
+		})
+	}
+}
+
+func Test_VerifyEmail(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*usersTestSetup)
+		jwt         string
+		wantResCode int
+		wantRes     *models.Response
+	}{
+		{
+			name: "should return 401 when user service returns ErrInvalidToken",
+			jwt:  "test token",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test token", services.UserUpdateParams{
+					entities.UserEmailVerified: true,
+				}).Return(services.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 500 when user service returns an unknown error",
+			jwt:  "test token",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test token", services.UserUpdateParams{
+					entities.UserEmailVerified: true,
+				}).Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 and expected result",
+			jwt:  "test token",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test token", services.UserUpdateParams{
+					entities.UserEmailVerified: true,
+				}).Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &models.Response{
+				Status: http.StatusOK,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t, nil)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "/test", nil)
+			req.Header.Set(authHeaderName, tt.jwt)
+			setup.testCtx.Request = req
+
+			setup.router.VerifyEmail(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes models.Response
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
 		})
 	}
 }
@@ -934,189 +634,145 @@ func Test_PutMe(t *testing.T) {
 func Test_GetPasswordResetEmail(t *testing.T) {
 	tests := []struct {
 		name        string
+		prep        func(*usersTestSetup)
 		email       string
-		prep        func(*testSetup)
 		wantResCode int
-	}{
-		{
-			name:        "should return 400 when request doesn't include an email",
-			wantResCode: http.StatusBadRequest,
-		},
-		{
-			name:  "should return 500 when query for user fails",
-			email: "john@doe.com",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").
-					Return(nil, errors.New("service err")).Times(1)
-			},
-			wantResCode: http.StatusInternalServerError,
-		},
-		{
-			name:  "should return 200 when user with email doesn't exist",
-			email: "john@doe.com",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").
-					Return(nil, services.ErrNotFound).Times(1)
-			},
-			wantResCode: http.StatusOK,
-		},
-		{
-			name:  "should return 500 when query to email service fails",
-			email: "john@doe.com",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").
-					Return(setup.testUser, nil).Times(1)
-				setup.mockEService.EXPECT().SendPasswordResetEmail(*setup.testUser, gomock.Any()).
-					Return(errors.New("service err")).Times(1)
-			},
-			wantResCode: http.StatusInternalServerError,
-		},
-		{
-			name:  "should return 200 when all is good",
-			email: "john@doe.com",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "john@doe.com").
-					Return(setup.testUser, nil).Times(1)
-				setup.mockEService.EXPECT().SendPasswordResetEmail(*setup.testUser, gomock.Any()).
-					Return(nil).Times(1)
-			},
-			wantResCode: http.StatusOK,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setup := setupUserTest(t, map[string]string{
-				environment.JWTSecret: "supersecret",
-			}, 0)
-			if tt.prep != nil {
-				tt.prep(setup)
-			}
-
-			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/test?email=%s", tt.email), nil)
-			setup.testCtx.Request = req
-			setup.router.GetPasswordResetEmail(setup.testCtx)
-
-			assert.Equal(t, tt.wantResCode, setup.w.Code)
-		})
-	}
-}
-
-func Test_ResetPassword(t *testing.T) {
-	tests := []struct {
-		name        string
-		email       string
-		token       string
-		customToken bool
-		password    string
-		prep        func(*testSetup)
-		wantResCode int
+		wantRes     *models.Response
 	}{
 		{
 			name:        "should return 400 when email is not provided",
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:        "should return 400 when password is not provided",
-			email:       "john@doe.com",
-			wantResCode: http.StatusBadRequest,
-		},
-		{
-			name:        "should return 401 when token is not provided",
-			email:       "john@doe.com",
-			password:    "password123",
-			customToken: true,
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name:        "should return 401 when token is not valid",
-			email:       "john@doe.com",
-			password:    "password123",
-			customToken: true,
-			token:       "invalid token",
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name:        "should return 401 when token is not an email token",
-			email:       "john@doe.com",
-			password:    "password123",
-			customToken: true,
-			token:       "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1ZDgxMmFiNTI2YTc5MjYxYjZjMWVlNWEiLCJpYXQiOjEwMCwiYXV0aF9sZXZlbCI6MCwidG9rZW5fdHlwZSI6ImF1dGgifQ.Pw6ojEkWRU5Nr84MUppWaAIoxuy9CAFW6yzvSRQ9QyE",
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name:     "should return 500 when query for user fails",
-			email:    "john@doe.com",
-			password: "password123",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.claims.Id).
-					Return(nil, errors.New("service err")).Times(1)
-			},
-			wantResCode: http.StatusInternalServerError,
-		},
-		{
-			name:     "should return 401 when user's email is different from the specified email",
-			email:    "john@doe.com",
-			password: "password123",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.claims.Id).
-					Return(&entities.User{
-						Email: "jane@doe.com",
-					}, nil).Times(1)
-			},
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name:     "should return 500 when query to update user's password fails",
-			email:    "john@doe.com",
-			password: "password123",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.claims.Id).
-					Return(setup.testUser, nil).Times(1)
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.claims.Id, gomock.Any()).
+			name:  "should return 500 when email service returns error",
+			email: "test@email.com",
+			prep: func(setup *usersTestSetup) {
+				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "test@email.com").
 					Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:     "should return 200 when all is good",
-			email:    "john@doe.com",
-			password: "password123",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(gomock.Any(), setup.claims.Id).
-					Return(setup.testUser, nil).Times(1)
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), setup.claims.Id, gomock.Any()).
+			name:  "should return 200 and expected result",
+			email: "test@email.com",
+			prep: func(setup *usersTestSetup) {
+				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "test@email.com").
 					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
+			wantRes: &models.Response{
+				Status: http.StatusOK,
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupUserTest(t, map[string]string{
-				environment.JWTSecret: "supersecret",
-			}, 0)
+			setup := setupUsersTest(t, nil)
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
 
-			setup.testCtx.Set(authClaimsKeyInCtx, nil)
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/test?email=%s", tt.email), nil)
+			setup.testCtx.Request = req
+
+			setup.router.GetPasswordResetEmail(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes models.Response
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
+		})
+	}
+}
+
+func Test_ResetPassword(t *testing.T) {
+	tests := []struct {
+		name         string
+		prep         func(*usersTestSetup)
+		testEmail    string
+		testPassword string
+		jwt          string
+		wantResCode  int
+		wantRes      *models.Response
+	}{
+		{
+			name:         "should return 400 when email is not provided",
+			testPassword: "password123",
+			wantResCode:  http.StatusBadRequest,
+		},
+		{
+			name:        "should return 400 when password is not provided",
+			testEmail:   "test@email.com",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:         "should return 401 when user service returns ErrInvalidToken",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			jwt:          "test token",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().ResetPasswordForUserWithJWTAndEmail(gomock.Any(), "test token", "test@email.com", "password123").
+					Return(services.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:         "should return 500 when user service returns an unknown error",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			jwt:          "test token",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().ResetPasswordForUserWithJWTAndEmail(gomock.Any(), "test token", "test@email.com", "password123").
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:         "should return 200 and the expected result",
+			testEmail:    "test@email.com",
+			testPassword: "password123",
+			jwt:          "test token",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().ResetPasswordForUserWithJWTAndEmail(gomock.Any(), "test token", "test@email.com", "password123").
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &models.Response{
+				Status: http.StatusOK,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t, nil)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
 
 			data := url.Values{}
-			data.Add("password", tt.password)
+			data.Add("password", tt.testPassword)
 
-			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/test?email=%s", tt.email), bytes.NewBufferString(data.Encode()))
+			req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/test?email=%s", tt.testEmail), bytes.NewBufferString(data.Encode()))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-			if !tt.customToken {
-				req.Header.Set(authHeaderName, setup.emailToken)
-			} else {
-				req.Header.Set(authHeaderName, tt.token)
-			}
+			req.Header.Set(authHeaderName, tt.jwt)
 			setup.testCtx.Request = req
+
 			setup.router.ResetPassword(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes models.Response
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
 		})
 	}
 }
