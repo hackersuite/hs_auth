@@ -14,7 +14,7 @@ type TeamRepository struct {
 }
 
 // NewTeamRepository creates a new TeamRepository
-func NewTeamRepository(db *mongo.Database) (TeamRepository, error) {
+func NewTeamRepository(db *mongo.Database) (*TeamRepository, error) {
 	_, err := db.Collection("teams").Indexes().CreateOne(
 		context.Background(),
 		mongo.IndexModel{
@@ -24,10 +24,10 @@ func NewTeamRepository(db *mongo.Database) (TeamRepository, error) {
 	)
 
 	if err != nil {
-		return TeamRepository{}, err
+		return nil, err
 	}
 
-	return TeamRepository{
+	return &TeamRepository{
 		Collection: db.Collection("teams"),
 	}, nil
 }

@@ -44,10 +44,10 @@ type teamService struct {
 }
 
 // NewTeamService creates a new TeamService
-func NewTeamService(logger *zap.Logger, teamRepository repositories.TeamRepository) TeamService {
+func NewTeamService(logger *zap.Logger, teamRepository *repositories.TeamRepository) TeamService {
 	return &teamService{
 		logger:         logger,
-		teamRepository: teamRepository,
+		teamRepository: *teamRepository,
 	}
 }
 
