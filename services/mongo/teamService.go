@@ -37,6 +37,18 @@ func (s *mongoTeamService) CreateTeam(ctx context.Context, name, creatorID strin
 		return nil, services.ErrInvalidID
 	}
 
+	// check if name is not taken
+	res := s.teamRepository.FindOne(ctx, bson.M{
+		string(entities.TeamName): name,
+	})
+
+	err = res.Err()
+	if err == nil {
+		return nil, services.ErrNameTaken
+	} else if err != mongo.ErrNoDocuments {
+		return nil, errors.Wrap(err, "could not query for team with name")
+	}
+
 	team := &entities.Team{
 		ID:      primitive.NewObjectID(),
 		Name:    name,
