@@ -6,6 +6,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-gonic/gin v1.4.0
+	github.com/go-redis/redis/v7 v7.0.0-beta.4
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/mock v1.3.1
 	github.com/golang/snappy v0.0.1 // indirect

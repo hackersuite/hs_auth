@@ -4,26 +4,21 @@ package mongo
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
+	repositories "github.com/unicsmcr/hs_auth/repositories"
+	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/testutils"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
-
-	"go.uber.org/zap"
-
-	"github.com/unicsmcr/hs_auth/entities"
-	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	repositories "github.com/unicsmcr/hs_auth/repositories"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/unicsmcr/hs_auth/services"
+	"go.uber.org/zap"
 )
 
 var (
@@ -72,7 +67,7 @@ func Test_NewMongoUserService__should_return_non_nil_object(t *testing.T) {
 	assert.NotNil(t, NewMongoUserService(nil, nil, nil, nil))
 }
 
-func Test_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *testing.T) {
+func Test_User_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *testing.T) {
 	uService, _, cleanup := setupUserTest(t)
 	defer cleanup()
 
@@ -127,7 +122,7 @@ func Test_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *testing
 	}
 }
 
-func Test_ErrInvalidToken_should_be_returned_when_provided_JWT_is_invalid(t *testing.T) {
+func Test_User_ErrInvalidToken_should_be_returned_when_provided_JWT_is_invalid(t *testing.T) {
 	uService, _, cleanup := setupUserTest(t)
 	defer cleanup()
 
@@ -165,7 +160,7 @@ func Test_ErrInvalidToken_should_be_returned_when_provided_JWT_is_invalid(t *tes
 	}
 }
 
-func Test_CreateUser__should_return_error_when_email_is_taken(t *testing.T) {
+func Test_CreateUser__should_return_ErrEmailTaken_when_email_is_taken(t *testing.T) {
 	uService, uRepo, cleanup := setupUserTest(t)
 	defer cleanup()
 
@@ -174,7 +169,7 @@ func Test_CreateUser__should_return_error_when_email_is_taken(t *testing.T) {
 
 	user, err := uService.CreateUser(context.Background(), testUser.Name, testUser.Email, testUser.Password)
 
-	assert.Error(t, err)
+	assert.Equal(t, services.ErrEmailTaken, err)
 	assert.Nil(t, user)
 }
 
@@ -186,8 +181,6 @@ func Test_CreateUser__should_create_correct_user(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.Equal(t, testUser.Name, user.Name)
-
-	fmt.Println(testUser)
 
 	res := uRepo.FindOne(context.Background(), bson.M{
 		string(entities.UserID):        user.ID,
