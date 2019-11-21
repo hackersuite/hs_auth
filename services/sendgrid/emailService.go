@@ -1,4 +1,4 @@
-package services
+package sendgrid
 
 import (
 	"bytes"
@@ -7,30 +7,28 @@ import (
 	"html/template"
 	"net/http"
 
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
+
+	"github.com/unicsmcr/hs_auth/utils"
+
 	"github.com/pkg/errors"
 	"github.com/sendgrid/sendgrid-go"
-	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/services"
 	"go.uber.org/zap"
 )
 
-// EmailService is used to send out emails
-type EmailService interface {
-	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
-	SendEmailVerificationEmail(user entities.User, emailToken string) error
-	SendPasswordResetEmail(user entities.User, emailToken string) error
-}
+type sendgridEmailService struct {
+	*sendgrid.Client
+	logger      *zap.Logger
+	cfg         *config.AppConfig
+	env         *environment.Env
+	userService services.UserServiceV2
 
-type EmailServiceV2 interface {
-	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
-
-	SendEmailVerificationEmail(user entities.User) error
-	SendEmailVerificationEmailForUserWithEmail(ctx context.Context, email string) error
-
-	SendPasswordResetEmail(user entities.User) error
-	SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string) error
+	paswordResetEmailTemplate *template.Template
+	emailVerifyEmailTemplate  *template.Template
 }
 
 type emailTemplateDataModel struct {
@@ -38,41 +36,29 @@ type emailTemplateDataModel struct {
 	SenderName string
 }
 
-type emailService struct {
-	*sendgrid.Client
-	logger *zap.Logger
-	cfg    *config.AppConfig
-	env    *environment.Env
-
-	paswordResetEmailTemplate *template.Template
-	emailVerifyEmailTemplate  *template.Template
-}
-
-// NewEmailClient creates a new email client that uses Sendgrid
-func NewEmailClient(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env) (EmailService, error) {
-	sendgridClient := sendgrid.NewSendClient(env.Get(environment.SendgridAPIKey))
-
-	paswordResetEmailTemplate, err := loadTemplate("password reset", "templates/emails/passwordReset_email.gohtml")
+func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, client *sendgrid.Client, userService services.UserServiceV2) (services.EmailServiceV2, error) {
+	paswordResetEmailTemplate, err := utils.LoadTemplate("password reset", "templates/emails/passwordReset_email.gohtml")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load password reset template")
 	}
 
-	emailVerifyEmailTemplate, err := loadTemplate("email verify", "templates/emails/emailVerify_email.gohtml")
+	emailVerifyEmailTemplate, err := utils.LoadTemplate("email verify", "templates/emails/emailVerify_email.gohtml")
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load email verify template")
 	}
 
-	return &emailService{
-		Client:                    sendgridClient,
+	return &sendgridEmailService{
+		Client:                    client,
 		logger:                    logger,
 		cfg:                       cfg,
 		env:                       env,
+		userService:               userService,
 		paswordResetEmailTemplate: paswordResetEmailTemplate,
 		emailVerifyEmailTemplate:  emailVerifyEmailTemplate,
 	}, nil
 }
 
-func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error {
+func (s *sendgridEmailService) SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error {
 	from := mail.NewEmail(senderName, senderEmail)
 	to := mail.NewEmail(recipientName, recipientEmail)
 	message := mail.NewSingleEmail(from, subject, to, plainTextBody, htmlBody)
@@ -84,7 +70,7 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 			zap.String("recipient", recipientEmail),
 			zap.String("sender", senderEmail),
 			zap.Error(err))
-		return err
+		return errors.Wrap(err, "could not send email request to SendGrid")
 	}
 
 	if response.StatusCode != http.StatusAccepted {
@@ -94,7 +80,7 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 			zap.String("sender", senderEmail),
 			zap.Int("response status code", response.StatusCode),
 			zap.String("response body", response.Body))
-		return ErrSendgridRejectedRequest
+		return services.ErrSendgridRejectedRequest
 	}
 
 	s.logger.Info("email request sent successfully",
@@ -103,8 +89,10 @@ func (s *emailService) SendEmail(subject, htmlBody, plainTextBody, senderName, s
 		zap.String("sender", senderEmail))
 	return nil
 }
+func (s *sendgridEmailService) SendEmailVerificationEmail(user entities.User) error {
+	// TODO: make email token
+	emailToken := ""
 
-func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken string) error {
 	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s", s.cfg.AppURL, emailToken)
 
 	var contentBuff bytes.Buffer
@@ -125,8 +113,18 @@ func (s *emailService) SendEmailVerificationEmail(user entities.User, emailToken
 		user.Name,
 		user.Email)
 }
+func (s *sendgridEmailService) SendEmailVerificationEmailForUserWithEmail(ctx context.Context, email string) error {
+	user, err := s.userService.GetUserWithEmail(ctx, email)
+	if err != nil {
+		return err
+	}
 
-func (s *emailService) SendPasswordResetEmail(user entities.User, emailToken string) error {
+	return s.SendEmailVerificationEmail(*user)
+}
+func (s *sendgridEmailService) SendPasswordResetEmail(user entities.User) error {
+	// TODO: make email token
+	emailToken := ""
+
 	resetURL := fmt.Sprintf("http://%s/resetpwd?email=%s&token=%s", s.cfg.AppURL, user.Email, emailToken)
 
 	var contentBuff bytes.Buffer
@@ -146,4 +144,12 @@ func (s *emailService) SendPasswordResetEmail(user entities.User, emailToken str
 		s.cfg.Email.NoreplyEmailAddr,
 		user.Name,
 		user.Email)
+}
+func (s *sendgridEmailService) SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string) error {
+	user, err := s.userService.GetUserWithEmail(ctx, email)
+	if err != nil {
+		return err
+	}
+
+	return s.SendPasswordResetEmail(*user)
 }
