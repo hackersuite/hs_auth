@@ -4,4 +4,5 @@ main
 data
 .vscode
 mocks
+.idea
 *vendor*

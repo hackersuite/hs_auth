@@ -5,6 +5,8 @@ package main
 import (
 	"github.com/google/wire"
 	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/services/mongo"
+	"github.com/unicsmcr/hs_auth/services/sendgrid"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
@@ -23,6 +25,8 @@ func InitializeServer() (Server, error) {
 		services.NewEmailClient,
 		services.NewUserService,
 		services.NewTeamService,
+		mongo.NewMongoUserService,
+		sendgrid.NewSendgridEmailService,
 		repositories.NewUserRepository,
 		repositories.NewTeamRepository,
 		utils.NewDatabase,

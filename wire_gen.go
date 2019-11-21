@@ -13,6 +13,8 @@ import (
 	"github.com/unicsmcr/hs_auth/routers/api/v1"
 	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/services/mongo"
+	"github.com/unicsmcr/hs_auth/services/sendgrid"
 	"github.com/unicsmcr/hs_auth/utils"
 )
 
@@ -36,17 +38,19 @@ func InitializeServer() (Server, error) {
 	if err != nil {
 		return Server{}, err
 	}
-	userService := services.NewUserService(logger, userRepository)
-	emailService, err := services.NewEmailClient(logger, appConfig, env)
-	if err != nil {
-		return Server{}, err
-	}
+	userServiceV2 := mongo.NewMongoUserService(logger, env, appConfig, userRepository)
+	emailServiceV2 := sendgrid.NewSendgridEmailService()
 	teamRepository, err := repositories.NewTeamRepository(database)
 	if err != nil {
 		return Server{}, err
 	}
 	teamService := services.NewTeamService(logger, teamRepository)
-	apiv1Router := v1.NewAPIV1Router(logger, appConfig, userService, emailService, teamService, env)
+	apiv1Router := v1.NewAPIV1Router(logger, appConfig, env, userServiceV2, emailServiceV2, teamService)
+	userService := services.NewUserService(logger, userRepository)
+	emailService, err := services.NewEmailClient(logger, appConfig, env)
+	if err != nil {
+		return Server{}, err
+	}
 	router := frontend.NewRouter(logger, appConfig, env, userService, teamService, emailService)
 	mainRouter := routers.NewMainRouter(logger, apiv1Router, router)
 	server := NewServer(mainRouter, env)

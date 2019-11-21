@@ -15,5 +15,6 @@ var (
 
 	// User service errors
 	ErrEmailTaken   = errors.New("email is already taken")
+	ErrNameTaken    = errors.New("name is already taken")
 	ErrInvalidToken = errors.New("invalid auth token")
 )
