@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/unicsmcr/hs_auth/services"
+
 	"github.com/golang/mock/gomock"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 
@@ -211,4 +213,32 @@ func Test_SendPasswordResetEmailForUserWithEmail__should_make_correct_call_to_us
 
 	err = service.SendPasswordResetEmailForUserWithEmail(context.Background(), "bob@test.com")
 	assert.NoError(t, err)
+}
+
+func Test_SendEmailVerificationEmailForUserWithEmail__should_return_error_when_user_service_returns_error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
+		Return(nil, services.ErrNotFound).Times(1)
+
+	service := &sendgridEmailService{
+		userService: mockUService,
+	}
+
+	err := service.SendEmailVerificationEmailForUserWithEmail(context.Background(), "bob@test.com")
+	assert.Equal(t, services.ErrNotFound, err)
+}
+
+func Test_SendPasswordResetEmailForUserWithEmail__should_return_error_when_user_service_returns_error(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
+		Return(nil, services.ErrNotFound).Times(1)
+
+	service := &sendgridEmailService{
+		userService: mockUService,
+	}
+
+	err := service.SendPasswordResetEmailForUserWithEmail(context.Background(), "bob@test.com")
+	assert.Equal(t, services.ErrNotFound, err)
 }
