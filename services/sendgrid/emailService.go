@@ -15,20 +15,23 @@ import (
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
-	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/services"
 	"go.uber.org/zap"
+)
+
+var (
+	passwordResetEmailTemplatePath = "templates/emails/passwordReset_email.gohtml"
+	emailVerifyEmailTemplatePath   = "templates/emails/emailVerify_email.gohtml"
 )
 
 type sendgridEmailService struct {
 	*sendgrid.Client
 	logger      *zap.Logger
 	cfg         *config.AppConfig
-	env         *environment.Env
 	userService services.UserServiceV2
 
-	paswordResetEmailTemplate *template.Template
-	emailVerifyEmailTemplate  *template.Template
+	passwordResetEmailTemplate *template.Template
+	emailVerifyEmailTemplate   *template.Template
 }
 
 type emailTemplateDataModel struct {
@@ -36,25 +39,24 @@ type emailTemplateDataModel struct {
 	SenderName string
 }
 
-func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, client *sendgrid.Client, userService services.UserServiceV2) (services.EmailServiceV2, error) {
-	paswordResetEmailTemplate, err := utils.LoadTemplate("password reset", "templates/emails/passwordReset_email.gohtml")
+func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, client *sendgrid.Client, userService services.UserServiceV2) (services.EmailServiceV2, error) {
+	passwordResetEmailTemplate, err := utils.LoadTemplate("password reset", passwordResetEmailTemplatePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load password reset template")
 	}
 
-	emailVerifyEmailTemplate, err := utils.LoadTemplate("email verify", "templates/emails/emailVerify_email.gohtml")
+	emailVerifyEmailTemplate, err := utils.LoadTemplate("email verify", emailVerifyEmailTemplatePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load email verify template")
 	}
 
 	return &sendgridEmailService{
-		Client:                    client,
-		logger:                    logger,
-		cfg:                       cfg,
-		env:                       env,
-		userService:               userService,
-		paswordResetEmailTemplate: paswordResetEmailTemplate,
-		emailVerifyEmailTemplate:  emailVerifyEmailTemplate,
+		Client:                     client,
+		logger:                     logger,
+		cfg:                        cfg,
+		userService:                userService,
+		passwordResetEmailTemplate: passwordResetEmailTemplate,
+		emailVerifyEmailTemplate:   emailVerifyEmailTemplate,
 	}, nil
 }
 
@@ -96,7 +98,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(user entities.User) er
 	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s", s.cfg.AppURL, emailToken)
 
 	var contentBuff bytes.Buffer
-	err := s.paswordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
+	err := s.passwordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
 		Link:       verificationURL,
 		SenderName: s.cfg.Email.NoreplyEmailName,
 	})
@@ -128,7 +130,7 @@ func (s *sendgridEmailService) SendPasswordResetEmail(user entities.User) error 
 	resetURL := fmt.Sprintf("http://%s/resetpwd?email=%s&token=%s", s.cfg.AppURL, user.Email, emailToken)
 
 	var contentBuff bytes.Buffer
-	err := s.paswordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
+	err := s.passwordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
 		Link:       resetURL,
 		SenderName: s.cfg.Email.NoreplyEmailName,
 	})
