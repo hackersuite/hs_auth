@@ -39,14 +39,19 @@ func InitializeServer() (Server, error) {
 		return Server{}, err
 	}
 	userServiceV2 := mongo.NewMongoUserService(logger, env, appConfig, userRepository)
-	emailServiceV2 := sendgrid.NewSendgridEmailService()
+	client := utils.NewSendgridClient(env)
+	emailServiceV2, err := sendgrid.NewSendgridEmailService(logger, appConfig, client, userServiceV2)
+	if err != nil {
+		return Server{}, err
+	}
 	teamRepository, err := repositories.NewTeamRepository(database)
 	if err != nil {
 		return Server{}, err
 	}
-	teamService := services.NewTeamService(logger, teamRepository)
-	apiv1Router := v1.NewAPIV1Router(logger, appConfig, env, userServiceV2, emailServiceV2, teamService)
+	teamServiceV2 := mongo.NewMongoTeamService(logger, env, teamRepository, userServiceV2)
+	apiv1Router := v1.NewAPIV1Router(logger, appConfig, env, userServiceV2, emailServiceV2, teamServiceV2)
 	userService := services.NewUserService(logger, userRepository)
+	teamService := services.NewTeamService(logger, teamRepository)
 	emailService, err := services.NewEmailClient(logger, appConfig, env)
 	if err != nil {
 		return Server{}, err

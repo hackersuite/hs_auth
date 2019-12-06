@@ -17,4 +17,8 @@ var (
 	ErrEmailTaken   = errors.New("email is already taken")
 	ErrNameTaken    = errors.New("name is already taken")
 	ErrInvalidToken = errors.New("invalid auth token")
+
+	// Team service errors
+	ErrUserInTeam    = errors.New("user is already in a team")
+	ErrUserNotInTeam = errors.New("user is not in a team")
 )
