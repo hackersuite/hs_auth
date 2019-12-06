@@ -40,8 +40,8 @@ type teamsTestSetup struct {
 func setupTeamsTest(t *testing.T, envVars map[string]string) *teamsTestSetup {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserServiceV2(ctrl)
-	mockESercive := mock_services.NewMockEmailServiceV2(ctrl)
-	mockTSercive := mock_services.NewMockTeamServiceV2(ctrl)
+	mockEService := mock_services.NewMockEmailServiceV2(ctrl)
+	mockTService := mock_services.NewMockTeamServiceV2(ctrl)
 
 	restore := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
@@ -50,7 +50,7 @@ func setupTeamsTest(t *testing.T, envVars map[string]string) *teamsTestSetup {
 	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
 		BaseAuthLevel:     baseTestAuthLevel,
 		AuthTokenLifetime: testAuthTokenLifetime,
-	}, env, mockUService, mockESercive, mockTSercive)
+	}, env, mockUService, mockEService, mockTService)
 
 	userID := primitive.NewObjectID()
 
@@ -78,8 +78,8 @@ func setupTeamsTest(t *testing.T, envVars map[string]string) *teamsTestSetup {
 
 	return &teamsTestSetup{
 		mockUService: mockUService,
-		mockEService: mockESercive,
-		mockTService: mockTSercive,
+		mockEService: mockEService,
+		mockTService: mockTService,
 		testUser:     &testUser,
 		testTeam:     &testTeam,
 		env:          env,
