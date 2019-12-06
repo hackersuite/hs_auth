@@ -34,7 +34,7 @@ const (
 type usersTestSetup struct {
 	mockUService *mock_services.MockUserServiceV2
 	mockEService *mock_services.MockEmailServiceV2
-	mockTService *mock_services.MockTeamService
+	mockTService *mock_services.MockTeamServiceV2
 	env          *environment.Env
 	router       APIV1Router
 	testServer   *gin.Engine
@@ -49,7 +49,7 @@ func setupUsersTest(t *testing.T, envVars map[string]string) *usersTestSetup {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserServiceV2(ctrl)
 	mockESercive := mock_services.NewMockEmailServiceV2(ctrl)
-	mockTSercive := mock_services.NewMockTeamService(ctrl)
+	mockTSercive := mock_services.NewMockTeamServiceV2(ctrl)
 
 	restore := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())

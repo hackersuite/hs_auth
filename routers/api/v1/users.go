@@ -13,8 +13,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const authClaimsKeyInCtx = "auth_claims"
-
 // GET: /api/v1/users/
 // Response: status int
 //           error string
