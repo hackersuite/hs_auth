@@ -776,3 +776,106 @@ func Test_ResetPassword(t *testing.T) {
 		})
 	}
 }
+
+func Test_GetTeammates(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(setup *usersTestSetup)
+		wantResCode int
+		jwt         string
+		wantRes     *getTeammatesRes
+	}{
+		{
+			name: "should pass correct jwt to team service",
+			jwt:  "testjwt",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), "testjwt").
+					Return([]entities.User{}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
+			name: "should return 401 when team service returns ErrInvalidToken",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), gomock.Any()).
+					Return(nil, services.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 400 when team service returns ErrInvalidID",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), gomock.Any()).
+					Return(nil, services.ErrInvalidID).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 400 when team service returns ErrNotFound",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), gomock.Any()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 400 when team service returns ErrUserNotInTeam",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), gomock.Any()).
+					Return(nil, services.ErrUserNotInTeam).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 500 when team service returns unknown error",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 and correct teammates",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), gomock.Any()).
+					Return([]entities.User{
+						{Name: "Bob the Tester"},
+						{Name: "Rob the Tester"},
+					}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &getTeammatesRes{
+				Response: models.Response{
+					Status: http.StatusOK,
+				},
+				Users: []entities.User{
+					{Name: "Bob the Tester"},
+					{Name: "Rob the Tester"},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t, nil)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodGet, nil)
+			setup.testCtx.Request.Header.Set(authHeaderName, tt.jwt)
+
+			setup.router.GetTeammates(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes getTeammatesRes
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
+		})
+	}
+}

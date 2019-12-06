@@ -71,6 +71,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			method: http.MethodPost,
 		},
 		{
+			route:  "/users/teammates",
+			method: http.MethodGet,
+		},
+		{
 			route:  "/teams/",
 			method: http.MethodGet,
 		},
@@ -131,9 +135,12 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).Return(nil, errors.New("service err")).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
+	mockUserService.EXPECT().GetUsersWithTeam(gomock.Any(), gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, errors.New("service err")).AnyTimes()
 	mockUserService.EXPECT().UpdateUserWithJWT(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	mockTeamService.EXPECT().GetTeams(gomock.Any()).AnyTimes()
+	mockTeamService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockTeamService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), gomock.Any()).AnyTimes()
 
 	router := NewAPIV1Router(zap.NewNop(), nil, env, mockUserService, nil, mockTeamService)
 
@@ -154,6 +161,11 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		},
 		{
 			route:        "/users/me",
+			method:       http.MethodPut,
+			minAuthLevel: authlevels.Applicant,
+		},
+		{
+			route:        "/users/teammates",
 			method:       http.MethodPut,
 			minAuthLevel: authlevels.Applicant,
 		},
@@ -180,7 +192,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		{
 			route:        "/teams/123abd/members",
 			method:       http.MethodGet,
-			minAuthLevel: authlevels.Applicant,
+			minAuthLevel: authlevels.Organizer,
 		},
 	}
 

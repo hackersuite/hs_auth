@@ -47,3 +47,8 @@ type getTeamMembersRes struct {
 	models.Response
 	Users []entities.User `json:"users"`
 }
+
+type getTeammatesRes struct {
+	models.Response
+	Users []entities.User `json:"users"`
+}
