@@ -49,12 +49,12 @@ type apiV1Router struct {
 	cfg          *config.AppConfig
 	userService  services.UserServiceV2
 	emailService services.EmailServiceV2
-	teamService  services.TeamService
+	teamService  services.TeamServiceV2
 	env          *environment.Env
 }
 
 // NewAPIV1Router creates a APIV1Router
-func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserServiceV2, emailService services.EmailServiceV2, teamService services.TeamService) APIV1Router {
+func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserServiceV2, emailService services.EmailServiceV2, teamService services.TeamServiceV2) APIV1Router {
 	return &apiV1Router{
 		logger:       logger,
 		cfg:          cfg,
