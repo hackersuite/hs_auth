@@ -69,8 +69,8 @@ func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, env *environment.
 func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("/", r.Heartbeat)
 
-	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, jwtProvider, []byte(r.env.Get((environment.JWTSecret))), invalidJWTHandler)
-	isAtLeastOrganizer := auth.AuthLevelVerifierFactory(authlevels.Organizer, jwtProvider, []byte(r.env.Get((environment.JWTSecret))), invalidJWTHandler)
+	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
+	isAtLeastOrganizer := auth.AuthLevelVerifierFactory(authlevels.Organizer, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
 
 	usersGroup := routerGroup.Group("/users")
 	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
