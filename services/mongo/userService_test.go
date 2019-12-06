@@ -113,6 +113,13 @@ func Test_User_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *te
 				return uService.ResetPasswordForUserWithIDAndEmail(context.Background(), id, "", "")
 			},
 		},
+		{
+			name: "GetTeammatesForUserWithID",
+			testFunction: func(id string) error {
+				_, err := uService.GetTeammatesForUserWithID(context.Background(), id)
+				return err
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +155,13 @@ func Test_User_ErrInvalidToken_should_be_returned_when_provided_JWT_is_invalid(t
 			name: "ResetPasswordForUserWithJWTAndEmail",
 			testFunction: func(jwt string) error {
 				err := uService.ResetPasswordForUserWithJWTAndEmail(context.Background(), jwt, "", "")
+				return err
+			},
+		},
+		{
+			name: "ResetPasswordForUserWithJWTAndEmail",
+			testFunction: func(jwt string) error {
+				_, err := uService.GetTeammatesForUserWithJWT(context.Background(), jwt)
 				return err
 			},
 		},
@@ -669,4 +683,20 @@ func Test_ResetPasswordForUserWithJWTAndEmail__should_update_expected_user(t *te
 	assert.NoError(t, err)
 
 	assert.Equal(t, testUser2, users[1])
+}
+
+func Test_GetTeammatesForUserWithID__should_return_expected_users(t *testing.T) {
+	uService, uRepo, cleanup := setupUserTest(t)
+	defer cleanup()
+
+	testUser2 := testUser
+	testUser2.ID = primitive.NewObjectID()
+	testUser2.Email = "test2@email.com"
+
+	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2})
+	assert.NoError(t, err)
+
+	teammates, err := uService.GetTeammatesForUserWithID(context.Background(), testUser.ID.Hex())
+
+	assert.Equal(t, []entities.User{testUser2}, teammates)
 }

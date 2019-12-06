@@ -187,6 +187,41 @@ func (s *mongoUserService) GetUserWithJWT(ctx context.Context, jwt string) (*ent
 	return s.GetUserWithID(ctx, claims.Id)
 }
 
+func (s *mongoUserService) GetTeammatesForUserWithID(ctx context.Context, userID string) ([]entities.User, error) {
+	user, err := s.GetUserWithID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if user.Team == primitive.NilObjectID {
+		return nil, services.ErrUserNotInTeam
+	}
+
+	teamMembers, err := s.GetUsersWithTeam(ctx, user.Team.Hex())
+	if err != nil {
+		return nil, err
+	}
+
+	// removing the given user from the list of team members to ensure only the teammates are returned
+	for i, member := range teamMembers {
+		if member.ID == user.ID {
+			teamMembers = append(teamMembers[:i], teamMembers[i+1:]...)
+			break
+		}
+	}
+
+	return teamMembers, nil
+}
+
+func (s *mongoUserService) GetTeammatesForUserWithJWT(ctx context.Context, jwt string) ([]entities.User, error) {
+	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
+	if claims == nil {
+		return nil, services.ErrInvalidToken
+	}
+
+	return s.GetTeammatesForUserWithID(ctx, claims.Id)
+}
+
 func (s *mongoUserService) UpdateUsersWithTeam(ctx context.Context, teamID string, params services.UserUpdateParams) error {
 	mongoID, err := primitive.ObjectIDFromHex(teamID)
 	if err != nil {

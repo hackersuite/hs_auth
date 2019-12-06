@@ -43,6 +43,9 @@ type UserServiceV2 interface {
 	GetUserWithEmailAndPwd(ctx context.Context, email, pwd string) (*entities.User, error)
 	GetUserWithJWT(ctx context.Context, jwt string) (*entities.User, error)
 
+	GetTeammatesForUserWithID(ctx context.Context, userID string) ([]entities.User, error)
+	GetTeammatesForUserWithJWT(ctx context.Context, jwt string) ([]entities.User, error)
+
 	UpdateUsersWithTeam(ctx context.Context, teamID string, params UserUpdateParams) error
 	UpdateUsersWithAuthLevel(ctx context.Context, authLevel authlevels.AuthLevel, params UserUpdateParams) error
 
