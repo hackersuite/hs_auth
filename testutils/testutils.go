@@ -35,6 +35,19 @@ func AddRequestWithFormParamsToCtx(ctx *gin.Context, method string, params map[s
 	ctx.Request = req
 }
 
+// AddUrlParamsToCtx attaches a request with given method and url params to the context
+func AddUrlParamsToCtx(ctx *gin.Context, params map[string]string) {
+	p := gin.Params{}
+	for key, val := range params {
+		p = append(p, gin.Param{
+			Key:   key,
+			Value: val,
+		})
+	}
+
+	ctx.Params = p
+}
+
 // SetEnvVars sets given environment variables and provides a callback function to restore the variables to their initial values
 func SetEnvVars(vars map[string]string) (restoreVars func()) {
 	initialValues := map[string]string{}
