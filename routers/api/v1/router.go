@@ -39,6 +39,7 @@ type APIV1Router interface {
 	LeaveTeam(*gin.Context)
 	JoinTeam(*gin.Context)
 	GetTeamMembers(*gin.Context)
+	GetTeammates(*gin.Context)
 	GetPasswordResetEmail(*gin.Context)
 	ResetPassword(*gin.Context)
 }
@@ -81,11 +82,12 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.PUT("/me", isAtLeastApplicant, r.PutMe)
 	usersGroup.GET("/password/reset", r.GetPasswordResetEmail)
 	usersGroup.PUT("/password/reset", r.ResetPassword)
+	usersGroup.GET("/teammates", isAtLeastApplicant, r.GetTeammates)
 
 	teamsGroup := routerGroup.Group("/teams")
 	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)
 	teamsGroup.POST("/", isAtLeastApplicant, r.CreateTeam)
-	teamsGroup.GET("/:id/members", isAtLeastApplicant, r.GetTeamMembers)
+	teamsGroup.GET("/:id/members", isAtLeastOrganizer, r.GetTeamMembers)
 	teamsGroup.POST("/:id/join", isAtLeastApplicant, r.JoinTeam)
 	teamsGroup.DELETE("/leave", isAtLeastApplicant, r.LeaveTeam)
 }

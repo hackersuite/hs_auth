@@ -307,3 +307,44 @@ func (r *apiV1Router) ResetPassword(ctx *gin.Context) {
 		Status: http.StatusOK,
 	})
 }
+
+// GET: /api/v1/users/teammates
+// Response: status int
+//           error string
+//           users []entities.User
+// Headers:  Authorization -> token
+func (r *apiV1Router) GetTeammates(ctx *gin.Context) {
+	teammates, err := r.userService.GetTeammatesForUserWithJWT(ctx, ctx.GetHeader(authHeaderName))
+	if err != nil {
+		switch err {
+		case services.ErrInvalidToken:
+			r.logger.Warn("invalid token")
+			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+			break
+		case services.ErrInvalidID:
+			r.logger.Warn("invalid user id")
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id provided")
+			break
+		case services.ErrNotFound:
+			r.logger.Warn("user not found")
+			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
+			break
+		case services.ErrUserNotInTeam:
+			r.logger.Warn("user is not in a team")
+			models.SendAPIError(ctx, http.StatusBadRequest, "user is not in a team")
+			break
+		default:
+			r.logger.Error("could fetch user's teammates", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with finding user's teammates")
+			break
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, getTeammatesRes{
+		Response: models.Response{
+			Status: http.StatusOK,
+		},
+		Users: teammates,
+	})
+}
