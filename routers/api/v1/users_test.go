@@ -48,8 +48,8 @@ type usersTestSetup struct {
 func setupUsersTest(t *testing.T, envVars map[string]string) *usersTestSetup {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserServiceV2(ctrl)
-	mockESercive := mock_services.NewMockEmailServiceV2(ctrl)
-	mockTSercive := mock_services.NewMockTeamServiceV2(ctrl)
+	mockEService := mock_services.NewMockEmailServiceV2(ctrl)
+	mockTService := mock_services.NewMockTeamServiceV2(ctrl)
 
 	restore := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
@@ -58,7 +58,7 @@ func setupUsersTest(t *testing.T, envVars map[string]string) *usersTestSetup {
 	router := NewAPIV1Router(zap.NewNop(), &config.AppConfig{
 		BaseAuthLevel:     baseTestAuthLevel,
 		AuthTokenLifetime: testAuthTokenLifetime,
-	}, env, mockUService, mockESercive, mockTSercive)
+	}, env, mockUService, mockEService, mockTService)
 
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
@@ -78,8 +78,8 @@ func setupUsersTest(t *testing.T, envVars map[string]string) *usersTestSetup {
 
 	return &usersTestSetup{
 		mockUService: mockUService,
-		mockEService: mockESercive,
-		mockTService: mockTSercive,
+		mockEService: mockEService,
+		mockTService: mockTService,
 		testUser:     &testUser,
 		env:          env,
 		router:       router,
