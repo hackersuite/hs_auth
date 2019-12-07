@@ -1,11 +1,10 @@
 package frontend
 
 import (
-	"bytes"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 
@@ -28,8 +27,9 @@ import (
 type testSetup struct {
 	mockUService *mock_services.MockUserService
 	mockEService *mock_services.MockEmailService
+	mockTService *mock_services.MockTeamService
 	env          *environment.Env
-	router       Router
+	router       frontendRouter
 	testUser     *entities.User
 	w            *httptest.ResponseRecorder
 	testCtx      *gin.Context
@@ -42,14 +42,22 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockEService := mock_services.NewMockEmailService(ctrl)
+	mockTService := mock_services.NewMockTeamService(ctrl)
 
 	restore := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
 	restore()
 
-	router := NewRouter(zap.NewNop(), &config.AppConfig{
-		BaseAuthLevel: 0,
-	}, env, mockUService, mockEService)
+	router := frontendRouter{
+		logger: zap.NewNop(),
+		cfg: &config.AppConfig{
+			BaseAuthLevel: 0,
+		},
+		env:          env,
+		userService:  mockUService,
+		teamService:  mockTService,
+		emailService: mockEService,
+	}
 
 	testUser := entities.User{
 		ID:        primitive.NewObjectID(),
@@ -68,12 +76,12 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 
 	w := httptest.NewRecorder()
 	testCtx, testServer := gin.CreateTestContext(w)
-	testCtx.Set(auth.AuthTokenKeyInCtx, claims)
 	testServer.LoadHTMLGlob("../../templates/*/*.gohtml")
 
 	return &testSetup{
 		mockUService: mockUService,
 		mockEService: mockEService,
+		mockTService: mockTService,
 		env:          env,
 		router:       router,
 		testUser:     &testUser,
@@ -113,55 +121,784 @@ func Test_Login(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:     "should return 400 when user with email doesn't exist",
+			name:     "should return 401 when GetUserWithEmailAndPwd returns ErrNotFound",
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "test@email.com").
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
 					Return(nil, services.ErrNotFound).Times(1)
 			},
-			wantResCode: http.StatusBadRequest,
+			wantResCode: http.StatusUnauthorized,
 		},
 		{
-			name:     "should return 500 when query for user with email fails",
+			name:     "should return 500 when GetUserWithEmailAndPwd returns unknown error",
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "test@email.com").
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
 					Return(nil, errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:     "should return 400 when password is incorrect",
+			name:     "should return 401 when user's email is not verified",
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "test@email.com").
-					Return(&entities.User{
-						Password: "invalidpwd",
-					}, nil).Times(1)
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
+					Return(&entities.User{EmailVerified: false}, nil).Times(1)
 			},
-			wantResCode: http.StatusBadRequest,
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:     "should return 200",
+			email:    "test@email.com",
+			password: "testpassword",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
+					Return(&entities.User{EmailVerified: true}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupTest(t, nil, 0)
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
 
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
 
-			data := url.Values{}
-			data.Add("email", tt.email)
-			data.Add("password", tt.password)
-
-			testReq := httptest.NewRequest(http.MethodPost, "/", bytes.NewBufferString(data.Encode()))
-			testReq.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
-			setup.testCtx.Request = testReq
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
+				"email":    tt.email,
+				"password": tt.password,
+			})
 			setup.router.Login(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_renderProfilePage(t *testing.T) {
+	tests := []struct {
+		name            string
+		jwt             string
+		prep            func(setup *testSetup)
+		givenStatusCode int
+		givenErr        string
+		wantResCode     int
+	}{
+		{
+			name:        "should return 401 when auth cookie is empty",
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 500 when getBasicUserInfo returns error",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return correct status code",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+			},
+			givenStatusCode: http.StatusOK,
+			wantResCode:     http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, nil, common.Applicant)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodGet, nil)
+			if tt.jwt != "" {
+				setup.testCtx.Request.AddCookie(&http.Cookie{
+					Name:  authCookieName,
+					Value: tt.jwt,
+				})
+			}
+			setup.router.renderProfilePage(setup.testCtx, tt.givenStatusCode, tt.givenErr)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_getBasicUserInfo(t *testing.T) {
+	userID := primitive.NewObjectID()
+	teamID := primitive.NewObjectID()
+
+	tests := []struct {
+		name    string
+		prep    func(setup *testSetup)
+		wantOut basicUserInfo
+		wantErr bool
+	}{
+		{
+			name: "should return error when GetUserWithJWT returns error",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantErr: true,
+			wantOut: basicUserInfo{},
+		},
+		{
+			name: "should return empty team and teammates when user does not have team",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+			},
+			wantOut: basicUserInfo{
+				User:      &entities.User{Name: "Bob the Tester"},
+				Team:      nil,
+				Teammates: nil,
+			},
+		},
+		{
+			name: "should return the user and no team when GetTeamWithID returns error",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{Name: "Bob the Tester", Team: teamID}, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), teamID.Hex()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantOut: basicUserInfo{
+				User:      &entities.User{Name: "Bob the Tester", Team: teamID},
+				Team:      nil,
+				Teammates: nil,
+			},
+		},
+		{
+			name: "should return the user and their team but no teammates or error when GetTeammatesForUserWithID returns error",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{ID: userID, Name: "Bob the Tester", Team: teamID}, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), teamID.Hex()).
+					Return(&entities.Team{Name: "Team of Bobs", ID: teamID}, nil).Times(1)
+				setup.mockUService.EXPECT().GetTeammatesForUserWithID(gomock.Any(), userID.Hex()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantOut: basicUserInfo{
+				User:      &entities.User{ID: userID, Name: "Bob the Tester", Team: teamID},
+				Team:      &entities.Team{Name: "Team of Bobs", ID: teamID},
+				Teammates: []entities.User{},
+			},
+		},
+		{
+			name: "should return the user, their team and teammates",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{ID: userID, Name: "Bob the Tester", Team: teamID}, nil).Times(1)
+				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), teamID.Hex()).
+					Return(&entities.Team{Name: "Team of Bobs", ID: teamID}, nil).Times(1)
+				setup.mockUService.EXPECT().GetTeammatesForUserWithID(gomock.Any(), userID.Hex()).
+					Return([]entities.User{{Name: "Rob the Tester"}}, nil).Times(1)
+			},
+			wantOut: basicUserInfo{
+				User:      &entities.User{ID: userID, Name: "Bob the Tester", Team: teamID},
+				Team:      &entities.Team{Name: "Team of Bobs", ID: teamID},
+				Teammates: []entities.User{{Name: "Rob the Tester"}},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, nil, common.Applicant)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			uInfo, err := setup.router.getBasicUserInfo(setup.testCtx, "test")
+			assert.Equal(t, tt.wantOut, uInfo)
+			assert.Equal(t, tt.wantErr, err != nil)
+		})
+	}
+}
+
+func Test_Register(t *testing.T) {
+	tests := []struct {
+		name            string
+		prep            func(*testSetup)
+		userName        string
+		email           string
+		password        string
+		passwordConfirm string
+		wantResCode     int
+	}{
+		{
+			name:            "should return 400 when email not specified",
+			password:        "testtest",
+			userName:        "bob",
+			passwordConfirm: "testtest",
+			wantResCode:     http.StatusBadRequest,
+		},
+		{
+			name:            "should return 400 when name not specified",
+			password:        "testtest",
+			passwordConfirm: "testtest",
+			email:           "bob@test.com",
+			wantResCode:     http.StatusBadRequest,
+		},
+		{
+			name:            "should return 400 when password not specified",
+			userName:        "bob",
+			passwordConfirm: "testtest",
+			email:           "bob@test.com",
+			wantResCode:     http.StatusBadRequest,
+		},
+		{
+			name:        "should return 400 when password is too short",
+			userName:    "bob",
+			password:    "test",
+			email:       "bob@test.com",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:     "should return 400 when password is too long",
+			userName: "bob",
+			password: "testtesttesttesttesttesttesttesttesttest" +
+				"testtesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttesttests",
+			email:       "bob@test.com",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:            "should return 400 when password does not match passwordConfirm",
+			userName:        "bob",
+			passwordConfirm: "testtest",
+			password:        "testtest2",
+			email:           "bob@test.com",
+			wantResCode:     http.StatusBadRequest,
+		},
+		{
+			name:            "should return 400 when CreateUser returns ErrEmailTaken",
+			userName:        "bob",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			email:           "bob@test.com",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest").
+					Return(nil, services.ErrEmailTaken).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:            "should return 500 when CreateUser returns unknown error",
+			userName:        "bob",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			email:           "bob@test.com",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest").
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:            "should return 200 even if SendEmailVerificationEmail returns error",
+			userName:        "bob",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			email:           "bob@test.com",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest").
+					Return(&entities.User{}, nil).Times(1)
+				setup.mockEService.EXPECT().SendEmailVerificationEmail(entities.User{}).
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
+				"name":            tt.userName,
+				"email":           tt.email,
+				"password":        tt.password,
+				"passwordConfirm": tt.passwordConfirm,
+			})
+			setup.router.Register(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_ForgotPassword(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		email       string
+		wantResCode int
+	}{
+		{
+			name:        "should return 400 when email not specified",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:  "should return 200 when SendPasswordResetEmailForUserWithEmail returns ErrEmailTaken",
+			email: "bob@test.com",
+			prep: func(setup *testSetup) {
+				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "bob@test.com").
+					Return(services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
+			name:  "should return 500 when SendPasswordResetEmailForUserWithEmail returns unknown error",
+			email: "bob@test.com",
+			prep: func(setup *testSetup) {
+				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "bob@test.com").
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:  "should return 200",
+			email: "bob@test.com",
+			prep: func(setup *testSetup) {
+				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "bob@test.com").
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
+				"email": tt.email,
+			})
+			setup.router.ForgotPassword(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_ResetPassword(t *testing.T) {
+	tests := []struct {
+		name            string
+		prep            func(*testSetup)
+		userName        string
+		email           string
+		password        string
+		passwordConfirm string
+		jwt             string
+		wantResCode     int
+	}{
+		{
+			name:            "should return 400 when email not specified",
+			password:        "testtest",
+			userName:        "bob",
+			passwordConfirm: "testtest",
+			wantResCode:     http.StatusBadRequest,
+		},
+		{
+			name:            "should return 400 when password not specified",
+			passwordConfirm: "testtest",
+			email:           "bob@test.com",
+			wantResCode:     http.StatusBadRequest,
+		},
+		{
+			name:            "should return 400 when password does not match passwordConfirm",
+			passwordConfirm: "testtest",
+			password:        "testtest2",
+			email:           "bob@test.com",
+			wantResCode:     http.StatusBadRequest,
+		},
+		{
+			name:            "should return 401 when UpdateUserWithJWT returns ErrInvalidToken",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			email:           "bob@test.com",
+			jwt:             "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(services.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:            "should return 401 when UpdateUserWithJWT returns ErrNotFound",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			email:           "bob@test.com",
+			jwt:             "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:            "should return 500 when UpdateUserWithJWT returns unknown error",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			email:           "bob@test.com",
+			jwt:             "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:            "should return 200",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			email:           "bob@test.com",
+			jwt:             "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
+				"email":           tt.email,
+				"password":        tt.password,
+				"passwordConfirm": tt.passwordConfirm,
+				"token":           tt.jwt,
+			})
+			setup.router.ResetPassword(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_VerifyEmail(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		jwt         string
+		wantResCode int
+	}{
+		{
+			name:        "should return 401 when jwt is empty",
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 401 when UpdateUserWithJWT returns ErrInvalidToken",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(services.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 401 when UpdateUserWithJWT returns ErrNotFound",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 500 when UpdateUserWithJWT returns unknown error",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/test?token=%s", tt.jwt), nil)
+			setup.testCtx.Request = req
+
+			setup.router.VerifyEmail(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_Logout__should_clear_the_auth_cookie(t *testing.T) {
+	setup := setupTest(t, nil, 0)
+
+	testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodGet, nil)
+	setup.router.Logout(setup.testCtx)
+
+	assert.True(t, strings.Contains(setup.w.HeaderMap["Set-Cookie"][0], authCookieName+"="))
+}
+
+func Test_CreateTeam(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		teamName    string
+		jwt         string
+		wantResCode int
+	}{
+		{
+			name:        "should return 400 when team name is not provided",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:     "should return 500 when CreateTeamForUserWithJWT returns unknown error",
+			teamName: "testteam",
+			jwt:      "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().CreateTeamForUserWithJWT(gomock.Any(), "testteam", "test").
+					Return(nil, errors.New("service err"))
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:     "should return 200",
+			teamName: "testteam",
+			jwt:      "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().CreateTeamForUserWithJWT(gomock.Any(), "testteam", "test").
+					Return(&entities.Team{Name: "testteam"}, nil)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
+				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
+				"name": tt.teamName,
+			})
+			setup.testCtx.Request.AddCookie(&http.Cookie{
+				Name:  authCookieName,
+				Value: tt.jwt,
+			})
+
+			setup.router.CreateTeam(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_JoinTeam(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		teamID      string
+		jwt         string
+		wantResCode int
+	}{
+		{
+			name:        "should return 400 when team id is not provided",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 400 when AddUserWithJWTToTeamWithID returns ErrNotFound",
+			teamID: "testteam",
+			jwt:    "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
+					Return(services.ErrNotFound)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 400 when AddUserWithJWTToTeamWithID returns ErrUserInTeam",
+			teamID: "testteam",
+			jwt:    "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
+					Return(services.ErrUserInTeam)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 500 when AddUserWithJWTToTeamWithID returns unknown error",
+			teamID: "testteam",
+			jwt:    "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
+					Return(errors.New("service err"))
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:   "should return 200",
+			teamID: "testteam",
+			jwt:    "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
+					Return(nil)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
+				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
+				"id": tt.teamID,
+			})
+			setup.testCtx.Request.AddCookie(&http.Cookie{
+				Name:  authCookieName,
+				Value: tt.jwt,
+			})
+
+			setup.router.JoinTeam(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_LeaveTeam(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		jwt         string
+		wantResCode int
+	}{
+		{
+			name: "should return 400 when RemoveUserWithJWTFromTheirTeam returns ErrNotFound",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
+					Return(services.ErrNotFound)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 400 when RemoveUserWithJWTFromTheirTeam returns ErrUserNotInTeam",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
+					Return(services.ErrUserNotInTeam)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 400 when RemoveUserWithJWTFromTheirTeam returns unknown error",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
+					Return(errors.New("service err"))
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
+					Return(nil)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
+				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{})
+			setup.testCtx.Request.AddCookie(&http.Cookie{
+				Name:  authCookieName,
+				Value: tt.jwt,
+			})
+
+			setup.router.LeaveTeam(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})

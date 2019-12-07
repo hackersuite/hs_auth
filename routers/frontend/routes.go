@@ -28,6 +28,7 @@ func (r *frontendRouter) renderProfilePage(ctx *gin.Context, statusCode int, err
 			Cfg: r.cfg,
 			Err: "Invalid auth token",
 		})
+		return
 	}
 
 	userInfo, routerErr := r.getBasicUserInfo(ctx, jwt)
@@ -119,7 +120,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 	if err != nil {
 		if err == services.ErrNotFound {
 			r.logger.Warn("user not found", zap.String("email", email))
-			ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
+			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "User not found",
 			})
@@ -183,6 +184,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		return
 	}
 
+	// TODO: might be a good idea to handle this at the service level
 	if len(password) < 6 || len(password) > 160 {
 		r.logger.Warn("invalid password length", zap.Int("length", len(password)))
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
@@ -222,6 +224,9 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 	}
 
 	err = r.emailService.SendEmailVerificationEmail(*user)
+	if err != nil {
+		r.logger.Error("could not send email verification email", zap.Error(err))
+	}
 
 	type res struct {
 		Email string
@@ -428,7 +433,7 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 			r.logger.Warn("could not find user with token")
 			ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Err: "Could nt find user with given auth token",
+				Err: "Couldn't find user with given auth token",
 			})
 			return
 		default:
@@ -546,7 +551,7 @@ func (r *frontendRouter) LeaveTeam(ctx *gin.Context) {
 			return
 		case services.ErrNotFound:
 			r.logger.Warn("user in token not found")
-			r.renderProfilePage(ctx, http.StatusUnauthorized, "Invalid auth token")
+			r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid auth token")
 			return
 		case services.ErrUserNotInTeam:
 			r.logger.Warn("user is not in team")
