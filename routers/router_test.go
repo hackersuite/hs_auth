@@ -5,17 +5,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gin-gonic/gin"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/unicsmcr/hs_auth/testutils"
-
 	mock_v1 "github.com/unicsmcr/hs_auth/mocks/routers/api/v1"
 	mock_frontend "github.com/unicsmcr/hs_auth/mocks/routers/frontend"
-
-	"github.com/gin-gonic/gin"
-
-	"github.com/golang/mock/gomock"
-
+	"github.com/unicsmcr/hs_auth/testutils"
 	"go.uber.org/zap"
 )
 

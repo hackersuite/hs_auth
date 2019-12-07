@@ -29,7 +29,7 @@ var (
 type teamTestSetup struct {
 	tService     *mongoTeamService
 	tRepo        *repositories.TeamRepository
-	mockUService *mock_services.MockUserServiceV2
+	mockUService *mock_services.MockUserService
 	cleanup      func()
 }
 
@@ -37,7 +37,7 @@ func setupTeamTest(t *testing.T) *teamTestSetup {
 	db := testutils.ConnectToIntegrationTestDB(t)
 
 	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockUService := mock_services.NewMockUserService(ctrl)
 
 	tRepo, err := repositories.NewTeamRepository(db)
 	if err != nil {
