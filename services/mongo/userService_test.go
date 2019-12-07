@@ -55,10 +55,10 @@ func setupUserTest(t *testing.T) (uService *mongoUserService, uRepo *repositorie
 			BaseAuthLevel: testBaseAuthLevel,
 		},
 		env:            env,
-		userRepository: &userRepository,
+		userRepository: userRepository,
 	}
 
-	return uService, &userRepository, func() {
+	return uService, userRepository, func() {
 		uRepo.Drop(context.Background())
 	}
 }
@@ -196,14 +196,13 @@ func Test_CreateUser__should_create_correct_user(t *testing.T) {
 
 	assert.Equal(t, testUser.Name, user.Name)
 
-	res := uRepo.FindOne(context.Background(), bson.M{
-		string(entities.UserID):        user.ID,
-		string(entities.UserEmail):     testUser.Email,
-		string(entities.UserName):      testUser.Name,
-		string(entities.UserAuthLevel): testBaseAuthLevel,
-	})
+	cur, err := uRepo.Find(context.Background(), bson.M{})
+	assert.NoError(t, err)
 
-	assert.NoError(t, res.Err())
+	users, err := decodeUsersResult(context.Background(), cur)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []entities.User{*user}, users)
 }
 
 func Test_GetUsers__should_return_expected_users(t *testing.T) {
@@ -260,7 +259,7 @@ func Test_GetUsersWithAuthLevel__should_return_expected_users(t *testing.T) {
 	testUser3.Email = "test3@email.com"
 	testUser3.AuthLevel = testUser.AuthLevel + 1
 
-	expextedUsers := []entities.User{testUser, testUser2}
+	expectedUsers := []entities.User{testUser, testUser2}
 
 	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2, testUser3})
 	assert.NoError(t, err)
@@ -268,7 +267,7 @@ func Test_GetUsersWithAuthLevel__should_return_expected_users(t *testing.T) {
 	users, err := uService.GetUsersWithAuthLevel(context.Background(), testBaseAuthLevel)
 
 	assert.NoError(t, err)
-	assert.Equal(t, expextedUsers, users)
+	assert.Equal(t, expectedUsers, users)
 }
 
 func Test_GetUserWithID__should_return_error_when_user_with_id_doesnt_exist(t *testing.T) {

@@ -1,7 +1,7 @@
 include app.env
 export $(shell sed 's/=.*//' app.env)
 
-GO111MODULE=on
+export GO111MODULE=on
 
 prod_docker_compose_file=./docker/hs_auth/docker-compose.yml
 dev_docker_compose_file=./docker/hs_auth_dev/docker-compose.yml

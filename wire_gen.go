@@ -10,7 +10,7 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
-	v1 "github.com/unicsmcr/hs_auth/routers/api/v1"
+	"github.com/unicsmcr/hs_auth/routers/api/v1"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
 )
