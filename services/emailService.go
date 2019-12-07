@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -18,6 +19,17 @@ type EmailService interface {
 	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
 	SendEmailVerificationEmail(user entities.User, emailToken string) error
 	SendPasswordResetEmail(user entities.User, emailToken string) error
+}
+
+// EmailServiceV2 is used to send out emails
+type EmailServiceV2 interface {
+	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
+
+	SendEmailVerificationEmail(user entities.User) error
+	SendEmailVerificationEmailForUserWithEmail(ctx context.Context, email string) error
+
+	SendPasswordResetEmail(user entities.User) error
+	SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string) error
 }
 
 type emailService struct {
