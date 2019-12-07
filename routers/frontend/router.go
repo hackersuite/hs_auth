@@ -40,12 +40,12 @@ type frontendRouter struct {
 	logger       *zap.Logger
 	cfg          *config.AppConfig
 	env          *environment.Env
-	userService  services.UserServiceV2
-	teamService  services.TeamServiceV2
-	emailService services.EmailServiceV2
+	userService  services.UserService
+	teamService  services.TeamService
+	emailService services.EmailService
 }
 
-func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserServiceV2, teamService services.TeamServiceV2, emailService services.EmailServiceV2) Router {
+func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, teamService services.TeamService, emailService services.EmailService) Router {
 	return &frontendRouter{
 		logger:       logger,
 		cfg:          cfg,

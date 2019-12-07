@@ -48,14 +48,14 @@ type apiV1Router struct {
 	models.BaseRouter
 	logger       *zap.Logger
 	cfg          *config.AppConfig
-	userService  services.UserServiceV2
-	emailService services.EmailServiceV2
-	teamService  services.TeamServiceV2
+	userService  services.UserService
+	emailService services.EmailService
+	teamService  services.TeamService
 	env          *environment.Env
 }
 
 // NewAPIV1Router creates a APIV1Router
-func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserServiceV2, emailService services.EmailServiceV2, teamService services.TeamServiceV2) APIV1Router {
+func NewAPIV1Router(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, emailService services.EmailService, teamService services.TeamService) APIV1Router {
 	return &apiV1Router{
 		logger:       logger,
 		cfg:          cfg,
