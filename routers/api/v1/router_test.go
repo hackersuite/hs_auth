@@ -28,8 +28,8 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	restoreVars()
 
 	ctrl := gomock.NewController(t)
-	mockUserService := mock_services.NewMockUserServiceV2(ctrl)
-	mockTeamService := mock_services.NewMockTeamServiceV2(ctrl)
+	mockUserService := mock_services.NewMockUserService(ctrl)
+	mockTeamService := mock_services.NewMockTeamService(ctrl)
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
@@ -129,8 +129,8 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 	restoreVars()
 
 	ctrl := gomock.NewController(t)
-	mockUserService := mock_services.NewMockUserServiceV2(ctrl)
-	mockTeamService := mock_services.NewMockTeamServiceV2(ctrl)
+	mockUserService := mock_services.NewMockUserService(ctrl)
+	mockTeamService := mock_services.NewMockTeamService(ctrl)
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).Return(nil, errors.New("service err")).AnyTimes()
