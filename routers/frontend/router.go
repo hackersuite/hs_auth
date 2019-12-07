@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const authCookieName = "Authorization"
+
 type Router interface {
 	models.Router
 	LoginPage(*gin.Context)
@@ -38,12 +40,12 @@ type frontendRouter struct {
 	logger       *zap.Logger
 	cfg          *config.AppConfig
 	env          *environment.Env
-	userService  services.UserService
-	teamService  services.TeamService
-	emailService services.EmailService
+	userService  services.UserServiceV2
+	teamService  services.TeamServiceV2
+	emailService services.EmailServiceV2
 }
 
-func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, teamService services.TeamService, emailService services.EmailService) Router {
+func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserServiceV2, teamService services.TeamServiceV2, emailService services.EmailServiceV2) Router {
 	return &frontendRouter{
 		logger:       logger,
 		cfg:          cfg,
