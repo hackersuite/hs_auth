@@ -23,9 +23,9 @@ import (
 )
 
 type teamsTestSetup struct {
-	mockEService *mock_services.MockEmailServiceV2
-	mockTService *mock_services.MockTeamServiceV2
-	mockUService *mock_services.MockUserServiceV2
+	mockEService *mock_services.MockEmailService
+	mockTService *mock_services.MockTeamService
+	mockUService *mock_services.MockUserService
 	env          *environment.Env
 	router       APIV1Router
 	testServer   *gin.Engine
@@ -39,9 +39,9 @@ type teamsTestSetup struct {
 
 func setupTeamsTest(t *testing.T, envVars map[string]string) *teamsTestSetup {
 	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserServiceV2(ctrl)
-	mockEService := mock_services.NewMockEmailServiceV2(ctrl)
-	mockTService := mock_services.NewMockTeamServiceV2(ctrl)
+	mockUService := mock_services.NewMockUserService(ctrl)
+	mockEService := mock_services.NewMockEmailService(ctrl)
+	mockTService := mock_services.NewMockTeamService(ctrl)
 
 	restore := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
@@ -74,7 +74,6 @@ func setupTeamsTest(t *testing.T, envVars map[string]string) *teamsTestSetup {
 
 	w := httptest.NewRecorder()
 	testCtx, testServer := gin.CreateTestContext(w)
-	testCtx.Set(auth.AuthTokenKeyInCtx, claims)
 
 	return &teamsTestSetup{
 		mockUService: mockUService,
