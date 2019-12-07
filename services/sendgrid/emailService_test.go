@@ -146,7 +146,7 @@ func Test_SendEmailVerificationEmailForUserWithEmail__should_make_correct_call_t
 	defer server.Close()
 
 	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockUService := mock_services.NewMockUserService(ctrl)
 	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
 		Return(&entities.User{
 			Name:  "Bob the Tester",
@@ -199,7 +199,7 @@ func Test_SendPasswordResetEmailForUserWithEmail__should_make_correct_call_to_us
 	defer server.Close()
 
 	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockUService := mock_services.NewMockUserService(ctrl)
 	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
 		Return(&entities.User{
 			Name:  "Bob the Tester",
@@ -217,7 +217,7 @@ func Test_SendPasswordResetEmailForUserWithEmail__should_make_correct_call_to_us
 
 func Test_SendEmailVerificationEmailForUserWithEmail__should_return_error_when_user_service_returns_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockUService := mock_services.NewMockUserService(ctrl)
 	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
 		Return(nil, services.ErrNotFound).Times(1)
 
@@ -231,7 +231,7 @@ func Test_SendEmailVerificationEmailForUserWithEmail__should_return_error_when_u
 
 func Test_SendPasswordResetEmailForUserWithEmail__should_return_error_when_user_service_returns_error(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockUService := mock_services.NewMockUserServiceV2(ctrl)
+	mockUService := mock_services.NewMockUserService(ctrl)
 	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
 		Return(nil, services.ErrNotFound).Times(1)
 
