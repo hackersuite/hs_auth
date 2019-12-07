@@ -48,11 +48,11 @@ type TeamServiceV2 interface {
 
 type teamService struct {
 	logger         *zap.Logger
-	teamRepository repositories.TeamRepository
+	teamRepository *repositories.TeamRepository
 }
 
 // NewTeamService creates a new TeamService
-func NewTeamService(logger *zap.Logger, teamRepository repositories.TeamRepository) TeamService {
+func NewTeamService(logger *zap.Logger, teamRepository *repositories.TeamRepository) TeamService {
 	return &teamService{
 		logger:         logger,
 		teamRepository: teamRepository,
