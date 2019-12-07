@@ -20,11 +20,11 @@ type mongoTeamService struct {
 	logger         *zap.Logger
 	env            *environment.Env
 	teamRepository *repositories.TeamRepository
-	userService    services.UserServiceV2
+	userService    services.UserService
 }
 
-// NewMongoTeamService creates a new TeamServiceV2 that uses MongoDB as the storage technology
-func NewMongoTeamService(logger *zap.Logger, env *environment.Env, teamRepository *repositories.TeamRepository, userService services.UserServiceV2) services.TeamServiceV2 {
+// NewMongoTeamService creates a new TeamService that uses MongoDB as the storage technology
+func NewMongoTeamService(logger *zap.Logger, env *environment.Env, teamRepository *repositories.TeamRepository, userService services.UserService) services.TeamService {
 	return &mongoTeamService{
 		logger:         logger,
 		env:            env,

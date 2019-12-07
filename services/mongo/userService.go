@@ -28,8 +28,8 @@ type mongoUserService struct {
 	userRepository *repositories.UserRepository
 }
 
-// NewMongoUserService creates a new UserServiceV2 that uses MongoDB as the storage technology
-func NewMongoUserService(logger *zap.Logger, env *environment.Env, cfg *config.AppConfig, userRepository *repositories.UserRepository) services.UserServiceV2 {
+// NewMongoUserService creates a new UserService that uses MongoDB as the storage technology
+func NewMongoUserService(logger *zap.Logger, env *environment.Env, cfg *config.AppConfig, userRepository *repositories.UserRepository) services.UserService {
 	return &mongoUserService{
 		logger:         logger,
 		env:            env,

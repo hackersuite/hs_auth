@@ -28,7 +28,7 @@ type sendgridEmailService struct {
 	*sendgrid.Client
 	logger      *zap.Logger
 	cfg         *config.AppConfig
-	userService services.UserServiceV2
+	userService services.UserService
 
 	passwordResetEmailTemplate *template.Template
 	emailVerifyEmailTemplate   *template.Template
@@ -39,7 +39,7 @@ type emailTemplateDataModel struct {
 	SenderName string
 }
 
-func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, client *sendgrid.Client, userService services.UserServiceV2) (services.EmailServiceV2, error) {
+func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, client *sendgrid.Client, userService services.UserService) (services.EmailService, error) {
 	passwordResetEmailTemplate, err := utils.LoadTemplate("password reset", passwordResetEmailTemplatePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load password reset template")
