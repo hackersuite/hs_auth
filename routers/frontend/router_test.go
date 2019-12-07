@@ -25,13 +25,18 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockUserService := mock_services.NewMockUserService(ctrl)
 	mockEmailService := mock_services.NewMockEmailService(ctrl)
+	mockTeamService := mock_services.NewMockTeamService(ctrl)
 
-	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockEmailService)
+	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService)
 
 	tests := []struct {
 		route  string
 		method string
 	}{
+		{
+			route:  "/",
+			method: http.MethodGet,
+		},
 		{
 			route:  "/login",
 			method: http.MethodGet,
@@ -67,6 +72,18 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 		{
 			route:  "/verifyemail",
 			method: http.MethodGet,
+		},
+		{
+			route:  "/team/create",
+			method: http.MethodPost,
+		},
+		{
+			route:  "/team/join",
+			method: http.MethodPost,
+		},
+		{
+			route:  "/team/leave",
+			method: http.MethodPost,
 		},
 	}
 
