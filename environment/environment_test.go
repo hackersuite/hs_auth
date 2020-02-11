@@ -3,11 +3,9 @@ package environment
 import (
 	"testing"
 
-	"go.uber.org/zap"
-
-	"github.com/unicsmcr/hs_auth/testutils"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/unicsmcr/hs_auth/testutils"
+	"go.uber.org/zap"
 )
 
 func Test_NewEnv__should_return_correct_env(t *testing.T) {

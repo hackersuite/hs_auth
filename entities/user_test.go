@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

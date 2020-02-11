@@ -8,7 +8,6 @@ import (
 
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/mongo"
-
 	"github.com/stretchr/testify/assert"
 )
 
