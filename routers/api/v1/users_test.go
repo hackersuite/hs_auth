@@ -2,6 +2,7 @@ package v1
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -877,4 +878,127 @@ func Test_GetTeammates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_UpdateUser(t *testing.T) {
+	tests := []struct {
+		name          string
+		prep          func(*usersTestSetup)
+		userID        string
+		updatedFields services.UserUpdateParams
+		wantResCode   int
+		wantRes       *models.Response
+	}{
+		{
+			name:        "should return 400 when user id is not provided",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 400 when user id is included in updatedFields",
+			userID: "bob_the_tester",
+			updatedFields: services.UserUpdateParams{
+				entities.UserID: "rob_the_tester",
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 400 when user password is included in updatedFields",
+			userID: "bob_the_tester",
+			updatedFields: services.UserUpdateParams{
+				entities.UserPassword: "not a good password",
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:   "should return 400 when user service returns ErrInvalidID",
+			userID: "bob_the_tester",
+			updatedFields: services.UserUpdateParams{
+				entities.UserName: "Rob the Tester",
+			},
+			wantResCode: http.StatusBadRequest,
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "bob_the_tester", gomock.Eq(services.UserUpdateParams{
+					entities.UserName: "Rob the Tester",
+				})).Return(services.ErrInvalidID).Times(1)
+			},
+		},
+		{
+			name:   "should return 500 when user service returns unknown error",
+			userID: "bob_the_tester",
+			updatedFields: services.UserUpdateParams{
+				entities.UserName: "Rob the Tester",
+			},
+			wantResCode: http.StatusInternalServerError,
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "bob_the_tester", services.UserUpdateParams{
+					entities.UserName: "Rob the Tester",
+				}).Return(errors.New("service err")).Times(1)
+			},
+		},
+		{
+			name:   "should return 200 when user service returns nil",
+			userID: "bob_the_tester",
+			updatedFields: services.UserUpdateParams{
+				entities.UserName: "Rob the Tester",
+			},
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "bob_the_tester", services.UserUpdateParams{
+					entities.UserName: "Rob the Tester",
+				}).Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &models.Response{
+				Status: http.StatusOK,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t, nil)
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setField, _ := json.Marshal(tt.updatedFields)
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx,
+				http.MethodPut,
+				map[string]string{
+					"set": string(setField),
+				},
+			)
+			testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{
+				"id": tt.userID,
+			})
+
+			setup.router.UpdateUser(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			if tt.wantRes != nil {
+				var actualRes models.Response
+				err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+				assert.NoError(t, err)
+				assert.Equal(t, *tt.wantRes, actualRes)
+			}
+		})
+	}
+}
+
+func Test_UpdateUser__should_return_400_when_field_set_has_invalid_value(t *testing.T) {
+	setup := setupUsersTest(t, nil)
+
+	testutils.AddRequestWithFormParamsToCtx(setup.testCtx,
+		http.MethodPut,
+		map[string]string{
+			"set": "invalid value",
+		},
+	)
+	testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{
+		"id": "bob_the_tester",
+	})
+
+	setup.router.UpdateUser(setup.testCtx)
+	assert.Equal(t, http.StatusBadRequest, setup.w.Code)
 }
