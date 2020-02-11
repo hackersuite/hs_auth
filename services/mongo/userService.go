@@ -4,9 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/unicsmcr/hs_auth/config"
-	"github.com/unicsmcr/hs_auth/services"
-	"go.mongodb.org/mongo-driver/mongo"
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
@@ -19,8 +16,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.uber.org/zap"
-	"github.com/unicsmcr/hs_auth/entities"
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 )
 
 type mongoUserService struct {
