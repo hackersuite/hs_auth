@@ -33,6 +33,16 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 	})
 }
 
+// PUT: /api/v1/users/{id}
+// x-www-form-urlencoded
+// Request:  set map[entities.UserField]interface{}
+// Response: status int
+//           error string
+// Headers:  Authorization -> token
+func (r *apiV1Router) UpdateUser(ctx *gin.Context) {
+
+}
+
 // POST: /api/v1/users/login
 // x-www-form-urlencoded
 // Request:  email string
