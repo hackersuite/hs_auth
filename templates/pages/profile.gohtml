@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  {{template "header.gohtml" .Cfg}}
+  <title>HS Auth - Profile</title>
+</head>
+
+<body>
+  <div class="wrapper">
+      <div class="content">
+        <div class="container-fluid">
+          {{template "navbar.gohtml" .}}
+          <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-4">
+              <div class="card">
+                <div class="card-header card-header-tabs card-header-primary">
+                  <h4 class="card-title">Personal Information</h4>
+                </div>
+                <div class="card-body text-center">
+                  <h2>{{ .Data.User.Name }}</h2>
+                  <h3 id="emailText">{{ .Data.User.Email }}</h3>
+                </div>
+              </div>
+            </div>
+            {{ if .Data.Team}}
+            <div class="col-md-6 col-lg-5">
+              <div class="card">
+                <div class="card-header card-header-tabs card-header-primary">
+                  <h4 class="card-title">Team Information</h4>
+                </div>
+                <div class="card-body">
+                    <h2 class="text-center text">Team name: {{.Data.Team.Name}}</h2>
+                    <h3 class="text-center text">Team ID: {{.Data.Team.ID.Hex}}</h3>
+                  <div class="form-group">
+                    {{ if  ne (len .Data.Teammates)  0 }}
+                    <div id="teamMemberList">
+                      <h3>Teammates:</h3>
+                      {{range .Data.Teammates}}
+                      <p>{{.Name}} {{if eq .ID.String $.Data.Team.Creator.String}}<i class="fas fa-crown" style="color: Gold"></i>{{end}}</p>
+                      {{end}}
+                    {{end}}
+                    </div>
+                    <form action="/team/leave" method="post">
+                      <button type="submit" class="btn btn-danger">Leave team</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {{else}}
+            <div class="col-md-6 col-lg-6">
+              <div class="card">
+                <div class="card-header card-header-tabs card-header-primary">
+                  <h4 class="card-title">Team Information</h4>
+                </div>
+                <div class="card-body text-center">
+                  <h2>Create or join a team!</h2>
+                </div>
+                <div class="card-body">
+                  <div class="form-group">
+                    <form action="/team/create" method="post">
+                      <label for="teamNameInput">Team name</label>
+                      <input type="text" name="name" class="form-control" id="teamNameInput" placeholder="aWeRsOmEtEaM" required>
+                      <button type="submit" class="btn btn-warning">Create a team</button>
+                    </form>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="form-group">
+                    <form action="/team/join" method="post">
+                      <label for="teamCodeInput">Team ID</label>
+                      <input type="text" class="form-control" name="id" id="teamCodeInput" placeholder="aWeRsOmEtEaM" required>
+                      <button type="submit" class="btn btn-success">Join team</button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            </div>
+            {{end}}
+          </div>
+        </div>
+      </div>
+  </div>
+</body>
+{{if .Err}}
+{{template "errorNotifier.gohtml" .Err}}
+{{end}}
+{{template "cookieDisclaimer.gohtml"}}
+</html>

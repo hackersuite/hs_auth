@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  {{template "header.gohtml" .Cfg}}
+  <link rel="stylesheet" type="text/css" href="/static/css/login.css">
+</head>
+
+<body>
+  <div class="container">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="card mx-auto align-middle w-50">
+          <div class="card-header card-header-primary">
+            <h2>Email Verified!</h2>
+          </div>
+          <div class="card-body">
+            <h2>Success!</h2>
+            <h4>You have successfully verified your email. You can now <a href="/login">login</a>.</h4>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+{{if .Err}}
+{{template "errorNotifier.gohtml" .Err}}
+{{end}}
+{{template "cookieDisclaimer.gohtml"}}
+</html>

@@ -5,27 +5,25 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
-	"github.com/unicsmcr/hs_auth/testutils"
-
-	mock_v1 "github.com/unicsmcr/hs_auth/mocks/routers/api/v1"
-
 	"github.com/gin-gonic/gin"
-
 	"github.com/golang/mock/gomock"
-
+	"github.com/stretchr/testify/assert"
+	mock_v1 "github.com/unicsmcr/hs_auth/mocks/routers/api/v1"
+	mock_frontend "github.com/unicsmcr/hs_auth/mocks/routers/frontend"
+	"github.com/unicsmcr/hs_auth/testutils"
 	"go.uber.org/zap"
 )
 
 func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockAPIV1Router := mock_v1.NewMockAPIV1Router(ctrl)
+	mockFrontendRouter := mock_frontend.NewMockRouter(ctrl)
 
-	// checking APIV1Router gets registered on /api/v1
+	// checking routers get registered on correct paths
+	mockFrontendRouter.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/"}).Times(1)
 	mockAPIV1Router.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/api/v1"}).Times(1)
 
-	router := NewMainRouter(zap.NewNop(), mockAPIV1Router)
+	router := NewMainRouter(zap.NewNop(), mockAPIV1Router, mockFrontendRouter)
 
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
@@ -34,12 +32,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	tests := []struct {
 		route  string
 		method string
-	}{
-		{
-			route:  "/",
-			method: http.MethodGet,
-		},
-	}
+	}{}
 
 	for _, tt := range tests {
 		t.Run(tt.route, func(t *testing.T) {
