@@ -6,7 +6,9 @@ base_auth_level: 0
 auth_token_lifetime: 108000 # 30 hours
 email:
   noreply_email_addr: "noreply@unicsmcr.com"
+  help_email_addr: "help@unicsmcr.com"
   noreply_email_name: "UniCS"
   email_verification_email_subj: "Verify email"
   password_reset_email_subj: "Reset password"
 app_url: "auth.unicsmcr.com"
+data_policy_url: "https://drive.google.com/file/d/1wMcJbfEhIp9FjdNbyom4RVUoTH4xc0OB/view"

@@ -4,9 +4,17 @@ import (
 	"errors"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/gin-gonic/gin"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/utils/auth/common"
 	"golang.org/x/crypto/bcrypt"
+)
+
+// AuthTokenKeyInCtx is the key where the auth token is stored inside a request's context
+const AuthTokenKeyInCtx = "Authorization"
+
+var (
+	errJWTSecretUndefined = errors.New("JWT secret undefined")
 )
 
 // TokenType represent an auth token type
@@ -52,7 +60,7 @@ func GetHashForPassword(password string) (string, error) {
 // NewJWT creates a new JWT for the specified user with the specified secret
 func NewJWT(user entities.User, timestamp int64, validityDuration int64, tokenType TokenType, secret []byte) (string, error) {
 	if len(secret) == 0 {
-		return "", errors.New("JWT secret undefined")
+		return "", errJWTSecretUndefined
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &Claims{
@@ -73,4 +81,40 @@ func NewJWT(user entities.User, timestamp int64, validityDuration int64, tokenTy
 // Returns an error otherwise
 func CompareHashAndPassword(hash, password string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+}
+
+// JWTProvider is a wrapper type for a function which returns a JWT from a request's context
+type JWTProvider func(ctx *gin.Context) (jwt string)
+
+// AuthLevelVerifierFactory creates a middleware that checks if the request contains
+// a valid JWT provided by the jwtProvider and confirms that the requester has an auth level
+// which is greater than or equal to minLevel. Auth claims get stored in "Authorization" if token is valid
+// calls failCallback otherwise
+func AuthLevelVerifierFactory(minLevel common.AuthLevel, jwtProvider JWTProvider, jwtSecret []byte, failCallback gin.HandlerFunc) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		jwt := jwtProvider(ctx)
+		claims := GetJWTClaims(jwt, jwtSecret)
+		if claims == nil ||
+			claims.TokenType != Auth ||
+			claims.AuthLevel < minLevel {
+			failCallback(ctx)
+			return
+		}
+		ctx.Set(AuthTokenKeyInCtx, claims)
+		ctx.Next()
+	}
+}
+
+// ExtractClaimsFromCtx extracts auth claims from a request context.
+// Returns nil if they do not exist or cannot be decoded
+func ExtractClaimsFromCtx(ctx *gin.Context) *Claims {
+	claimsEncoded, exists := ctx.Get(AuthTokenKeyInCtx)
+	if !exists {
+		return nil
+	}
+	claims, ok := claimsEncoded.(*Claims)
+	if !ok {
+		return nil
+	}
+	return claims
 }

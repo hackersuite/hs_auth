@@ -7,24 +7,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/unicsmcr/hs_auth/entities"
-	"github.com/unicsmcr/hs_auth/utils/auth"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
-
-	"github.com/unicsmcr/hs_auth/testutils"
-
-	"github.com/unicsmcr/hs_auth/environment"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/gin-gonic/gin"
-
-	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
-
 	"github.com/golang/mock/gomock"
-
+	"github.com/stretchr/testify/assert"
+	"github.com/unicsmcr/hs_auth/entities"
+	"github.com/unicsmcr/hs_auth/environment"
+	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	"github.com/unicsmcr/hs_auth/testutils"
+	"github.com/unicsmcr/hs_auth/utils/auth"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
@@ -41,9 +33,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
+	mockUserService.EXPECT().UpdateUserWithJWT(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	mockTeamService.EXPECT().GetTeams(gomock.Any()).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, mockTeamService, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, env, mockUserService, nil, mockTeamService)
 
 	tests := []struct {
 		route  string
@@ -55,10 +48,6 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 		},
 		{
 			route:  "/users",
-			method: http.MethodGet,
-		},
-		{
-			route:  "/users/verify",
 			method: http.MethodGet,
 		},
 		{
@@ -79,6 +68,10 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 		},
 		{
 			route:  "/users/email/verify",
+			method: http.MethodPost,
+		},
+		{
+			route:  "/users/teammates",
 			method: http.MethodGet,
 		},
 		{
@@ -140,11 +133,16 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 	mockTeamService := mock_services.NewMockTeamService(ctrl)
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
+	mockUserService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).Return(nil, errors.New("service err")).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
+	mockUserService.EXPECT().GetUsersWithTeam(gomock.Any(), gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, errors.New("service err")).AnyTimes()
+	mockUserService.EXPECT().UpdateUserWithJWT(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	mockTeamService.EXPECT().GetTeams(gomock.Any()).AnyTimes()
+	mockTeamService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	mockTeamService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), gomock.Any()).AnyTimes()
 
-	router := NewAPIV1Router(zap.NewNop(), nil, mockUserService, nil, mockTeamService, env)
+	router := NewAPIV1Router(zap.NewNop(), nil, env, mockUserService, nil, mockTeamService)
 
 	tests := []struct {
 		route        string
@@ -157,17 +155,17 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 			minAuthLevel: authlevels.Organizer,
 		},
 		{
-			route:        "/users/verify",
-			method:       http.MethodGet,
-			minAuthLevel: authlevels.Applicant,
-		},
-		{
 			route:        "/users/me",
 			method:       http.MethodGet,
 			minAuthLevel: authlevels.Applicant,
 		},
 		{
 			route:        "/users/me",
+			method:       http.MethodPut,
+			minAuthLevel: authlevels.Applicant,
+		},
+		{
+			route:        "/users/teammates",
 			method:       http.MethodPut,
 			minAuthLevel: authlevels.Applicant,
 		},
@@ -194,7 +192,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		{
 			route:        "/teams/123abd/members",
 			method:       http.MethodGet,
-			minAuthLevel: authlevels.Applicant,
+			minAuthLevel: authlevels.Organizer,
 		},
 	}
 

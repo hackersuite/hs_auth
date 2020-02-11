@@ -16,6 +16,7 @@ var (
 
 // EmailConfig stores the configuration to be used by the email service
 type EmailConfig struct {
+	HelpEmailAddr             string `yaml:"help_email_addr"`
 	NoreplyEmailAddr          string `yaml:"noreply_email_addr"`
 	NoreplyEmailName          string `yaml:"noreply_email_name"`
 	EmailVerficationEmailSubj string `yaml:"email_verification_email_subj"`
@@ -25,10 +26,13 @@ type EmailConfig struct {
 // AppConfig is a struct to store non-private configuration for the project
 type AppConfig struct {
 	Name              string               `yaml:"name"`
+	DomainName        string               `yaml:"domain_name"` // this is the domain under which all cookies will be stored
+	UseSecureCookies  bool                 `yaml:"use_secure_cookies"`
 	BaseAuthLevel     authlevels.AuthLevel `yaml:"base_auth_level"`
 	AuthTokenLifetime int64                `yaml:"auth_token_lifetime"`
 	AppURL            string               `yaml:"app_url"`
 	Email             EmailConfig          `yaml:"email"`
+	DataPolicyURL     string               `yaml:"data_policy_url"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment
