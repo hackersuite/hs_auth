@@ -7,20 +7,14 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/unicsmcr/hs_auth/services"
-
 	"github.com/golang/mock/gomock"
-	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
-
-	"github.com/unicsmcr/hs_auth/entities"
-
-	"github.com/unicsmcr/hs_auth/config"
-
-	"go.uber.org/zap"
-
-	"github.com/stretchr/testify/assert"
-
 	"github.com/sendgrid/sendgrid-go"
+	"github.com/stretchr/testify/assert"
+	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/entities"
+	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	"github.com/unicsmcr/hs_auth/services"
+	"go.uber.org/zap"
 )
 
 const (

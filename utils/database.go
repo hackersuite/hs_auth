@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/unicsmcr/hs_auth/environment"
-
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.uber.org/zap"

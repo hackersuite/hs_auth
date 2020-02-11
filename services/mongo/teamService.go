@@ -3,13 +3,12 @@ package mongo
 import (
 	"context"
 
-	"github.com/unicsmcr/hs_auth/utils/auth"
-
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
