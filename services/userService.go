@@ -3,9 +3,8 @@ package services
 import (
 	"context"
 
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
-
 	"github.com/unicsmcr/hs_auth/entities"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 )
 
 type UserUpdateParams map[entities.UserField]interface{}

@@ -1,13 +1,11 @@
 package routers
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	v1 "github.com/unicsmcr/hs_auth/routers/api/v1"
 	"github.com/unicsmcr/hs_auth/routers/frontend"
-
 	"go.uber.org/zap"
-
-	"github.com/gin-gonic/gin"
 )
 
 // MainRouter is router to connect all routers used by the app

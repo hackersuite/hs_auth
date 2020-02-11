@@ -3,10 +3,9 @@ package repositories
 import (
 	"context"
 
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/x/bsonx"
-
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // UserRepository is the repository for user objects

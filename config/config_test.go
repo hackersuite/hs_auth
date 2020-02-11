@@ -4,13 +4,10 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
+	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/testutils"
 	"go.uber.org/config"
 	"go.uber.org/zap"
-
-	"github.com/unicsmcr/hs_auth/testutils"
-
-	"github.com/unicsmcr/hs_auth/environment"
 )
 
 func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_prod(t *testing.T) {

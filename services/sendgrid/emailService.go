@@ -7,15 +7,13 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/sendgrid/sendgrid-go/helpers/mail"
-
-	"github.com/unicsmcr/hs_auth/utils"
-
 	"github.com/pkg/errors"
 	"github.com/sendgrid/sendgrid-go"
+	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/utils"
 	"go.uber.org/zap"
 )
 

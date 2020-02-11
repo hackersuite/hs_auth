@@ -3,7 +3,6 @@ package config
 import (
 	"github.com/unicsmcr/hs_auth/environment"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
-
 	"go.uber.org/config"
 )
 
