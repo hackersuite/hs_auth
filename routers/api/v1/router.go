@@ -29,6 +29,7 @@ func invalidJWTHandler(ctx *gin.Context) {
 type APIV1Router interface {
 	models.Router
 	GetUsers(*gin.Context)
+	UpdateUser(*gin.Context)
 	Login(*gin.Context)
 	GetMe(*gin.Context)
 	PutMe(*gin.Context)
@@ -75,6 +76,7 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 
 	usersGroup := routerGroup.Group("/users")
 	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
+	usersGroup.PUT("/:id", isAtLeastOrganizer, r.UpdateUser)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 	usersGroup.POST("/email/verify", r.VerifyEmail)
