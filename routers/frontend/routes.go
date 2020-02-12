@@ -9,16 +9,18 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
 const ReturnToCookie = "ReturnTo"
 
-type basicUserInfo struct {
+type profilePageData struct {
 	User      *entities.User
 	Team      *entities.Team
 	Teammates []entities.User
+	AdminData map[string]interface{}
 }
 
 func (r *frontendRouter) renderProfilePage(ctx *gin.Context, statusCode int, error string) {
@@ -31,7 +33,7 @@ func (r *frontendRouter) renderProfilePage(ctx *gin.Context, statusCode int, err
 		return
 	}
 
-	userInfo, routerErr := r.getBasicUserInfo(ctx, jwt)
+	userInfo, routerErr := r.getProfilePageData(ctx, jwt)
 	if routerErr != nil {
 		r.logger.Error("could not fetch basic user info", zap.Error(routerErr))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
@@ -58,35 +60,49 @@ func (r *frontendRouter) renderProfilePage(ctx *gin.Context, statusCode int, err
 	}
 }
 
-func (r *frontendRouter) getBasicUserInfo(ctx *gin.Context, jwt string) (basicUserInfo, error) {
-	user, err := r.userService.GetUserWithJWT(ctx, jwt)
+func (r *frontendRouter) getProfilePageData(ctx *gin.Context, jwt string) (profilePageData, error) {
+	var data profilePageData
+	var err error
+	data.User, err = r.userService.GetUserWithJWT(ctx, jwt)
 	if err != nil {
-		return basicUserInfo{}, err
-	}
-	var team *entities.Team
-	var teammates []entities.User
-	if user.Team != primitive.NilObjectID {
-		team, err = r.teamService.GetTeamWithID(ctx, user.Team.Hex())
-		if err != nil {
-			return basicUserInfo{
-				User: user,
-			}, nil
-		}
-		teammates, err = r.userService.GetTeammatesForUserWithID(ctx, user.ID.Hex())
-		if err != nil {
-			return basicUserInfo{
-				User:      user,
-				Team:      team,
-				Teammates: []entities.User{},
-			}, nil
-		}
+		return profilePageData{}, err
 	}
 
-	return basicUserInfo{
-		User:      user,
-		Team:      team,
-		Teammates: teammates,
-	}, nil
+	if data.User.AuthLevel >= authlevels.Organizer {
+		data.AdminData = map[string]interface{}{}
+		users, err := r.userService.GetUsers(ctx)
+		if err != nil {
+			r.logger.Error("could not get users", zap.Error(err))
+			return data, nil
+		}
+		data.AdminData["users"] = users
+	}
+
+	data.Team, data.Teammates, err = r.getUserTeamInfo(ctx, data.User)
+	if err != nil {
+		r.logger.Error("could not get information about user's team", zap.Error(err))
+		return data, nil
+	}
+
+	return data, nil
+}
+
+func (r *frontendRouter) getUserTeamInfo(ctx *gin.Context, user *entities.User) (team *entities.Team, teammates []entities.User, err error) {
+	if user.Team == primitive.NilObjectID {
+		return nil, nil, nil
+	}
+
+	team, err = r.teamService.GetTeamWithID(ctx, user.Team.Hex())
+	if err != nil {
+		r.logger.Error("could not get user's team", zap.Error(err))
+		return nil, nil, err
+	}
+	teammates, err = r.userService.GetTeammatesForUserWithID(ctx, user.ID.Hex())
+	if err != nil {
+		r.logger.Error("could not get user's teammates", zap.Error(err))
+		return team, nil, err
+	}
+	return team, teammates, nil
 }
 
 func (r *frontendRouter) ProfilePage(ctx *gin.Context) {
