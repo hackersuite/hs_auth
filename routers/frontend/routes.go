@@ -20,7 +20,11 @@ type profilePageData struct {
 	User      *entities.User
 	Team      *entities.Team
 	Teammates []entities.User
-	AdminData map[string]interface{}
+	AdminData adminData
+}
+
+type adminData struct {
+	Users []entities.User
 }
 
 func (r *frontendRouter) renderProfilePage(ctx *gin.Context, statusCode int, error string) {
@@ -69,13 +73,12 @@ func (r *frontendRouter) getProfilePageData(ctx *gin.Context, jwt string) (profi
 	}
 
 	if data.User.AuthLevel >= authlevels.Organizer {
-		data.AdminData = map[string]interface{}{}
 		users, err := r.userService.GetUsers(ctx)
 		if err != nil {
 			r.logger.Error("could not get users", zap.Error(err))
 			return data, nil
 		}
-		data.AdminData["users"] = users
+		data.AdminData.Users = users
 	}
 
 	data.Team, data.Teammates, err = r.getUserTeamInfo(ctx, data.User)

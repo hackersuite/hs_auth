@@ -299,7 +299,7 @@ func Test_getProfilePageData(t *testing.T) {
 			},
 		},
 		{
-			name: "should return the user and an empty map for AdminData when user is Organizer and GetUsers returns err",
+			name: "should return the user and an empty AdminData when user is Organizer and GetUsers returns err",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
 					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer}, nil).Times(1)
@@ -308,7 +308,7 @@ func Test_getProfilePageData(t *testing.T) {
 			},
 			wantOut: profilePageData{
 				User:      &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer},
-				AdminData: map[string]interface{}{},
+				AdminData: adminData{},
 			},
 		},
 		{
@@ -321,8 +321,8 @@ func Test_getProfilePageData(t *testing.T) {
 			},
 			wantOut: profilePageData{
 				User: &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer},
-				AdminData: map[string]interface{}{
-					"users": []entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}},
+				AdminData: adminData{
+					Users: []entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}},
 				},
 			},
 		},
