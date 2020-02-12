@@ -23,8 +23,15 @@
                 </div>
               </div>
             </div>
-            {{template "teamPanel.gohtml" .Data}}
+            {{if lt .Data.User.AuthLevel 3}}
+              {{template "teamPanel.gohtml" .Data}}
+            {{end}}
           </div>
+          {{if ge .Data.User.AuthLevel 3}}
+            <div class="row justify-content-center">
+              {{template "usersList.gohtml" .Data}}
+            </div>
+          {{end}}
         </div>
       </div>
   </div>
