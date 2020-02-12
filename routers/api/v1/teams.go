@@ -40,7 +40,7 @@ func (r *apiV1Router) GetTeams(ctx *gin.Context) {
 func (r *apiV1Router) CreateTeam(ctx *gin.Context) {
 	name := ctx.PostForm("name")
 	if len(name) == 0 {
-		r.logger.Warn("team name not specified", zap.String("name", name))
+		r.logger.Debug("team name not specified", zap.String("name", name))
 		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the team's name")
 		return
 	}
@@ -49,15 +49,15 @@ func (r *apiV1Router) CreateTeam(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrInvalidToken:
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 			break
 		case services.ErrNotFound:
-			r.logger.Warn("user not found")
+			r.logger.Debug("user not found")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 			break
 		case services.ErrUserInTeam:
-			r.logger.Warn("user is already in a team")
+			r.logger.Debug("user is already in a team")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user is already in a team")
 			break
 		default:
@@ -85,15 +85,15 @@ func (r *apiV1Router) LeaveTeam(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrInvalidToken:
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 			break
 		case services.ErrNotFound:
-			r.logger.Warn("user or user's team not found")
+			r.logger.Debug("user or user's team not found")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user or user's team not found")
 			break
 		case services.ErrUserNotInTeam:
-			r.logger.Warn("user is not in a team")
+			r.logger.Debug("user is not in a team")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user is not in a team")
 			break
 		default:
@@ -116,7 +116,7 @@ func (r *apiV1Router) LeaveTeam(ctx *gin.Context) {
 func (r *apiV1Router) JoinTeam(ctx *gin.Context) {
 	team := ctx.Param("id")
 	if len(team) == 0 {
-		r.logger.Warn("team id not provided")
+		r.logger.Debug("team id not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "team id must be provided")
 		return
 	}
@@ -125,19 +125,19 @@ func (r *apiV1Router) JoinTeam(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrInvalidToken:
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 			break
 		case services.ErrInvalidID:
-			r.logger.Warn("invalid team id")
+			r.logger.Debug("invalid team id")
 			models.SendAPIError(ctx, http.StatusBadRequest, "invalid auth id")
 			break
 		case services.ErrNotFound:
-			r.logger.Warn("team not found")
+			r.logger.Debug("team not found")
 			models.SendAPIError(ctx, http.StatusBadRequest, "team not found")
 			break
 		case services.ErrUserInTeam:
-			r.logger.Warn("user is already in a team")
+			r.logger.Debug("user is already in a team")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user is already in a team")
 			break
 		default:
@@ -161,7 +161,7 @@ func (r *apiV1Router) JoinTeam(ctx *gin.Context) {
 func (r *apiV1Router) GetTeamMembers(ctx *gin.Context) {
 	team := ctx.Param("id")
 	if len(team) == 0 {
-		r.logger.Warn("team id not provided")
+		r.logger.Debug("team id not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "team id must be provided")
 		return
 	}
@@ -170,7 +170,7 @@ func (r *apiV1Router) GetTeamMembers(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrInvalidID:
-			r.logger.Warn("invalid team id")
+			r.logger.Debug("invalid team id")
 			models.SendAPIError(ctx, http.StatusBadRequest, "invalid team id provided")
 			break
 		default:

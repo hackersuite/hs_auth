@@ -100,14 +100,14 @@ func (r *apiV1Router) UpdateUser(ctx *gin.Context) {
 func (r *apiV1Router) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	if email == "" {
-		r.logger.Warn("email was not provided")
+		r.logger.Debug("email was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "email must be provided")
 		return
 	}
 
 	password := ctx.PostForm("password")
 	if password == "" {
-		r.logger.Warn("password was not provided")
+		r.logger.Debug("password was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "password must be provided")
 		return
 	}
@@ -115,7 +115,7 @@ func (r *apiV1Router) Login(ctx *gin.Context) {
 	user, err := r.userService.GetUserWithEmailAndPwd(ctx, email, password)
 	if err != nil {
 		if err == services.ErrNotFound {
-			r.logger.Warn("user not found", zap.String("email", email))
+			r.logger.Debug("user not found", zap.String("email", email))
 			models.SendAPIError(ctx, http.StatusUnauthorized, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -150,10 +150,10 @@ func (r *apiV1Router) GetMe(ctx *gin.Context) {
 	user, err := r.userService.GetUserWithJWT(ctx, ctx.GetHeader(authHeaderName))
 	if err != nil {
 		if err == services.ErrInvalidToken {
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 		} else if err == services.ErrNotFound {
-			r.logger.Warn("user not found")
+			r.logger.Debug("user not found")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -181,7 +181,7 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 	team := ctx.PostForm("team")
 
 	if len(name) == 0 && len(team) == 0 {
-		r.logger.Warn("neither name nor team provided")
+		r.logger.Debug("neither name nor team provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "either name or team must be provided")
 		return
 	}
@@ -195,11 +195,11 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 		_, err := r.teamService.GetTeamWithID(ctx, team)
 		if err != nil {
 			if err == services.ErrInvalidID {
-				r.logger.Warn("invalid team id", zap.String("id", team))
+				r.logger.Debug("invalid team id", zap.String("id", team))
 				models.SendAPIError(ctx, http.StatusBadRequest, "invalid team id")
 				return
 			} else if err == services.ErrNotFound {
-				r.logger.Warn("team with given id doesn't exist", zap.String("id", team))
+				r.logger.Debug("team with given id doesn't exist", zap.String("id", team))
 				models.SendAPIError(ctx, http.StatusBadRequest, "could not find team with given id")
 				return
 			} else {
@@ -214,7 +214,7 @@ func (r *apiV1Router) PutMe(ctx *gin.Context) {
 	err := r.userService.UpdateUserWithJWT(ctx, ctx.GetHeader(authHeaderName), fieldsToUpdate)
 	if err != nil {
 		if err == services.ErrInvalidToken {
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 		} else {
 			r.logger.Error("could not update user", zap.Any("fields to update", fieldsToUpdate), zap.Error(err))
@@ -241,14 +241,14 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 	password := ctx.PostForm("password")
 
 	if len(name) == 0 || len(email) == 0 || len(password) == 0 {
-		r.logger.Warn("one of name, email or password not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)))
+		r.logger.Debug("one of name, email or password not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)))
 		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the user's name, email and passowrd")
 		return
 	}
 
 	user, err := r.userService.CreateUser(ctx, name, email, password)
 	if err == services.ErrEmailTaken {
-		r.logger.Warn("email taken", zap.String("email", email))
+		r.logger.Debug("email taken", zap.String("email", email))
 		models.SendAPIError(ctx, http.StatusBadRequest, "user with given email already exists")
 		return
 	} else if err != nil {
@@ -289,7 +289,7 @@ func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
 	err := r.userService.UpdateUserWithJWT(ctx, ctx.GetHeader(authHeaderName), fieldsToUpdate)
 	if err != nil {
 		if err == services.ErrInvalidToken {
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 		} else {
 			r.logger.Error("could not update user", zap.Any("fields to udpate", fieldsToUpdate))
@@ -310,7 +310,7 @@ func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
 func (r *apiV1Router) GetPasswordResetEmail(ctx *gin.Context) {
 	email := ctx.Query("email")
 	if len(email) == 0 {
-		r.logger.Warn("email not specified")
+		r.logger.Debug("email not specified")
 		models.SendAPIError(ctx, http.StatusBadRequest, "email must be specified")
 		return
 	}
@@ -336,14 +336,14 @@ func (r *apiV1Router) GetPasswordResetEmail(ctx *gin.Context) {
 func (r *apiV1Router) ResetPassword(ctx *gin.Context) {
 	email := ctx.Query("email")
 	if len(email) == 0 {
-		r.logger.Warn("email not specified")
+		r.logger.Debug("email not specified")
 		models.SendAPIError(ctx, http.StatusBadRequest, "email must be specified")
 		return
 	}
 
 	password := ctx.PostForm("password")
 	if len(password) == 0 {
-		r.logger.Warn("password not specified")
+		r.logger.Debug("password not specified")
 		models.SendAPIError(ctx, http.StatusBadRequest, "password must be specified")
 		return
 	}
@@ -351,7 +351,7 @@ func (r *apiV1Router) ResetPassword(ctx *gin.Context) {
 	err := r.userService.ResetPasswordForUserWithJWTAndEmail(ctx, ctx.GetHeader(authHeaderName), email, password)
 	if err != nil {
 		if err == services.ErrInvalidToken {
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 		}
 		r.logger.Error("could not set user's password", zap.Error(err))
@@ -374,19 +374,19 @@ func (r *apiV1Router) GetTeammates(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrInvalidToken:
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
 			break
 		case services.ErrInvalidID:
-			r.logger.Warn("invalid user id")
+			r.logger.Debug("invalid user id")
 			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id provided")
 			break
 		case services.ErrNotFound:
-			r.logger.Warn("user not found")
+			r.logger.Debug("user not found")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 			break
 		case services.ErrUserNotInTeam:
-			r.logger.Warn("user is not in a team")
+			r.logger.Debug("user is not in a team")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user is not in a team")
 			break
 		default:

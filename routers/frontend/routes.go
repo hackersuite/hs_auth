@@ -108,7 +108,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 	password := ctx.PostForm("password")
 	if email == "" || password == "" {
-		r.logger.Warn("email or password was not provided")
+		r.logger.Debug("email or password was not provided")
 		ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Both email and password are required",
@@ -119,7 +119,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 	user, err := r.userService.GetUserWithEmailAndPwd(ctx, email, password)
 	if err != nil {
 		if err == services.ErrNotFound {
-			r.logger.Warn("user not found", zap.String("email", email))
+			r.logger.Debug("user not found", zap.String("email", email))
 			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "User not found",
@@ -136,7 +136,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 
 	// TODO: should allow the user to resend verification email
 	if !user.EmailVerified {
-		r.logger.Warn("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
+		r.logger.Debug("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
 		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "User's email not verified",
@@ -176,7 +176,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 	passwordConfirm := ctx.PostForm("passwordConfirm")
 
 	if len(name) == 0 || len(email) == 0 || len(password) == 0 {
-		r.logger.Warn("one of name, email, password, passwordConfirm not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)), zap.Int("passwordConfirm length", len(passwordConfirm)))
+		r.logger.Debug("one of name, email, password, passwordConfirm not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)), zap.Int("passwordConfirm length", len(passwordConfirm)))
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "All fields are required",
@@ -186,7 +186,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 
 	// TODO: might be a good idea to handle this at the service level
 	if len(password) < 6 || len(password) > 160 {
-		r.logger.Warn("invalid password length", zap.Int("length", len(password)))
+		r.logger.Debug("invalid password length", zap.Int("length", len(password)))
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Password must contain between 6 and 160 characters",
@@ -195,7 +195,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 	}
 
 	if password != passwordConfirm {
-		r.logger.Warn("password and passwordConfirm do not match")
+		r.logger.Debug("password and passwordConfirm do not match")
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Passwords do not match",
@@ -207,7 +207,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrEmailTaken:
-			r.logger.Warn("email taken")
+			r.logger.Debug("email taken")
 			ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "Email taken",
@@ -249,7 +249,7 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 	email := ctx.PostForm("email")
 
 	if len(email) == 0 {
-		r.logger.Warn("email not specified")
+		r.logger.Debug("email not specified")
 		ctx.HTML(http.StatusBadRequest, "forgotPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Please enter your email",
@@ -264,7 +264,7 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrNotFound:
-			r.logger.Warn("user with email doesn't exist", zap.String("email", email))
+			r.logger.Debug("user with email doesn't exist", zap.String("email", email))
 			// don't want to give the user a tool to figure which email addresses are registered
 			// as this would be a security issue
 			ctx.HTML(http.StatusOK, "forgotPasswordEnd.gohtml", templateDataModel{
@@ -321,7 +321,7 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 	}
 
 	if len(email) == 0 || len(password) == 0 || len(passwordConfirm) == 0 {
-		r.logger.Warn("one of email, password, passwordConfirm not specified", zap.String("email", email), zap.Int("password len", len(password)), zap.Int("passwordConfirm len", len(passwordConfirm)))
+		r.logger.Debug("one of email, password, passwordConfirm not specified", zap.String("email", email), zap.Int("password len", len(password)), zap.Int("passwordConfirm len", len(passwordConfirm)))
 		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "All fields are required",
@@ -334,7 +334,7 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 	}
 
 	if password != passwordConfirm {
-		r.logger.Warn("password and passwordConfirm do not match")
+		r.logger.Debug("password and passwordConfirm do not match")
 		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Passwords do not match",
@@ -366,7 +366,7 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrInvalidToken:
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "Invalid token",
@@ -377,7 +377,7 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 			})
 			return
 		case services.ErrNotFound:
-			r.logger.Warn("could not find user with token")
+			r.logger.Debug("could not find user with token")
 			ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "Could not find user with given auth token",
@@ -409,7 +409,7 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 	token := ctx.Query("token")
 	if token == "" {
-		r.logger.Warn("empty token")
+		r.logger.Debug("empty token")
 		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Invalid token",
@@ -423,14 +423,14 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 	if err != nil {
 		switch err {
 		case services.ErrInvalidToken:
-			r.logger.Warn("invalid token")
+			r.logger.Debug("invalid token")
 			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "Invalid token",
 			})
 			return
 		case services.ErrNotFound:
-			r.logger.Warn("could not find user with token")
+			r.logger.Debug("could not find user with token")
 			ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "Couldn't find user with given auth token",
@@ -468,7 +468,7 @@ func (r *frontendRouter) CreateTeam(ctx *gin.Context) {
 
 	name := ctx.PostForm("name")
 	if len(name) == 0 {
-		r.logger.Warn("team name not specified", zap.String("name", name))
+		r.logger.Debug("team name not specified", zap.String("name", name))
 		r.renderProfilePage(ctx, http.StatusBadRequest, "Please specify team name")
 		return
 	}
@@ -504,7 +504,7 @@ func (r *frontendRouter) JoinTeam(ctx *gin.Context) {
 
 	team := ctx.PostForm("id")
 	if len(team) == 0 {
-		r.logger.Warn("team id not provided")
+		r.logger.Debug("team id not provided")
 		r.renderProfilePage(ctx, http.StatusBadRequest, "Please specify the ID of the team to join")
 		return
 	}
@@ -517,11 +517,11 @@ func (r *frontendRouter) JoinTeam(ctx *gin.Context) {
 			ctx.Redirect(http.StatusSeeOther, "/login")
 			return
 		case services.ErrNotFound:
-			r.logger.Warn("team with id not found")
+			r.logger.Debug("team with id not found")
 			r.renderProfilePage(ctx, http.StatusBadRequest, "Team with given ID does not exist")
 			return
 		case services.ErrUserInTeam:
-			r.logger.Warn("user already in team")
+			r.logger.Debug("user already in team")
 			r.renderProfilePage(ctx, http.StatusBadRequest, "You are already in a team")
 			return
 		default:
@@ -550,11 +550,11 @@ func (r *frontendRouter) LeaveTeam(ctx *gin.Context) {
 			ctx.Redirect(http.StatusSeeOther, "/login")
 			return
 		case services.ErrNotFound:
-			r.logger.Warn("user in token not found")
+			r.logger.Debug("user in token not found")
 			r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid auth token")
 			return
 		case services.ErrUserNotInTeam:
-			r.logger.Warn("user is not in team")
+			r.logger.Debug("user is not in team")
 			r.renderProfilePage(ctx, http.StatusBadRequest, "You are not in a team")
 			return
 		default:
