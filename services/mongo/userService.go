@@ -2,7 +2,6 @@ package mongo
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/config"
@@ -129,8 +128,6 @@ func (s *mongoUserService) GetUserWithID(ctx context.Context, userID string) (*e
 	if err != nil {
 		return nil, services.ErrInvalidID
 	}
-
-	fmt.Println(mongoID)
 
 	res := s.userRepository.FindOne(ctx, bson.M{
 		string(entities.UserID): mongoID,

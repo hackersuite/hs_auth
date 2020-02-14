@@ -24,7 +24,7 @@ type profilePageData struct {
 }
 
 type adminData struct {
-	Users []entities.User
+	Users []entities.User `json:"users"`
 }
 
 func (r *frontendRouter) renderProfilePage(ctx *gin.Context, statusCode int, error string) {
