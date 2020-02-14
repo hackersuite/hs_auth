@@ -1,29 +1,18 @@
+<link href="https://unpkg.com/tabulator-tables@4.5.3/dist/css/tabulator.min.css" rel="stylesheet">
+<script type="text/javascript" src="https://unpkg.com/tabulator-tables@4.5.3/dist/js/tabulator.min.js"></script>
+<script>
+  var adminData = {{.AdminData}}
+</script>
+
   <div class="col-12">
     <div class="card">
       <div class="card-header card-header-tabs card-header-primary">
         <h4 class="card-title">Users</h4>
       </div>
       <div class="card-body">
-        <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Email</th>
-            <th scope="col">Auth Level</th>
-            <th scope="col">Team</th>
-          </tr>
-        </thead>
-        <tbody>
-          {{range .AdminData.Users}}
-            <tr>
-              <th scope="row">{{.Name}}</th>
-              <td>{{.Email}}</td>
-              <td>{{.AuthLevel}}</td>
-              <td>{{.Team.Hex}}</td>
-            </tr>
-           {{end}}
-        </tbody>
-        </table>
+        <div id="users-list"></div>
       </div>
     </div>
   </div>
+
+<script src="/static/js/admin.js"></script>
