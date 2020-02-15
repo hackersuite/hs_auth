@@ -6,12 +6,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"go.uber.org/zap"
-
 	"github.com/unicsmcr/hs_auth/environment"
-
 	"github.com/unicsmcr/hs_auth/testutils"
+	"go.uber.org/zap"
 )
 
 func Test_NewDatabase__should_return_connection_to_hs_auth_database(t *testing.T) {

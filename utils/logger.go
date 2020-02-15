@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/unicsmcr/hs_auth/environment"
-
 	"go.uber.org/zap"
 )
 

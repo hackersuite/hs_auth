@@ -3,11 +3,9 @@ package utils
 import (
 	"testing"
 
-	"github.com/unicsmcr/hs_auth/testutils"
-
 	"github.com/stretchr/testify/assert"
-
 	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/testutils"
 )
 
 func Test_NewLogger__should_not_throw_error_when_ENVIRONMENT_not_set(t *testing.T) {

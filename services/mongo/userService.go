@@ -6,9 +6,7 @@ import (
 
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/services"
-
 	"go.mongodb.org/mongo-driver/mongo"
-
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
@@ -16,7 +14,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-
 	"github.com/unicsmcr/hs_auth/entities"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 )
