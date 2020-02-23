@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -30,6 +31,61 @@ func (r *apiV1Router) GetUsers(ctx *gin.Context) {
 			Status: http.StatusOK,
 		},
 		Users: users,
+	})
+}
+
+// PUT: /api/v1/users/{id}
+// x-www-form-urlencoded
+// Request:  set services.UserUpdateParams
+// Response: status int
+//           error string
+// Headers:  Authorization -> token
+func (r *apiV1Router) UpdateUser(ctx *gin.Context) {
+	user := ctx.Param("id")
+	if len(user) == 0 {
+		r.logger.Debug("user id not provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "user id must be provided")
+		return
+	}
+
+	var updatedFields services.UserUpdateParams
+	err := json.Unmarshal([]byte(ctx.PostForm("set")), &updatedFields)
+	if err != nil {
+		r.logger.Debug("could not unmarshall field 'set' to var of type map[entities.UserField]interface{}", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "invalid value of field 'set'")
+		return
+	}
+
+	// TODO: implement password reset through UpdateUser
+	if _, exists := updatedFields[entities.UserPassword]; exists {
+		r.logger.Debug("user's password cannot be updated")
+		models.SendAPIError(ctx, http.StatusBadRequest, "user's password cannot be updated")
+		return
+	}
+
+	if _, exists := updatedFields[entities.UserID]; exists {
+		r.logger.Debug("user's id cannot be updated")
+		models.SendAPIError(ctx, http.StatusBadRequest, "user's id cannot be updated")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, user, updatedFields)
+	if err != nil {
+		switch err {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id")
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id provided")
+			break
+		default:
+			r.logger.Error("could not update user with id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with updating the user")
+			break
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, models.Response{
+		Status: http.StatusOK,
 	})
 }
 
