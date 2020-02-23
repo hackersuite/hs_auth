@@ -1,0 +1,29 @@
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header card-header-tabs card-header-primary">
+        <h4 class="card-title">Users</h4>
+      </div>
+      <div class="card-body">
+        <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Email</th>
+            <th scope="col">Auth Level</th>
+            <th scope="col">Team</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .AdminData.Users}}
+            <tr>
+              <th scope="row">{{.Name}}</th>
+              <td>{{.Email}}</td>
+              <td>{{.AuthLevel}}</td>
+              <td>{{.Team.Hex}}</td>
+            </tr>
+           {{end}}
+        </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
