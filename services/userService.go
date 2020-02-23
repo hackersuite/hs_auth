@@ -5,7 +5,40 @@ import (
 
 	"github.com/unicsmcr/hs_auth/entities"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
+
+// ValidateUserUpdateParams validates provided params are correct and safe to
+// be used for updating the data on the database. Returns nil if all parameters are valid,
+// ErrInvalidUserUpdateParams otherwise.
+func ValidateUserUpdateParams(params UserUpdateParams) error {
+	for field, value := range params {
+		switch field {
+		case entities.UserID, entities.UserTeam:
+			if _, ok := value.(primitive.ObjectID); !ok {
+				return ErrInvalidUserUpdateParams
+			}
+			break
+		case entities.UserName, entities.UserEmail, entities.UserPassword:
+			if _, ok := value.(string); !ok {
+				return ErrInvalidUserUpdateParams
+			}
+			break
+		case entities.UserEmailVerified:
+			if _, ok := value.(bool); !ok {
+				return ErrInvalidUserUpdateParams
+			}
+			break
+		case entities.UserAuthLevel:
+			if _, ok := value.(authlevels.AuthLevel); !ok {
+				return ErrInvalidUserUpdateParams
+			}
+			break
+		}
+	}
+
+	return nil
+}
 
 type UserUpdateParams map[entities.UserField]interface{}
 
