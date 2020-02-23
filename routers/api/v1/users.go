@@ -51,7 +51,7 @@ func (r *apiV1Router) UpdateUser(ctx *gin.Context) {
 	var updatedFields services.UserUpdateParams
 	err := json.Unmarshal([]byte(ctx.PostForm("set")), &updatedFields)
 	if err != nil {
-		r.logger.Debug("could not unmarshall field 'set' to var of type map[entities.UserField]interface{}", zap.Error(err))
+		r.logger.Debug("could not unmarshall field 'set' to var of type services.UserUpdateParams", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusBadRequest, "invalid value of field 'set'")
 		return
 	}

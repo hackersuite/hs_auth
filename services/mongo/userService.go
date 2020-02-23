@@ -159,11 +159,14 @@ func (s *mongoUserService) GetUserWithEmail(ctx context.Context, email string) (
 }
 
 func (s *mongoUserService) GetUserWithEmailAndPwd(ctx context.Context, email, pwd string) (*entities.User, error) {
+	s.logger.Debug(email)
 	user, err := s.GetUserWithEmail(ctx, email)
 	if err != nil {
+		s.logger.Debug("errpr", zap.Error(err))
 		return nil, err
 	}
 
+	s.logger.Debug(pwd)
 	err = auth.CompareHashAndPassword(user.Password, pwd)
 	if err != nil {
 		return nil, services.ErrNotFound

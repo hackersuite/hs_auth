@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -583,5 +584,63 @@ func (r *frontendRouter) LeaveTeam(ctx *gin.Context) {
 		}
 	}
 
+	r.renderProfilePage(ctx, http.StatusOK, "")
+}
+
+func (r *frontendRouter) UpdateUser(ctx *gin.Context) {
+	userID := ctx.Param("id")
+	if len(userID) == 0 {
+		r.logger.Debug("user id not provided")
+		r.renderProfilePage(ctx, http.StatusBadRequest, "User ID not provided")
+		return
+	}
+
+	r.logger.Debug(ctx.PostForm("set"))
+
+	var user entities.User
+	err := json.Unmarshal([]byte(ctx.PostForm("set")), &user)
+	if err != nil {
+		r.logger.Error("could not update user with id", zap.Error(err))
+		r.renderProfilePage(ctx, http.StatusBadRequest, "Something went wrong")
+		return
+	}
+
+	// updatedFields := services.UserUpdateParams{}
+	// if name, exists := ctx.GetPostForm("name"); exists {
+	// 	updatedFields[entities.UserName] = name
+	// }
+	// if email, exists := ctx.GetPostForm("email"); exists {
+	// 	updatedFields[entities.UserEmail] = email
+	// }
+	// if authLevel, exists := ctx.GetPostForm("auth_level"); exists {
+	// 	updatedFields[entities.UserAuthLevel], err = strconv.ParseInt(authLevel, 10, 64)
+	// }
+	// if team, exists := ctx.GetPostForm("team"); exists {
+	// 	updatedFields[entities.UserTeam], err = primitive.ObjectIDFromHex(team)
+	// 	if err != nil {
+
+	// 	}
+	// }
+	// // TODO: implement password reset through UpdateUser
+
+	// r.logger.Debug("fields to update", zap.Any("fields", updatedFields))
+
+	// err = r.userService.UpdateUserWithID(ctx, user, updatedFields)
+	// r.logger.Error("error", zap.Error(err))
+	// if err != nil {
+	// 	switch err {
+	// 	case services.ErrInvalidID:
+	// 		r.logger.Debug("invalid user id")
+	// 		r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid user ID provided")
+	// 		break
+	// 	default:
+	// 		r.logger.Error("could not update user with id", zap.Error(err))
+	// 		r.renderProfilePage(ctx, http.StatusBadRequest, "Something went wrong")
+	// 		break
+	// 	}
+	// 	return
+	// }
+
+	r.logger.Debug("fields")
 	r.renderProfilePage(ctx, http.StatusOK, "")
 }
