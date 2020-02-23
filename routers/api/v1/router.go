@@ -29,6 +29,7 @@ func invalidJWTHandler(ctx *gin.Context) {
 type APIV1Router interface {
 	models.Router
 	GetUsers(*gin.Context)
+	UpdateUser(*gin.Context)
 	Login(*gin.Context)
 	GetMe(*gin.Context)
 	PutMe(*gin.Context)
@@ -75,10 +76,15 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 
 	usersGroup := routerGroup.Group("/users")
 	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
+	// TODO: this endpoint cannot be accesible through PUT:/:id as PUT:/:id would conflict with PUT:/me
+	//       Moving PUT:/me to a different endpoint would introduce breaking changes to the service's consumers
+	usersGroup.PUT("/update/:id", isAtLeastOrganizer, r.UpdateUser)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 	usersGroup.POST("/email/verify", r.VerifyEmail)
+	// TODO: GET:/me will conflict with /:id if such an endpoint is ever needed
 	usersGroup.GET("/me", isAtLeastApplicant, r.GetMe)
+	// TODO: this should be moved as PUT:/me conflicts with PUT:/:id
 	usersGroup.PUT("/me", isAtLeastApplicant, r.PutMe)
 	usersGroup.GET("/password/reset", r.GetPasswordResetEmail)
 	usersGroup.PUT("/password/reset", r.ResetPassword)

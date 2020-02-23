@@ -238,14 +238,14 @@ func Test_renderProfilePage(t *testing.T) {
 	}
 }
 
-func Test_getBasicUserInfo(t *testing.T) {
+func Test_getProfilePageData(t *testing.T) {
 	userID := primitive.NewObjectID()
 	teamID := primitive.NewObjectID()
 
 	tests := []struct {
 		name    string
 		prep    func(setup *testSetup)
-		wantOut basicUserInfo
+		wantOut profilePageData
 		wantErr bool
 	}{
 		{
@@ -255,7 +255,7 @@ func Test_getBasicUserInfo(t *testing.T) {
 					Return(nil, services.ErrNotFound).Times(1)
 			},
 			wantErr: true,
-			wantOut: basicUserInfo{},
+			wantOut: profilePageData{},
 		},
 		{
 			name: "should return empty team and teammates when user does not have team",
@@ -263,7 +263,7 @@ func Test_getBasicUserInfo(t *testing.T) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
 					Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
 			},
-			wantOut: basicUserInfo{
+			wantOut: profilePageData{
 				User:      &entities.User{Name: "Bob the Tester"},
 				Team:      nil,
 				Teammates: nil,
@@ -277,7 +277,7 @@ func Test_getBasicUserInfo(t *testing.T) {
 				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), teamID.Hex()).
 					Return(nil, services.ErrNotFound).Times(1)
 			},
-			wantOut: basicUserInfo{
+			wantOut: profilePageData{
 				User:      &entities.User{Name: "Bob the Tester", Team: teamID},
 				Team:      nil,
 				Teammates: nil,
@@ -293,10 +293,37 @@ func Test_getBasicUserInfo(t *testing.T) {
 				setup.mockUService.EXPECT().GetTeammatesForUserWithID(gomock.Any(), userID.Hex()).
 					Return(nil, services.ErrNotFound).Times(1)
 			},
-			wantOut: basicUserInfo{
-				User:      &entities.User{ID: userID, Name: "Bob the Tester", Team: teamID},
-				Team:      &entities.Team{Name: "Team of Bobs", ID: teamID},
-				Teammates: []entities.User{},
+			wantOut: profilePageData{
+				User: &entities.User{ID: userID, Name: "Bob the Tester", Team: teamID},
+				Team: &entities.Team{Name: "Team of Bobs", ID: teamID},
+			},
+		},
+		{
+			name: "should return the user and an empty AdminData when user is Organizer and GetUsers returns err",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer}, nil).Times(1)
+				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantOut: profilePageData{
+				User:      &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer},
+				AdminData: adminData{},
+			},
+		},
+		{
+			name: "should include all users in AdminData when user is an Organizer",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer}, nil).Times(1)
+				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
+					Return([]entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}}, nil).Times(1)
+			},
+			wantOut: profilePageData{
+				User: &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer},
+				AdminData: adminData{
+					Users: []entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}},
+				},
 			},
 		},
 		{
@@ -309,7 +336,7 @@ func Test_getBasicUserInfo(t *testing.T) {
 				setup.mockUService.EXPECT().GetTeammatesForUserWithID(gomock.Any(), userID.Hex()).
 					Return([]entities.User{{Name: "Rob the Tester"}}, nil).Times(1)
 			},
-			wantOut: basicUserInfo{
+			wantOut: profilePageData{
 				User:      &entities.User{ID: userID, Name: "Bob the Tester", Team: teamID},
 				Team:      &entities.Team{Name: "Team of Bobs", ID: teamID},
 				Teammates: []entities.User{{Name: "Rob the Tester"}},
@@ -324,7 +351,7 @@ func Test_getBasicUserInfo(t *testing.T) {
 				tt.prep(setup)
 			}
 
-			uInfo, err := setup.router.getBasicUserInfo(setup.testCtx, "test")
+			uInfo, err := setup.router.getProfilePageData(setup.testCtx, "test")
 			assert.Equal(t, tt.wantOut, uInfo)
 			assert.Equal(t, tt.wantErr, err != nil)
 		})
