@@ -923,19 +923,6 @@ func Test_UpdateUser(t *testing.T) {
 			},
 		},
 		{
-			name:   "should return 400 when user service returns ErrInvalidUserUpdateParams",
-			userID: "bob_the_tester",
-			updatedFields: services.UserUpdateParams{
-				entities.UserName: "Rob the Tester",
-			},
-			wantResCode: http.StatusBadRequest,
-			prep: func(setup *usersTestSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "bob_the_tester", gomock.Eq(services.UserUpdateParams{
-					entities.UserName: "Rob the Tester",
-				})).Return(services.ErrInvalidUserUpdateParams).Times(1)
-			},
-		},
-		{
 			name:   "should return 500 when user service returns unknown error",
 			userID: "bob_the_tester",
 			updatedFields: services.UserUpdateParams{

@@ -32,12 +32,6 @@ function updateUser(cell) {
         return
     }
 
-    var data = {}
-    data[field] = updatedValue
-    console.log({
-        "set": data
-    });
-
     $.ajax({
         type: "POST",
         url: "/user/update/" + user._id,
