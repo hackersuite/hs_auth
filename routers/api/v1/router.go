@@ -78,7 +78,8 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
 	// TODO: this endpoint cannot be accesible through PUT:/:id as PUT:/:id would conflict with PUT:/me
 	//       Moving PUT:/me to a different endpoint would introduce breaking changes to the service's consumers
-	usersGroup.PUT("/update/:id", isAtLeastOrganizer, r.UpdateUser)
+	// TODO: UpdateUser does not have input validation and is unsafe to use
+	//usersGroup.PUT("/update/:id", isAtLeastOrganizer, r.UpdateUser)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 	usersGroup.POST("/email/verify", r.VerifyEmail)

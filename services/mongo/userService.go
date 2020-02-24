@@ -159,14 +159,12 @@ func (s *mongoUserService) GetUserWithEmail(ctx context.Context, email string) (
 }
 
 func (s *mongoUserService) GetUserWithEmailAndPwd(ctx context.Context, email, pwd string) (*entities.User, error) {
-	s.logger.Debug(email)
 	user, err := s.GetUserWithEmail(ctx, email)
 	if err != nil {
 		s.logger.Debug("errpr", zap.Error(err))
 		return nil, err
 	}
 
-	s.logger.Debug(pwd)
 	err = auth.CompareHashAndPassword(user.Password, pwd)
 	if err != nil {
 		return nil, services.ErrNotFound
@@ -220,10 +218,6 @@ func (s *mongoUserService) GetTeammatesForUserWithJWT(ctx context.Context, jwt s
 }
 
 func (s *mongoUserService) UpdateUsersWithTeam(ctx context.Context, teamID string, params services.UserUpdateParams) error {
-	if err := services.ValidateUserUpdateParams(params); err != nil {
-		return err
-	}
-
 	mongoID, err := primitive.ObjectIDFromHex(teamID)
 	if err != nil {
 		return services.ErrInvalidID
@@ -242,10 +236,6 @@ func (s *mongoUserService) UpdateUsersWithTeam(ctx context.Context, teamID strin
 }
 
 func (s *mongoUserService) UpdateUsersWithAuthLevel(ctx context.Context, authLevel authlevels.AuthLevel, params services.UserUpdateParams) error {
-	if err := services.ValidateUserUpdateParams(params); err != nil {
-		return err
-	}
-
 	_, err := s.userRepository.UpdateMany(ctx, bson.M{
 		string(entities.UserAuthLevel): authLevel,
 	}, bson.M{
@@ -259,10 +249,6 @@ func (s *mongoUserService) UpdateUsersWithAuthLevel(ctx context.Context, authLev
 }
 
 func (s *mongoUserService) UpdateUserWithID(ctx context.Context, userID string, params services.UserUpdateParams) error {
-	if err := services.ValidateUserUpdateParams(params); err != nil {
-		return err
-	}
-
 	mongoID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
 		return services.ErrInvalidID
@@ -285,10 +271,6 @@ func (s *mongoUserService) UpdateUserWithID(ctx context.Context, userID string, 
 }
 
 func (s *mongoUserService) UpdateUserWithEmail(ctx context.Context, email string, params services.UserUpdateParams) error {
-	if err := services.ValidateUserUpdateParams(params); err != nil {
-		return err
-	}
-
 	res, err := s.userRepository.UpdateOne(ctx, bson.M{
 		string(entities.UserEmail): email,
 	}, bson.M{

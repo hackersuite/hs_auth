@@ -931,3 +931,112 @@ func Test_LeaveTeam(t *testing.T) {
 		})
 	}
 }
+
+func Test_UpdateUser(t *testing.T) {
+	tests := []struct {
+		name           string
+		prep           func(*testSetup)
+		userID         string
+		paramsToUpdate string
+		wantResCode    int
+	}{
+		{
+			name: "should return 400 when no userID is provided",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 400 when paramsToUpdate is not map[entities.UserField]string",
+			wantResCode: http.StatusBadRequest,
+			userID: "test id",
+			paramsToUpdate: "{\"auth_level\":3}",
+		},
+		{
+			name: "should return 400 when paramsToUpdate cannot be built to services.UserUpdateParams",
+			wantResCode: http.StatusBadRequest,
+			userID: "test id",
+			paramsToUpdate: "{\"auth_level\":\"not a number\"}",
+		},
+		{
+			name: "should return 400 when paramsToUpdate include password",
+			wantResCode: http.StatusBadRequest,
+			userID: "test id",
+			paramsToUpdate: "{\"password\":\"not a number\"}",
+		},
+		{
+			name: "should return 400 when paramsToUpdate include _id",
+			wantResCode: http.StatusBadRequest,
+			userID: "test id",
+			paramsToUpdate: "{\"_id\":\"not a number\"}",
+		},
+		{
+			name: "should return 400 when user service returns ErrInvalidID",
+			userID: "test id",
+			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", gomock.Any()).
+					Return(services.ErrInvalidID)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 400 when user service returns ErrInvalidID",
+			userID: "test id",
+			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", gomock.Any()).
+					Return(services.ErrInvalidID)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 500 when user service returns unknown error",
+			userID: "test id",
+			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", gomock.Any()).
+					Return(errors.New("service err"))
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 when updating user succeeds",
+			userID: "test id",
+			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", services.UserUpdateParams{
+					entities.UserName: "Rob the Tester",
+				}).
+					Return(nil)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
+				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
+				"set": tt.paramsToUpdate,
+			})
+			testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{"id": tt.userID})
+			setup.testCtx.Request.AddCookie(&http.Cookie{
+				Name:  authCookieName,
+				Value: "test",
+			})
+
+			setup.router.UpdateUser(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}

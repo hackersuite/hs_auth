@@ -9,7 +9,7 @@ var table = new Tabulator("#users-list", {
     index: "_id",
     cellEdited: updateUser,
     columns: [
-        { title: "Name", field: "name", headerFilter: "input" },
+        { title: "Name", field: "name", headerFilter: "input", editor: "input" },
         { title: "Email", field: "email", headerFilter: "input" },
         { title: "Auth Level", field: "auth_level", headerFilter: "number", headerFilterPlaceholder: "at least...", headerFilterFunc: ">=", editor: "number" },
         { title: "Team", field: "team", headerFilter: "input", editor: "input" },

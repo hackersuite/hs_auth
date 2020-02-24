@@ -595,52 +595,48 @@ func (r *frontendRouter) UpdateUser(ctx *gin.Context) {
 		return
 	}
 
-	r.logger.Debug(ctx.PostForm("set"))
+	var updatedFields map[entities.UserField]string
+	err := json.Unmarshal([]byte(ctx.PostForm("set")), &updatedFields)
 
-	var user entities.User
-	err := json.Unmarshal([]byte(ctx.PostForm("set")), &user)
 	if err != nil {
-		r.logger.Error("could not update user with id", zap.Error(err))
-		r.renderProfilePage(ctx, http.StatusBadRequest, "Something went wrong")
+		r.logger.Debug("could not unmarshal params to update", zap.Error(err))
+		r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid parameters to update")
+		return
+	}
+	// TODO: input validation should be done at the service level
+	builtParams, err := services.BuildUserUpdateParams(updatedFields)
+	if err != nil {
+		r.logger.Debug("could not build params to update", zap.Error(err))
+		r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid parameters to update")
 		return
 	}
 
-	// updatedFields := services.UserUpdateParams{}
-	// if name, exists := ctx.GetPostForm("name"); exists {
-	// 	updatedFields[entities.UserName] = name
-	// }
-	// if email, exists := ctx.GetPostForm("email"); exists {
-	// 	updatedFields[entities.UserEmail] = email
-	// }
-	// if authLevel, exists := ctx.GetPostForm("auth_level"); exists {
-	// 	updatedFields[entities.UserAuthLevel], err = strconv.ParseInt(authLevel, 10, 64)
-	// }
-	// if team, exists := ctx.GetPostForm("team"); exists {
-	// 	updatedFields[entities.UserTeam], err = primitive.ObjectIDFromHex(team)
-	// 	if err != nil {
+	if _, exists := builtParams[entities.UserPassword]; exists {
+		r.logger.Debug("user's password cannot be updated")
+		r.renderProfilePage(ctx, http.StatusBadRequest, "User's password cannot be changed")
+		return
+	}
 
-	// 	}
-	// }
-	// // TODO: implement password reset through UpdateUser
+	if _, exists := builtParams[entities.UserID]; exists {
+		r.logger.Debug("user's id cannot be updated")
+		r.renderProfilePage(ctx, http.StatusBadRequest, "User's id cannot be changed")
+		return
+	}
 
-	// r.logger.Debug("fields to update", zap.Any("fields", updatedFields))
+	err = r.userService.UpdateUserWithID(ctx, userID, builtParams)
+	if err != nil {
+		switch err {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id")
+			r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid user id provided")
+			break
+		default:
+			r.logger.Error("could not update user with id", zap.Error(err))
+			r.renderProfilePage(ctx, http.StatusInternalServerError, "Something went wrong")
+			break
+		}
+		return
+	}
 
-	// err = r.userService.UpdateUserWithID(ctx, user, updatedFields)
-	// r.logger.Error("error", zap.Error(err))
-	// if err != nil {
-	// 	switch err {
-	// 	case services.ErrInvalidID:
-	// 		r.logger.Debug("invalid user id")
-	// 		r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid user ID provided")
-	// 		break
-	// 	default:
-	// 		r.logger.Error("could not update user with id", zap.Error(err))
-	// 		r.renderProfilePage(ctx, http.StatusBadRequest, "Something went wrong")
-	// 		break
-	// 	}
-	// 	return
-	// }
-
-	r.logger.Debug("fields")
 	r.renderProfilePage(ctx, http.StatusOK, "")
 }
