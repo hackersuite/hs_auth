@@ -156,7 +156,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		{
 			route:        "/users/",
 			method:       http.MethodGet,
-			minAuthLevel: authlevels.Organizer,
+			minAuthLevel: authlevels.Organiser,
 		},
 		{
 			route:        "/users/me",
@@ -176,12 +176,12 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		{
 			route:        "/users/update/123",
 			method:       http.MethodPut,
-			minAuthLevel: authlevels.Organizer,
+			minAuthLevel: authlevels.Organiser,
 		},
 		{
 			route:        "/teams/",
 			method:       http.MethodGet,
-			minAuthLevel: authlevels.Organizer,
+			minAuthLevel: authlevels.Organiser,
 		},
 		{
 			route:        "/teams/",
@@ -201,7 +201,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		{
 			route:        "/teams/123abd/members",
 			method:       http.MethodGet,
-			minAuthLevel: authlevels.Organizer,
+			minAuthLevel: authlevels.Organiser,
 		},
 	}
 

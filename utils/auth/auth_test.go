@@ -168,8 +168,8 @@ func Test_AuthLevelVerifierFactory__should_return_middleware(t *testing.T) {
 		},
 		{
 			name:           "that calls next handler when auth level is above required",
-			givenAuthLevel: 4,
-			wantAuthLevel:  3,
+			givenAuthLevel: 3,
+			wantAuthLevel:  2,
 			wantNextCalled: true,
 		},
 	}
