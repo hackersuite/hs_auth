@@ -73,7 +73,7 @@ func (r *frontendRouter) getProfilePageData(ctx *gin.Context, jwt string) (profi
 		return profilePageData{}, err
 	}
 
-	if data.User.AuthLevel >= authlevels.Organizer {
+	if data.User.AuthLevel >= authlevels.Organiser {
 		users, err := r.userService.GetUsers(ctx)
 		if err != nil {
 			r.logger.Error("could not get users", zap.Error(err))

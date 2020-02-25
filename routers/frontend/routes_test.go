@@ -299,28 +299,28 @@ func Test_getProfilePageData(t *testing.T) {
 			},
 		},
 		{
-			name: "should return the user and an empty AdminData when user is Organizer and GetUsers returns err",
+			name: "should return the user and an empty AdminData when user is Organiser and GetUsers returns err",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer}, nil).Times(1)
+					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser}, nil).Times(1)
 				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
 					Return(nil, errors.New("service err")).Times(1)
 			},
 			wantOut: profilePageData{
-				User:      &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer},
+				User:      &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser},
 				AdminData: adminData{},
 			},
 		},
 		{
-			name: "should include all users in AdminData when user is an Organizer",
+			name: "should include all users in AdminData when user is an Organiser",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer}, nil).Times(1)
+					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser}, nil).Times(1)
 				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
 					Return([]entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}}, nil).Times(1)
 			},
 			wantOut: profilePageData{
-				User: &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organizer},
+				User: &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser},
 				AdminData: adminData{
 					Users: []entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}},
 				},
