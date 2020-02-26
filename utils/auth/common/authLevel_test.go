@@ -12,6 +12,11 @@ func Test_MarshalJSON__should_return_correct_string_for_each_auth_level(t *testi
 		expectedResult string
 	}{
 		{
+			name: "unverified",
+			authLvl:Unverified,
+			expectedResult:"\"unverified\"",
+		},
+		{
 			name: "applicant",
 			authLvl:Applicant,
 			expectedResult:"\"applicant\"",
@@ -59,6 +64,11 @@ func Test_UnmarshalJSON__should_return_correct_auth_levels_for_registered_auth_l
 		stringAuthLvl string
 		expectedAuthLvl AuthLevel
 	}{
+		{
+			name: "unverified",
+			stringAuthLvl:"\"unverified\"",
+			expectedAuthLvl:Unverified,
+		},
 		{
 			name: "applicant",
 			stringAuthLvl:"\"applicant\"",
