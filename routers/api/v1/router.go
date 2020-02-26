@@ -72,14 +72,14 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("/", r.Heartbeat)
 
 	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
-	isAtLeastOrganizer := auth.AuthLevelVerifierFactory(authlevels.Organizer, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
+	isAtLeastOrganiser := auth.AuthLevelVerifierFactory(authlevels.Organiser, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
 
 	usersGroup := routerGroup.Group("/users")
-	usersGroup.GET("/", isAtLeastOrganizer, r.GetUsers)
+	usersGroup.GET("/", isAtLeastOrganiser, r.GetUsers)
 	// TODO: this endpoint cannot be accesible through PUT:/:id as PUT:/:id would conflict with PUT:/me
 	//       Moving PUT:/me to a different endpoint would introduce breaking changes to the service's consumers
 	// TODO: UpdateUser does not have input validation and is unsafe to use
-	//usersGroup.PUT("/update/:id", isAtLeastOrganizer, r.UpdateUser)
+	//usersGroup.PUT("/update/:id", isAtLeastOrganiser, r.UpdateUser)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 	usersGroup.POST("/email/verify", r.VerifyEmail)
@@ -92,9 +92,9 @@ func (r apiV1Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/teammates", isAtLeastApplicant, r.GetTeammates)
 
 	teamsGroup := routerGroup.Group("/teams")
-	teamsGroup.GET("/", isAtLeastOrganizer, r.GetTeams)
+	teamsGroup.GET("/", isAtLeastOrganiser, r.GetTeams)
 	teamsGroup.POST("/", isAtLeastApplicant, r.CreateTeam)
-	teamsGroup.GET("/:id/members", isAtLeastOrganizer, r.GetTeamMembers)
+	teamsGroup.GET("/:id/members", isAtLeastOrganiser, r.GetTeamMembers)
 	teamsGroup.POST("/:id/join", isAtLeastApplicant, r.JoinTeam)
 	teamsGroup.DELETE("/leave", isAtLeastApplicant, r.LeaveTeam)
 }
