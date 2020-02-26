@@ -1,15 +1,33 @@
 package frontend
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/utils/auth"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.uber.org/zap"
 )
 
 const authCookieName = "Authorization"
+
+func jwtProvider(ctx *gin.Context) string {
+	jwt, err := ctx.Cookie(authCookieName)
+	if err != nil {
+		return ""
+	}
+	return jwt
+}
+
+func invalidJWTHandler(ctx *gin.Context) {
+	ctx.Redirect(http.StatusSeeOther, "/login")
+	ctx.Abort()
+	return
+}
 
 type Router interface {
 	models.Router
@@ -26,6 +44,7 @@ type Router interface {
 	CreateTeam(*gin.Context)
 	JoinTeam(*gin.Context)
 	LeaveTeam(*gin.Context)
+	UpdateUser(*gin.Context)
 }
 
 type templateDataModel struct {
@@ -57,6 +76,8 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 }
 
 func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
+	isAtLeastOrganizer := auth.AuthLevelVerifierFactory(authlevels.Organizer, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
+
 	routerGroup.GET("", r.ProfilePage)
 	routerGroup.GET("login", r.LoginPage)
 	routerGroup.POST("login", r.Login)
@@ -71,4 +92,5 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.POST("team/create", r.CreateTeam)
 	routerGroup.POST("team/join", r.JoinTeam)
 	routerGroup.POST("team/leave", r.LeaveTeam)
+	routerGroup.POST("user/update/:id", isAtLeastOrganizer, r.UpdateUser)
 }

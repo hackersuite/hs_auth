@@ -14,9 +14,10 @@ var (
 	ErrSendgridRejectedRequest = errors.New("email request rejected by Sendgrid")
 
 	// User service errors
-	ErrEmailTaken   = errors.New("email is already taken")
-	ErrNameTaken    = errors.New("name is already taken")
-	ErrInvalidToken = errors.New("invalid auth token")
+	ErrEmailTaken              = errors.New("email is already taken")
+	ErrNameTaken               = errors.New("name is already taken")
+	ErrInvalidToken            = errors.New("invalid auth token")
+	ErrInvalidUserUpdateParams = errors.New("invlid user update params")
 
 	// Team service errors
 	ErrUserInTeam    = errors.New("user is already in a team")

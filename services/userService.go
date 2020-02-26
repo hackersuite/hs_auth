@@ -2,10 +2,36 @@ package services
 
 import (
 	"context"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"strconv"
 
 	"github.com/unicsmcr/hs_auth/entities"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 )
+
+func BuildUserUpdateParams(stringParams map[entities.UserField]string) (builtParams UserUpdateParams, err error) {
+	builtParams = UserUpdateParams{}
+	for field, value := range stringParams {
+		switch field {
+		case entities.UserID, entities.UserTeam:
+			builtParams[field], err = primitive.ObjectIDFromHex(value)
+			if err != nil {
+				return UserUpdateParams{}, ErrInvalidUserUpdateParams
+			}
+			break
+		case entities.UserName, entities.UserEmail, entities.UserPassword:
+			builtParams[field] = value
+			break
+		case entities.UserAuthLevel:
+			builtParams[field], err = strconv.ParseInt(value, 10, 64)
+			if err != nil {
+				return UserUpdateParams{}, ErrInvalidUserUpdateParams
+			}
+			break
+		}
+	}
+	return builtParams, nil
+}
 
 type UserUpdateParams map[entities.UserField]interface{}
 

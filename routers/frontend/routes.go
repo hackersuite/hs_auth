@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -581,6 +582,60 @@ func (r *frontendRouter) LeaveTeam(ctx *gin.Context) {
 			r.renderProfilePage(ctx, http.StatusInternalServerError, "Something went wrong")
 			return
 		}
+	}
+
+	r.renderProfilePage(ctx, http.StatusOK, "")
+}
+
+func (r *frontendRouter) UpdateUser(ctx *gin.Context) {
+	userID := ctx.Param("id")
+	if len(userID) == 0 {
+		r.logger.Debug("user id not provided")
+		r.renderProfilePage(ctx, http.StatusBadRequest, "User ID not provided")
+		return
+	}
+
+	var updatedFields map[entities.UserField]string
+	err := json.Unmarshal([]byte(ctx.PostForm("set")), &updatedFields)
+
+	if err != nil {
+		r.logger.Debug("could not unmarshal params to update", zap.Error(err))
+		r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid parameters to update")
+		return
+	}
+	// TODO: input validation should be done at the service level
+	builtParams, err := services.BuildUserUpdateParams(updatedFields)
+	if err != nil {
+		r.logger.Debug("could not build params to update", zap.Error(err))
+		r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid parameters to update")
+		return
+	}
+
+	if _, exists := builtParams[entities.UserPassword]; exists {
+		r.logger.Debug("user's password cannot be updated")
+		r.renderProfilePage(ctx, http.StatusBadRequest, "User's password cannot be changed")
+		return
+	}
+
+	if _, exists := builtParams[entities.UserID]; exists {
+		r.logger.Debug("user's id cannot be updated")
+		r.renderProfilePage(ctx, http.StatusBadRequest, "User's id cannot be changed")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, userID, builtParams)
+	if err != nil {
+		switch err {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id")
+			r.renderProfilePage(ctx, http.StatusBadRequest, "Invalid user id provided")
+			break
+		default:
+			r.logger.Error("could not update user with id", zap.Error(err))
+			r.renderProfilePage(ctx, http.StatusInternalServerError, "Something went wrong")
+			break
+		}
+		return
 	}
 
 	r.renderProfilePage(ctx, http.StatusOK, "")
