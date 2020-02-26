@@ -155,7 +155,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 	}
 
 	// TODO: should allow the user to resend verification email
-	if !user.EmailVerified {
+	if user.AuthLevel <= authlevels.Unverified {
 		r.logger.Debug("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
 		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,

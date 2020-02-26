@@ -146,6 +146,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 	mockTeamService.EXPECT().GetTeams(gomock.Any()).AnyTimes()
 	mockTeamService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	mockTeamService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), gomock.Any()).AnyTimes()
+	mockUserService.EXPECT().GetTeammatesForUserWithJWT(gomock.Any(), gomock.Any()).AnyTimes()
 
 	router := NewAPIV1Router(zap.NewNop(), nil, env, mockUserService, nil, mockTeamService)
 
@@ -171,7 +172,7 @@ func Test_RegisterRoutes__should_set_up_required_auth_verification(t *testing.T)
 		},
 		{
 			route:        "/users/teammates",
-			method:       http.MethodPut,
+			method:       http.MethodGet,
 			minAuthLevel: authlevels.Applicant,
 		},
 		// TODO: re-enable when endpoint is fixed

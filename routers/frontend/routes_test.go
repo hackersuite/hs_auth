@@ -146,7 +146,7 @@ func Test_Login(t *testing.T) {
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
-					Return(&entities.User{EmailVerified: false}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.Unverified}, nil).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -156,7 +156,7 @@ func Test_Login(t *testing.T) {
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
-					Return(&entities.User{EmailVerified: true}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.Organiser}, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
