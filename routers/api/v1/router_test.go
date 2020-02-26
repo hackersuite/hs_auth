@@ -33,6 +33,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 
 	mockUserService.EXPECT().GetUsers(gomock.Any()).AnyTimes()
 	mockUserService.EXPECT().GetUserWithEmail(gomock.Any(), gomock.Any()).AnyTimes()
+	mockUserService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).AnyTimes().Return(nil, errors.New("some err"))
 	mockUserService.EXPECT().UpdateUserWithJWT(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	mockTeamService.EXPECT().GetTeams(gomock.Any()).AnyTimes()
 
