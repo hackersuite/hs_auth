@@ -32,6 +32,7 @@ type AppConfig struct {
 	AppURL            string               `yaml:"app_url"`
 	Email             EmailConfig          `yaml:"email"`
 	DataPolicyURL     string               `yaml:"data_policy_url"`
+	MaxTeamMembers    string               `yaml:"MaxTeamMembers"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment
