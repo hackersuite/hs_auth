@@ -707,34 +707,6 @@ func Test_VerifyEmail(t *testing.T) {
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
-
-		//{
-		//	name: "should return 401 when UpdateUserWithJWT returns ErrInvalidToken",
-		//	jwt:  "test",
-		//	prep: func(setup *testSetup) {
-		//		setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-		//			Return(services.ErrInvalidToken).Times(1)
-		//	},
-		//	wantResCode: http.StatusUnauthorized,
-		//},
-		//{
-		//	name: "should return 401 when UpdateUserWithJWT returns ErrNotFound",
-		//	jwt:  "test",
-		//	prep: func(setup *testSetup) {
-		//		setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-		//			Return(services.ErrNotFound).Times(1)
-		//	},
-		//	wantResCode: http.StatusUnauthorized,
-		//},
-		//{
-		//	name: "should return 500 when UpdateUserWithJWT returns unknown error",
-		//	jwt:  "test",
-		//	prep: func(setup *testSetup) {
-		//		setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-		//			Return(errors.New("service err")).Times(1)
-		//	},
-		//	wantResCode: http.StatusInternalServerError,
-		//},
 		{
 			name: "should return 200",
 			jwt:  "test_token",

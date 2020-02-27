@@ -23,11 +23,11 @@
                 </div>
               </div>
             </div>
-            {{if lt .Data.User.AuthLevel 3}}
+            {{if lt .Data.User.AuthLevel 4}}
               {{template "teamPanel.gohtml" .Data}}
             {{end}}
           </div>
-          {{if ge .Data.User.AuthLevel 3}}
+          {{if ge .Data.User.AuthLevel 4}}
             <div class="row justify-content-center">
               {{template "usersList.gohtml" .Data}}
             </div>
