@@ -146,7 +146,7 @@ func Test_Login(t *testing.T) {
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
-					Return(&entities.User{EmailVerified: false}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.Unverified}, nil).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -156,7 +156,7 @@ func Test_Login(t *testing.T) {
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
-					Return(&entities.User{EmailVerified: true}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.Organiser}, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -651,38 +651,71 @@ func Test_VerifyEmail(t *testing.T) {
 			wantResCode: http.StatusUnauthorized,
 		},
 		{
-			name: "should return 401 when UpdateUserWithJWT returns ErrInvalidToken",
-			jwt:  "test",
+			name: "should return 401 when GetUserWithJWT returns ErrInvalidToken",
+			jwt:  "test_token",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-					Return(services.ErrInvalidToken).Times(1)
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
+					Return(nil, services.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
 		{
-			name: "should return 401 when UpdateUserWithJWT returns ErrNotFound",
-			jwt:  "test",
+			name: "should return 400 when GetUserWithJWT returns ErrNotFound",
+			jwt:  "test_token",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-					Return(services.ErrNotFound).Times(1)
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 500 when GetUserWithJWT returns unknown error",
+			jwt:  "test_token",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 401 when user's auth level is below Unverified",
+			jwt:  "test_token",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
+					Return(&entities.User{AuthLevel:common.AuthLevel(-111)}, nil).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
 		{
-			name: "should return 500 when UpdateUserWithJWT returns unknown error",
-			jwt:  "test",
+			name: "should return 400 when user's auth level is above Unverified",
+			jwt:  "test_token",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-					Return(errors.New("service err")).Times(1)
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
+					Return(&entities.User{AuthLevel:common.Unverified + 1}, nil).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 500 when UpdateUserWithID returns error",
+			jwt:  "test_token",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
+					Return(&entities.User{AuthLevel:common.Unverified}, nil).Times(1)
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), primitive.NilObjectID.Hex(), services.UserUpdateParams{
+					entities.UserAuthLevel: common.Applicant,
+				}).Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
 			name: "should return 200",
-			jwt:  "test",
+			jwt:  "test_token",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-					Return(nil).Times(1)
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
+					Return(&entities.User{AuthLevel:common.Unverified}, nil).Times(1)
+				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), primitive.NilObjectID.Hex(), services.UserUpdateParams{
+					entities.UserAuthLevel: common.Applicant,
+				}).Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -692,7 +725,7 @@ func Test_VerifyEmail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			}, common.Unverified)
 
 			if tt.prep != nil {
 				tt.prep(setup)

@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"encoding/json"
+	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"net/http"
 	"time"
 
@@ -155,7 +156,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 	}
 
 	// TODO: should allow the user to resend verification email
-	if !user.EmailVerified {
+	if user.AuthLevel <= authlevels.Unverified {
 		r.logger.Debug("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
 		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
@@ -437,33 +438,43 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 		return
 	}
 
-	err := r.userService.UpdateUserWithJWT(ctx, token, services.UserUpdateParams{
-		entities.UserEmailVerified: true,
+	user, err := r.userService.GetUserWithJWT(ctx, token)
+	if err != nil {
+		if err == services.ErrInvalidToken {
+			r.logger.Debug("invalid token")
+			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+		} else if err == services.ErrNotFound {
+			r.logger.Debug("user not found")
+			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
+		} else {
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
+		}
+		return
+	}
+
+	if user.AuthLevel < authlevels.Unverified {
+		r.logger.Debug("user auth level too low to verify email")
+		models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to verify your email")
+		return
+	}
+	if user.AuthLevel > authlevels.Unverified {
+		r.logger.Debug("user's email is already verified")
+		models.SendAPIError(ctx, http.StatusBadRequest, "your email has already been verified")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, user.ID.Hex(), services.UserUpdateParams{
+		// TODO: the default auth level after verification should be configurable via the config
+		// files in case we want to implement functionality to disable applications
+		entities.UserAuthLevel: authlevels.Applicant,
 	})
 	if err != nil {
-		switch err {
-		case services.ErrInvalidToken:
-			r.logger.Debug("invalid token")
-			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
-				Cfg: r.cfg,
-				Err: "Invalid token",
-			})
-			return
-		case services.ErrNotFound:
-			r.logger.Debug("could not find user with token")
-			ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
-				Cfg: r.cfg,
-				Err: "Couldn't find user with given auth token",
-			})
-			return
-		default:
-			r.logger.Error("could not update user", zap.Error(err))
-			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
-				Cfg: r.cfg,
-				Err: "Something went wrong",
-			})
-			return
-		}
+		r.logger.Error("could not update user", zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Err: "Something went wrong",})
+		return
 	}
 
 	ctx.HTML(http.StatusOK, "verifyEmail.gohtml", templateDataModel{

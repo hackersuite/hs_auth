@@ -3,3 +3,4 @@ name: "Hacker Suite - Auth (dev)"
 app_url: "localhost:8000"
 domain_name: "localhost"
 use_secure_cookies: false
+base_auth_level: 1

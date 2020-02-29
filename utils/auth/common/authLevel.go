@@ -8,8 +8,10 @@ import (
 type AuthLevel int
 
 const (
+	// Unverified is the auth level that represents a user who has not yet verified their email
+	Unverified AuthLevel = iota
 	// Applicant is the auth level that represents a user who has not yet received and accepted an invite
-	Applicant AuthLevel = iota
+	Applicant
 	// Attendee is the auth level that represents a user who has received and accepted an invite
 	Attendee
 	// Volunteer is the auth level that represents a user who has access to volunteer features
@@ -23,6 +25,7 @@ var ErrUnknownAuthLevel = errors.New("auth level unknown")
 // string representation of the auth levels.
 // used when sending an AuthLevel in a JSON response
 var stringAuthLevels = map[AuthLevel]string{
+	Unverified: "\"unverified\"",
 	Applicant: "\"applicant\"",
 	Attendee:  "\"attendee\"",
 	Volunteer: "\"volunteer\"",

@@ -12,7 +12,6 @@ const (
 	UserName          UserField = "name"
 	UserEmail         UserField = "email"
 	UserPassword      UserField = "password"
-	UserEmailVerified UserField = "email_verified"
 	UserAuthLevel     UserField = "auth_level"
 	UserTeam          UserField = "team"
 )

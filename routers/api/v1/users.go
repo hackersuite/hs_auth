@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"net/http"
 	"time"
 
@@ -282,19 +283,42 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 //           error string
 // Header:   Authorization -> token
 func (r *apiV1Router) VerifyEmail(ctx *gin.Context) {
-	// TODO: this should increase user's auth level
-	fieldsToUpdate := services.UserUpdateParams{
-		entities.UserEmailVerified: true,
-	}
-	err := r.userService.UpdateUserWithJWT(ctx, ctx.GetHeader(authHeaderName), fieldsToUpdate)
+	user, err := r.userService.GetUserWithJWT(ctx, ctx.GetHeader(authHeaderName))
 	if err != nil {
 		if err == services.ErrInvalidToken {
 			r.logger.Debug("invalid token")
 			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+		} else if err == services.ErrNotFound {
+			r.logger.Debug("user not found")
+			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
 		} else {
-			r.logger.Error("could not update user", zap.Any("fields to udpate", fieldsToUpdate))
-			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
 		}
+		return
+	}
+
+	if user.AuthLevel < authlevels.Unverified {
+		r.logger.Debug("user auth level too low to verify email")
+		models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to verify your email")
+		return
+	}
+	if user.AuthLevel > authlevels.Unverified {
+		r.logger.Debug("user's email is already verified")
+		models.SendAPIError(ctx, http.StatusBadRequest, "your email has already been verified")
+		return
+	}
+
+	fieldsToUpdate := services.UserUpdateParams{
+		// TODO: the default auth level after verification should be configurable via the config
+		// files in case we want to implement functionality to disable applications
+		entities.UserAuthLevel: authlevels.Applicant,
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, user.ID.Hex(), fieldsToUpdate)
+	if err != nil {
+		r.logger.Error("could not update user", zap.Any("fields to update", fieldsToUpdate))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
 		return
 	}
 
