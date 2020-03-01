@@ -11,5 +11,5 @@ email:
   email_verification_email_subj: "Verify email"
   password_reset_email_subj: "Reset password"
 app_url: "auth.studenthack2020.com"
-data_policy_url: "https://drive.google.com/file/d/1wMcJbfEhIp9FjdNbyom4RVUoTH4xc0OB/view"
+data_policy_url: "https://d3v5ckld8447nl.cloudfront.net/GDPR_Policy.pdf"
 soft_max_team_members: 4
