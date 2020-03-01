@@ -39,7 +39,7 @@ func InitializeServer() (Server, error) {
 	}
 	userService := mongo.NewMongoUserService(logger, env, appConfig, userRepository)
 	client := utils.NewSendgridClient(env)
-	emailService, err := sendgrid.NewSendgridEmailService(logger, appConfig, client, userService)
+	emailService, err := sendgrid.NewSendgridEmailService(logger, appConfig, env, client, userService)
 	if err != nil {
 		return Server{}, err
 	}
