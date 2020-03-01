@@ -74,6 +74,14 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			method: http.MethodGet,
 		},
 		{
+			route:  "/verifyemail/resend",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/emailunverified",
+			method: http.MethodGet,
+		},
+		{
 			route:  "/team/create",
 			method: http.MethodPost,
 		},
