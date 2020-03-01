@@ -3,13 +3,13 @@ name: "Hacker Suite - Auth"
 # the default auth level for new users (auth levels defined in authLevel.go)
 base_auth_level: 0
 # the lifetime of auth tokens in seconds
-auth_token_lifetime: 108000 # 30 hours
+auth_token_lifetime: 172800 # 48 hours
 email:
-  noreply_email_addr: "noreply@unicsmcr.com"
-  help_email_addr: "help@unicsmcr.com"
-  noreply_email_name: "UniCS"
+  noreply_email_addr: "noreply@studenthack2020.com"
+  help_email_addr: "help@studenthack2020.com"
+  noreply_email_name: "StudentHack"
   email_verification_email_subj: "Verify email"
   password_reset_email_subj: "Reset password"
-app_url: "auth.unicsmcr.com"
+app_url: "auth.studenthack2020.com"
 data_policy_url: "https://drive.google.com/file/d/1wMcJbfEhIp9FjdNbyom4RVUoTH4xc0OB/view"
 soft_max_team_members: 4
