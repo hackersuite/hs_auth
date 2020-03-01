@@ -2,6 +2,10 @@ package sendgrid
 
 import (
 	"context"
+	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/entities"
+	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/testutils"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -10,8 +14,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/stretchr/testify/assert"
-	"github.com/unicsmcr/hs_auth/config"
-	"github.com/unicsmcr/hs_auth/entities"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"github.com/unicsmcr/hs_auth/services"
 	"go.uber.org/zap"
@@ -52,7 +54,7 @@ func Test_NewSendgridEmailService__should_return_error_when_template_path_is_inc
 	passwordResetEmailTemplatePath = "invalid path"
 	emailVerifyEmailTemplatePath = _testEmailTemplate
 
-	service, err := NewSendgridEmailService(nil, nil, nil, nil)
+	service, err := NewSendgridEmailService(nil, nil, nil,nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, service)
 
@@ -60,7 +62,7 @@ func Test_NewSendgridEmailService__should_return_error_when_template_path_is_inc
 	emailVerifyEmailTemplatePath = "invalid path"
 	passwordResetEmailTemplatePath = _testEmailTemplate
 
-	service, err = NewSendgridEmailService(nil, nil, nil, nil)
+	service, err = NewSendgridEmailService(nil, nil, nil, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, service)
 }
@@ -75,7 +77,7 @@ func Test_SendEmail__should_send_correct_message_to_sendgrid(t *testing.T) {
 		})
 	defer server.Close()
 
-	service, err := NewSendgridEmailService(zap.NewNop(), nil, client, nil)
+	service, err := NewSendgridEmailService(zap.NewNop(), nil, nil, client, nil)
 	assert.NoError(t, err)
 
 	err = service.SendEmail("test email", "test email body", "test email body",
@@ -94,7 +96,7 @@ func Test_SendEmail__should_return_error_when_sendgrid_rejects_request(t *testin
 		})
 	defer server.Close()
 
-	service, err := NewSendgridEmailService(zap.NewNop(), nil, client, nil)
+	service, err := NewSendgridEmailService(zap.NewNop(), nil, nil, client, nil)
 	assert.NoError(t, err)
 
 	err = service.SendEmail("test email", "test email body", "test email body",
@@ -106,6 +108,12 @@ func Test_SendEmail__should_return_error_when_sendgrid_rejects_request(t *testin
 func Test_SendEmailVerificationEmail__should_not_return_error_when_sending_email_is_successful(t *testing.T) {
 	passwordResetEmailTemplatePath = _testEmailTemplate
 	emailVerifyEmailTemplatePath = _testEmailTemplate
+
+	restore := testutils.SetEnvVars(map[string]string{
+		environment.JWTSecret: "test",
+	})
+	defer restore()
+	env := environment.NewEnv(zap.NewNop())
 
 	client, server := getTestClient(t, "",
 		response{
@@ -119,7 +127,7 @@ func Test_SendEmailVerificationEmail__should_not_return_error_when_sending_email
 			NoreplyEmailName:          "Bob the Tester",
 			EmailVerficationEmailSubj: "test subject",
 		},
-	}, client, nil)
+	}, env, client, nil)
 	assert.NoError(t, err)
 
 	err = service.SendEmailVerificationEmail(entities.User{
@@ -139,6 +147,12 @@ func Test_SendEmailVerificationEmailForUserWithEmail__should_make_correct_call_t
 		})
 	defer server.Close()
 
+	restore := testutils.SetEnvVars(map[string]string{
+		environment.JWTSecret: "test",
+	})
+	defer restore()
+	env := environment.NewEnv(zap.NewNop())
+
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
@@ -149,7 +163,7 @@ func Test_SendEmailVerificationEmailForUserWithEmail__should_make_correct_call_t
 
 	service, err := NewSendgridEmailService(zap.NewNop(), &config.AppConfig{
 		Email: config.EmailConfig{},
-	}, client, mockUService)
+	}, env, client, mockUService)
 	assert.NoError(t, err)
 
 	err = service.SendEmailVerificationEmailForUserWithEmail(context.Background(), "bob@test.com")
@@ -166,13 +180,19 @@ func Test_SendPasswordResetEmail__should_not_return_error_when_sending_email_is_
 		})
 	defer server.Close()
 
+	restore := testutils.SetEnvVars(map[string]string{
+		environment.JWTSecret: "test",
+	})
+	defer restore()
+	env := environment.NewEnv(zap.NewNop())
+
 	service, err := NewSendgridEmailService(zap.NewNop(), &config.AppConfig{
 		Email: config.EmailConfig{
 			NoreplyEmailAddr:          "bob@test.com",
 			NoreplyEmailName:          "Bob the Tester",
 			EmailVerficationEmailSubj: "test subject",
 		},
-	}, client, nil)
+	}, env, client, nil)
 	assert.NoError(t, err)
 
 	err = service.SendPasswordResetEmail(entities.User{
@@ -192,6 +212,12 @@ func Test_SendPasswordResetEmailForUserWithEmail__should_make_correct_call_to_us
 		})
 	defer server.Close()
 
+	restore := testutils.SetEnvVars(map[string]string{
+		environment.JWTSecret: "test",
+	})
+	defer restore()
+	env := environment.NewEnv(zap.NewNop())
+
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockUService.EXPECT().GetUserWithEmail(gomock.Any(), "bob@test.com").
@@ -202,7 +228,7 @@ func Test_SendPasswordResetEmailForUserWithEmail__should_make_correct_call_to_us
 
 	service, err := NewSendgridEmailService(zap.NewNop(), &config.AppConfig{
 		Email: config.EmailConfig{},
-	}, client, mockUService)
+	}, env, client, mockUService)
 	assert.NoError(t, err)
 
 	err = service.SendPasswordResetEmailForUserWithEmail(context.Background(), "bob@test.com")

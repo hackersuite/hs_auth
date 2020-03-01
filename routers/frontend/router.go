@@ -76,12 +76,14 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 }
 
 func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
+	isAtLeastUnverified := auth.AuthLevelVerifierFactory(authlevels.Unverified, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
+	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
 	isAtLeastOrganiser := auth.AuthLevelVerifierFactory(authlevels.Organiser, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
 
-	routerGroup.GET("", r.ProfilePage)
+	routerGroup.GET("", isAtLeastApplicant, r.ProfilePage)
 	routerGroup.GET("login", r.LoginPage)
 	routerGroup.POST("login", r.Login)
-	routerGroup.GET("logout", r.Logout)
+	routerGroup.GET("logout", isAtLeastUnverified, r.Logout)
 	routerGroup.GET("register", r.RegisterPage)
 	routerGroup.POST("register", r.Register)
 	routerGroup.GET("forgotpwd", r.ForgotPasswordPage)
@@ -89,8 +91,10 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("resetpwd", r.ResetPasswordPage)
 	routerGroup.POST("resetpwd", r.ResetPassword)
 	routerGroup.GET("verifyemail", r.VerifyEmail)
-	routerGroup.POST("team/create", r.CreateTeam)
-	routerGroup.POST("team/join", r.JoinTeam)
-	routerGroup.POST("team/leave", r.LeaveTeam)
+	routerGroup.GET("verifyemail/resend", isAtLeastUnverified, r.VerifyEmailResend)
+	routerGroup.GET("emailunverified", isAtLeastUnverified, r.EmailUnverifiedPage)
+	routerGroup.POST("team/create", isAtLeastApplicant, r.CreateTeam)
+	routerGroup.POST("team/join", isAtLeastApplicant, r.JoinTeam)
+	routerGroup.POST("team/leave", isAtLeastApplicant, r.LeaveTeam)
 	routerGroup.POST("user/update/:id", isAtLeastOrganiser, r.UpdateUser)
 }

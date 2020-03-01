@@ -155,16 +155,6 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: should allow the user to resend verification email
-	if user.AuthLevel <= authlevels.Unverified {
-		r.logger.Debug("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
-		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
-			Cfg: r.cfg,
-			Err: "User's email not verified",
-		})
-		return
-	}
-
 	token, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
@@ -175,7 +165,14 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.SetCookie(authCookieName, token, 100000, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
+	ctx.SetCookie(authCookieName, token, int(r.cfg.AuthTokenLifetime), "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
+
+	if user.AuthLevel <= authlevels.Unverified {
+		r.logger.Debug("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
+		ctx.Redirect(http.StatusMovedPermanently, "/emailunverified")
+		return
+	}
+
 	returnTo, err := ctx.Cookie(ReturnToCookie)
 	if err != nil && len(returnTo) == 0 {
 		returnTo = "/"
@@ -430,10 +427,9 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 	token := ctx.Query("token")
 	if token == "" {
-		r.logger.Debug("empty token")
-		ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
+		r.logger.Debug("invalid token")
+		ctx.HTML(http.StatusUnauthorized, "verificationTokenInvalid.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Err: "Invalid token",
 		})
 		return
 	}
@@ -442,7 +438,10 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 	if err != nil {
 		if err == services.ErrInvalidToken {
 			r.logger.Debug("invalid token")
-			models.SendAPIError(ctx, http.StatusUnauthorized, "invalid auth token")
+			ctx.HTML(http.StatusUnauthorized, "verificationTokenInvalid.gohtml", templateDataModel{
+				Cfg: r.cfg,
+			})
+			return
 		} else if err == services.ErrNotFound {
 			r.logger.Debug("user not found")
 			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
@@ -650,4 +649,49 @@ func (r *frontendRouter) UpdateUser(ctx *gin.Context) {
 	}
 
 	r.renderProfilePage(ctx, http.StatusOK, "")
+}
+
+func (r *frontendRouter) EmailUnverifiedPage(ctx *gin.Context) {
+	ctx.HTML(http.StatusOK, "emailNotVerified.gohtml", templateDataModel{
+		Cfg: r.cfg,
+	})
+}
+
+func (r *frontendRouter) VerifyEmailResend(ctx *gin.Context) {
+	jwt := jwtProvider(ctx)
+
+	user, err := r.userService.GetUserWithJWT(ctx, jwt)
+	if err != nil {
+		switch err {
+		case services.ErrInvalidToken:
+			r.logger.Debug("invalid token")
+			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Err: "Invalid token",})
+		case services.ErrNotFound:
+			r.logger.Debug("user not found")
+			ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Err: "Could not find user",})
+		default:
+			r.logger.Error("could not find user with jwt", zap.Error(err))
+			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Err: "Something went wrong",})
+		}
+		return
+	}
+
+	err = r.emailService.SendEmailVerificationEmail(*user)
+	if err != nil {
+		r.logger.Error("could not send email verification email", zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Err: "Something went wrong",})
+		return
+	}
+
+	ctx.HTML(http.StatusOK, "emailVerifyResend.gohtml", templateDataModel{
+		Cfg: r.cfg,
+	})
 }
