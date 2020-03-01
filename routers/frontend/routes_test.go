@@ -1130,15 +1130,6 @@ func Test_VerifyEmailResend(t *testing.T) {
 			},
 			wantResCode: http.StatusOK,
 		},
-		//{
-		//	name: "should return 200",
-		//	jwt:  "test",
-		//	prep: func(setup *testSetup) {
-		//		setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
-		//			Return(nil)
-		//	},
-		//	wantResCode: http.StatusOK,
-		//},
 	}
 
 	for _, tt := range tests {
