@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  {{template "header.gohtml" .Cfg}}
+  <link rel="stylesheet" type="text/css" href="/static/css/login.css">
+</head>
+
+<body>
+  <div class="container">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="card mx-auto align-middle w-50">
+          <div class="card-header card-header-primary">
+            <h2>Invalid token!</h2>
+          </div>
+          <div class="card-body">
+            <h2>Oops!</h2>
+            <h4>It looks like your verification token is invalid! It might have expired.</h4>
+            <h4>You can get a new token by <a href="/login">logging in</a> and requesting a new verification email.</h4>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+
+{{if .Err}}
+{{template "errorNotifier.gohtml" .Err}}
+{{end}}
+{{template "cookieDisclaimer.gohtml"}}
+</html>
