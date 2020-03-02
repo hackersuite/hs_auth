@@ -24,7 +24,7 @@
               </div>
             </div>
             {{if lt .Data.User.AuthLevel 4}}
-              {{template "teamPanel.gohtml" .Data}}
+              {{template "teamPanel.gohtml" .}}
             {{end}}
           </div>
           {{if ge .Data.User.AuthLevel 4}}
