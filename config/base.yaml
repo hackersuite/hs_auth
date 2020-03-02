@@ -1,5 +1,5 @@
 # Store non-sensitive project configuration here
-name: "Hacker Suite - Auth"
+name: "StudentHack 2020"
 # the default auth level for new users (auth levels defined in authLevel.go)
 base_auth_level: 0
 # the lifetime of auth tokens in seconds
