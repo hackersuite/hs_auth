@@ -141,14 +141,14 @@ func Test_Login(t *testing.T) {
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:     "should return 401 when user's email is not verified",
+			name:     "should return 200 when user's email is not verified",
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
 					Return(&entities.User{AuthLevel: common.Unverified}, nil).Times(1)
 			},
-			wantResCode: http.StatusUnauthorized,
+			wantResCode: http.StatusOK,
 		},
 		{
 			name:     "should return 200",
@@ -1068,6 +1068,87 @@ func Test_UpdateUser(t *testing.T) {
 			})
 
 			setup.router.UpdateUser(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func Test_VerifyEmailResend(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		jwt         string
+		wantResCode int
+	}{
+		{
+			name: "should return 401 when GetUserWithJWT returns ErrInvalidToken",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(nil, services.ErrInvalidToken)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 400 when GetUserWithJWT returns ErrNotFound",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(nil, services.ErrNotFound)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 500 when GetUserWithJWT returns unknown error",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(nil, errors.New("service err"))
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 500 when SendEmailVerificationEmail returns error",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{}, nil)
+				setup.mockEService.EXPECT().SendEmailVerificationEmail(gomock.Any()).
+					Return(errors.New("service err"))
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 200 when SendEmailVerificationEmail returns nil",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
+					Return(&entities.User{}, nil)
+				setup.mockEService.EXPECT().SendEmailVerificationEmail(gomock.Any()).
+					Return(nil)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{})
+			setup.testCtx.Request.AddCookie(&http.Cookie{
+				Name:  authCookieName,
+				Value: tt.jwt,
+			})
+
+			setup.router.VerifyEmailResend(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})
