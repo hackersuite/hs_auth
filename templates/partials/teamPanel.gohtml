@@ -14,7 +14,7 @@
             {{range .Data.Teammates}}
             <p>{{.Name}} {{if eq .ID.String $.Data.Team.Creator.String}}<i class="fas fa-crown" style="color: Gold"></i>{{end}}</p>
             {{end}}
-            <small class="text-muted">Teams of more than {{.Cfg.SoftMaxTeamMembers}} people will not be able to compete for prizes</small>
+            <small class="{{ if  ge (len .Data.Teammates) .Cfg.SoftMaxTeamMembers }}text-danger font-weight-bold text-uppercase{{else}}text-muted{{end}}"> Teams of more than {{.Cfg.SoftMaxTeamMembers}} people will not be able to compete for prizes</small>
           {{end}}
           </div>
           <form action="/team/leave" method="post">
