@@ -4,6 +4,7 @@ package mongo
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -320,6 +321,23 @@ func Test_GetUserWithEmail__should_return_expected_user(t *testing.T) {
 	assert.NoError(t, err)
 
 	user, err := uService.GetUserWithEmail(context.Background(), testUser.Email)
+
+	assert.NoError(t, err)
+	assert.Equal(t, testUser, *user)
+}
+
+func Test_GetUserWithEmail__should_be_case_insensitive(t *testing.T) {
+	uService, uRepo, cleanup := setupUserTest(t)
+	defer cleanup()
+
+	testUser2 := testUser
+	testUser2.ID = primitive.NewObjectID()
+	testUser2.Email = "test2@email.com"
+
+	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2})
+	assert.NoError(t, err)
+
+	user, err := uService.GetUserWithEmail(context.Background(), strings.ToUpper(testUser.Email))
 
 	assert.NoError(t, err)
 	assert.Equal(t, testUser, *user)
