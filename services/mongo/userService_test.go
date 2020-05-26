@@ -192,15 +192,20 @@ func Test_CreateUser__should_create_correct_user(t *testing.T) {
 	uService, uRepo, cleanup := setupUserTest(t)
 	defer cleanup()
 
-	user, err := uService.CreateUser(context.Background(), testUser.Name, testUser.Email, testUser.Password)
+	testUser2 := testUser
+	testUser2.ID = primitive.NewObjectID()
+	testUser2.Email = "TesT2@emaiL.CoM"
+	testUser2FormattedEmail := "test2@email.com"
+
+	user, err := uService.CreateUser(context.Background(), testUser2.Name, testUser2.Email, testUser2.Password)
 	assert.NoError(t, err)
 
-	assert.Equal(t, testUser.Name, user.Name)
+	assert.Equal(t, testUser2.Name, user.Name)
 
 	res := uRepo.FindOne(context.Background(), bson.M{
 		string(entities.UserID):        user.ID,
-		string(entities.UserEmail):     testUser.Email,
-		string(entities.UserName):      testUser.Name,
+		string(entities.UserEmail):     testUser2FormattedEmail,
+		string(entities.UserName):      testUser2.Name,
 		string(entities.UserAuthLevel): testBaseAuthLevel,
 	})
 
