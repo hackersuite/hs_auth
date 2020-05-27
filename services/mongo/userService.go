@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/config"
@@ -35,9 +36,11 @@ func NewMongoUserService(logger *zap.Logger, env *environment.Env, cfg *config.A
 }
 
 func (s *mongoUserService) CreateUser(ctx context.Context, name, email, password string) (*entities.User, error) {
+	formattedEmail := strings.ToLower(email)
+
 	// check if email is not taken
 	res := s.userRepository.FindOne(ctx, bson.M{
-		string(entities.UserEmail): email,
+		string(entities.UserEmail): formattedEmail,
 	})
 
 	err := res.Err()
@@ -56,7 +59,7 @@ func (s *mongoUserService) CreateUser(ctx context.Context, name, email, password
 	user := &entities.User{
 		ID:        primitive.NewObjectID(),
 		Name:      name,
-		Email:     email,
+		Email:     formattedEmail,
 		Password:  pwdHash,
 		AuthLevel: s.cfg.BaseAuthLevel,
 	}
@@ -145,7 +148,7 @@ func (s *mongoUserService) GetUserWithID(ctx context.Context, userID string) (*e
 
 func (s *mongoUserService) GetUserWithEmail(ctx context.Context, email string) (*entities.User, error) {
 	res := s.userRepository.FindOne(ctx, bson.M{
-		string(entities.UserEmail): email,
+		string(entities.UserEmail): strings.ToLower(email),
 	})
 
 	user, err := decodeUserResult(res)
