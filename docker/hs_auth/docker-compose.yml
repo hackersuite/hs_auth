@@ -37,20 +37,6 @@ services:
     networks:
       - internal
 
-  # graphical DB management platform (available at localhost:8081)
-  mongo_express:
-    image: mongo-express
-    restart: always
-    env_file:
-      - ../../mongo_express.env
-    depends_on:
-      mongo:
-        condition: service_healthy
-    ports:
-      - 8001:8081
-    networks:
-      - internal
-
 networks:
   # internal network for hs_auth services
   internal:
