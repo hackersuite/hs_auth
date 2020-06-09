@@ -17,7 +17,7 @@
    - GUI MongoDB management tool - Mongo Express
 
 ## Dependencies
-### Docker eployment:
+### Docker deployment:
  - [GNU make](https://www.gnu.org/software/make/)
  - [Docker](https://www.docker.com/products/docker-desktop)
 
