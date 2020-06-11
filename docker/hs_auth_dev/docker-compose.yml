@@ -42,7 +42,3 @@ networks:
   # internal network for hs_auth services
   internal:
     driver: bridge
-  # external network for consumer-facing hacker suite services
-  hacker_suite:
-    external:
-      name: hacker_suite
