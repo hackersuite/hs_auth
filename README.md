@@ -82,7 +82,7 @@ It will set up 3 things:
 
 Run the following command in a terminal:
 ```
-make up
+make up-dev
 ```
 
 This will set up infrastructure illustrated in the following picture:
