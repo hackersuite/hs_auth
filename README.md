@@ -15,6 +15,8 @@
    - `hs_auth`
    - A MongoDB database
    - GUI MongoDB management tool - Mongo Express
+   
+[Api Reference](https://documenter.getpostman.com/view/2489646/T1DjjKP6?version=latest#38b37cec-69a0-4445-aba4-fd72e5868876)
 
 ## Dependencies
 ### Docker deployment:
