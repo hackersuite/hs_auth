@@ -73,7 +73,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	authorizer, timeProvider := setupAuthorizerTests(t, jwtSecret)
 	timeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
 
-	token, err := authorizer.CreateServiceToken(testOwner, testAllowedResources, testTTL)
+	token, err := authorizer.CreateServiceToken(testOwner, testAllowedResources, testTimestamp.Unix()+testTTL)
 	assert.NoError(t, err)
 
 	claims := extractTokenClaims(t, token, jwtSecret)
@@ -124,7 +124,7 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 	authorizer, timeProvider := setupAuthorizerTests(t, jwtSecret)
 	timeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
 
-	token, err := authorizer.CreateUserToken(testUserId, testTTL)
+	token, err := authorizer.CreateUserToken(testUserId, testTimestamp.Unix()+testTTL)
 	assert.NoError(t, err)
 
 	claims := extractTokenClaims(t, token, jwtSecret)
@@ -140,7 +140,6 @@ func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token
 	jwtSecret := "test_secret"
 	authorizer, _ := setupAuthorizerTests(t, jwtSecret)
 	token := createToken(t, "testuser", nil, int64(100), user, jwtSecret)
-
 	uris := []UniformResourceIdentifier{"test"}
 
 	returnedUris, err := authorizer.GetAuthorizedResources(token, uris)
@@ -153,28 +152,29 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 	jwtSecret := "jwtSecret"
 
 	tests := []struct {
-		name  string
-		token string
+		name      string
+		token     string
 		wantedErr error
 	}{
 		{
-			name:  "when token is invalid",
-			token: "invalid token",
+			name:      "when token is invalid",
+			token:     "invalid token",
 			wantedErr: ErrInvalidToken,
 		},
 		{
-			name:  "when token type is invalid",
-			token: createToken(t, "user id", nil, int64(0), "unknown type", jwtSecret),
+			name:      "when token type is invalid",
+			token:     createToken(t, "user id", nil, int64(0), "unknown type", jwtSecret),
 			wantedErr: ErrInvalidToken,
 		},
 		{
-			name:  "when token is expired",
-			token: createToken(t, "user id", nil, int64(-5), user, jwtSecret),
+			name:      "when token is expired",
+			token:     createToken(t, "user id", nil, int64(-5), user, jwtSecret),
 			wantedErr: ErrInvalidToken,
 		},
 	}
 
 	authorizer, _ := setupAuthorizerTests(t, jwtSecret)
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uris, err := authorizer.GetAuthorizedResources(tt.token, nil)
@@ -187,7 +187,7 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 func Test_verifyTokenType(t *testing.T) {
 	tests := []struct {
 		tokenType TokenType
-		wantErr bool
+		wantErr   bool
 	}{
 		{
 			tokenType: user,
@@ -197,7 +197,7 @@ func Test_verifyTokenType(t *testing.T) {
 		},
 		{
 			tokenType: "unknown type",
-			wantErr: true,
+			wantErr:   true,
 		},
 	}
 
