@@ -3,6 +3,7 @@ package v2
 import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/golang/mock/gomock"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/unicsmcr/hs_auth/environment"
 	mock_utils "github.com/unicsmcr/hs_auth/mocks/utils"
@@ -154,18 +155,22 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 	tests := []struct {
 		name  string
 		token string
+		wantedErr error
 	}{
 		{
 			name:  "when token is invalid",
 			token: "invalid token",
+			wantedErr: ErrInvalidToken,
 		},
 		{
 			name:  "when token type is invalid",
 			token: createToken(t, "user id", nil, int64(0), "unknown type", jwtSecret),
+			wantedErr: ErrInvalidToken,
 		},
 		{
 			name:  "when token is expired",
 			token: createToken(t, "user id", nil, int64(-5), user, jwtSecret),
+			wantedErr: ErrInvalidToken,
 		},
 	}
 
@@ -174,7 +179,7 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			uris, err := authorizer.GetAuthorizedResources(tt.token, nil)
 			assert.Nil(t, uris)
-			assert.NotNil(t, err)
+			assert.Equal(t, tt.wantedErr, errors.Cause(err))
 		})
 	}
 }
@@ -182,7 +187,7 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 func Test_verifyTokenType(t *testing.T) {
 	tests := []struct {
 		tokenType TokenType
-		wantedErr error
+		wantErr bool
 	}{
 		{
 			tokenType: user,
@@ -192,13 +197,13 @@ func Test_verifyTokenType(t *testing.T) {
 		},
 		{
 			tokenType: "unknown type",
-			wantedErr: ErrInvalidTokenType,
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(string(tt.tokenType), func(t *testing.T) {
-			assert.Equal(t, tt.wantedErr, verifyTokenType(tt.tokenType))
+			assert.Equal(t, tt.wantErr, verifyTokenType(tt.tokenType) != nil)
 		})
 	}
 }

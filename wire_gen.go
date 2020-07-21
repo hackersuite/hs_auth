@@ -6,11 +6,13 @@
 package main
 
 import (
+	"github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
 	"github.com/unicsmcr/hs_auth/routers/api/v1"
+	v2_2 "github.com/unicsmcr/hs_auth/routers/api/v2"
 	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services/mongo"
 	"github.com/unicsmcr/hs_auth/services/sendgrid"
@@ -49,8 +51,11 @@ func InitializeServer() (Server, error) {
 	}
 	teamService := mongo.NewMongoTeamService(logger, env, teamRepository, userService)
 	apiv1Router := v1.NewAPIV1Router(logger, appConfig, env, userService, emailService, teamService)
+	timeProvider := utils.NewTimeProvider()
+	authorizer := v2.NewAuthorizer(timeProvider, env)
+	apiv2Router := v2_2.NewAPIV2Router(logger, authorizer)
 	router := frontend.NewRouter(logger, appConfig, env, userService, teamService, emailService)
-	mainRouter := routers.NewMainRouter(logger, apiv1Router, router)
+	mainRouter := routers.NewMainRouter(logger, apiv1Router, apiv2Router, router)
 	server := NewServer(mainRouter, env)
 	return server, nil
 }
