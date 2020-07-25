@@ -9,6 +9,7 @@ import (
 )
 
 const unknownTokenTypeErrTemplate = "'%s' is not a valid token type"
+var jwtSigningMethod = jwt.SigningMethodHS256
 
 // Authorizer provides an interface for creating auth tokens and checking their permissions
 type Authorizer interface {
@@ -38,7 +39,7 @@ type authorizer struct {
 
 func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate int64) (string, error) {
 	timestamp := a.timeProvider.Now().Unix()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        userId.Hex(),
 			IssuedAt:  timestamp,
@@ -52,7 +53,7 @@ func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate i
 
 func (a *authorizer) CreateServiceToken(owner string, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
 	timestamp := a.timeProvider.Now().Unix()
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        owner,
 			IssuedAt:  timestamp,

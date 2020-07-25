@@ -209,7 +209,7 @@ func Test_verifyTokenType(t *testing.T) {
 }
 
 func createToken(t *testing.T, id string, allowedResources []UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        id,
 			IssuedAt:  time.Now().Unix(),
