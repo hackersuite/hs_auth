@@ -1,7 +1,7 @@
 package v2
 
 import (
-	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/entities"
 )
 
