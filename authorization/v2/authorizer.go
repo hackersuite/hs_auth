@@ -101,7 +101,6 @@ func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operati
 		}
 
 		uri := NewUriFromRequest(router, operationHandler, ctx)
-		a.logger.Debug("uri", zap.Any("args", uri.arguments))
 		authorized, err := a.GetAuthorizedResources(token, []UniformResourceIdentifier{uri})
 		if err != nil {
 			a.logger.Debug("could not retrieve authorized resources for token", zap.Error(err))
