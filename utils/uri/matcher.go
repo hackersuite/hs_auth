@@ -11,9 +11,9 @@ var (
 
 //hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
 type URI struct {
-	Path      string
-	Arguments map[string]string
-	Metadata  map[string]string
+	path      string
+	arguments map[string]string
+	metadata  map[string]string
 }
 
 // hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
@@ -34,13 +34,13 @@ func ParseURI(source string) (*URI, error) {
 		var err error
 
 		argumentsMetadataSplit := strings.Split(pathArgumentSplit[1], "#")
-		arguments, err = UnmarshalArguments(argumentsMetadataSplit[0])
+		arguments, err = unmarshalArguments(argumentsMetadataSplit[0])
 		if err != nil {
 			return nil, err
 		}
 
 		if len(argumentsMetadataSplit) > 1 {
-			metadata, err = UnmarshalMetadata(argumentsMetadataSplit[1])
+			metadata, err = unmarshalMetadata(argumentsMetadataSplit[1])
 			if err != nil {
 				return nil, err
 			}
@@ -48,13 +48,13 @@ func ParseURI(source string) (*URI, error) {
 	}
 
 	return &URI{
-		Path:      path,
-		Arguments: arguments,
-		Metadata:  metadata,
+		path:      path,
+		arguments: arguments,
+		metadata:  metadata,
 	}, nil
 }
 
-func UnmarshalArguments(source string) (map[string]string, error) {
+func unmarshalArguments(source string) (map[string]string, error) {
 	arguments := strings.Split(source, "&")
 	toReturn := map[string]string{}
 	for _, arg := range arguments {
@@ -64,7 +64,7 @@ func UnmarshalArguments(source string) (map[string]string, error) {
 	return toReturn, nil
 }
 
-func UnmarshalMetadata(source string) (map[string]string, error) {
+func unmarshalMetadata(source string) (map[string]string, error) {
 	arguments := strings.Split(source, "#")
 	toReturn := map[string]string{}
 	for _, arg := range arguments {
