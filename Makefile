@@ -33,7 +33,8 @@ test-integration: vet mocks
 	go test -cover ./... -tags integration
 
 # build target for CI
-ci: vet mocks
+ci: vet
+	grep -rl --exclude "./vendor/*" --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done
 	docker-compose -f $(test_docker_compose_file) up -d
 	go test ./... -coverprofile=coverage.txt -covermode=atomic -tags integration
 
