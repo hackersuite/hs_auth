@@ -22,7 +22,12 @@ run: vet
 .PHONY: mocks
 mocks: clean-mocks
 	@echo "=============generating mocks============="
-	grep -rl --exclude "./vendor/*" --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done
+	if grep -rl --exclude "./vendor/*" --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done ; then
+		@echo "generated mocks"
+	else
+		@echo "could not generate mocks"
+	fi
+	
 
 # runs test
 test: vet mocks
