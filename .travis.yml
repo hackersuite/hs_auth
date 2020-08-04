@@ -1,0 +1,29 @@
+dist: xenial
+
+language: go
+
+go:
+  - 1.13.x
+
+# Only clone the most recent commit.
+git:
+  depth: 1
+
+before_install:
+  - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
+  - cp app.env.example app.env
+  - cp mongo.env.example mongo.env
+  - cp mongo_express.env.example mongo_express.env
+  - go get github.com/golang/mock/mockgen
+
+env:
+  - GO111MODULE=on
+
+script:
+  - make ci
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
+
+notifications:
+  email: false
