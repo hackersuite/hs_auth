@@ -23,7 +23,7 @@ run: vet
 mocks: clean-mocks
 	@echo "=============generating mocks============="
 	grep -rl --exclude "./vendor/*" --include "*.go" "interface {" . | while read -r file ; do mockgen --source=$$file --destination mocks/$$file ; done
-	
+
 # runs test
 test: vet mocks
 	go test -cover ./...
