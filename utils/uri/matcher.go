@@ -56,18 +56,17 @@ func ParseURI(source string) (*URI, error) {
 
 func unmarshalArguments(source string) (map[string]string, error) {
 	arguments := strings.Split(source, "&")
-	toReturn := map[string]string{}
-	for _, arg := range arguments {
-		split := strings.Split(arg, "=")
-		toReturn[split[0]] = split[1]
-	}
-	return toReturn, nil
+	return unmarshallURIList(arguments)
 }
 
 func unmarshalMetadata(source string) (map[string]string, error) {
 	arguments := strings.Split(source, "#")
+	return unmarshallURIList(arguments)
+}
+
+func unmarshallURIList(uriList []string) (map[string]string, error) {
 	toReturn := map[string]string{}
-	for _, arg := range arguments {
+	for _, arg := range uriList {
 		split := strings.Split(arg, "=")
 		toReturn[split[0]] = split[1]
 	}
