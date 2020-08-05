@@ -120,14 +120,18 @@ func unmarshallURIList(uriList []string) (map[string]string, error) {
 	toReturn := map[string]string{}
 	for _, arg := range uriList {
 		split := strings.Split(arg, "=")
+		if len(split) != 2 {
+			return nil, ErrInvalidURI
+		}
+
 		toReturn[split[0]] = split[1]
 	}
 	return toReturn, nil
 }
 
 func marshallURIMap(uriMap map[string]string) string {
-	var marshalledMap = ""
-	if uriMap == nil {
+	var marshalledMap string
+	if uriMap == nil || len(uriMap) == 0 {
 		return marshalledMap
 	}
 
