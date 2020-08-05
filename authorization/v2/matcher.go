@@ -35,7 +35,7 @@ func NewURIFromString(source string) (URI, error) {
 		}
 
 		if len(argumentsMetadataSplit) > 1 {
-			metadata, err = unmarshalMetadata(argumentsMetadataSplit[1])
+			metadata, err = unmarshalArguments(argumentsMetadataSplit[1])
 			if err != nil {
 				return URI{}, err
 			}
@@ -49,13 +49,26 @@ func NewURIFromString(source string) (URI, error) {
 	}, nil
 }
 
-func unmarshalArguments(source string) (map[string]string, error) {
-	arguments := strings.Split(source, "&")
-	return unmarshallURIList(arguments)
+func (uri URI) MarshalJSON() string {
+	var (
+		marshalledURI = uri.path
+		marshalledArgs = marshallURIMap(uri.arguments)
+		marshalledMetadata = marshallURIMap(uri.metadata)
+	)
+
+	if len(marshalledArgs) > 0 {
+		marshalledURI += "?" + marshalledArgs
+	}
+
+	if len(marshalledMetadata) > 0 {
+		marshalledURI += "#" + marshalledMetadata
+	}
+	return marshalledURI
 }
 
-func unmarshalMetadata(source string) (map[string]string, error) {
-	arguments := strings.Split(source, "#")
+
+func unmarshalArguments(source string) (map[string]string, error) {
+	arguments := strings.Split(source, "&")
 	return unmarshallURIList(arguments)
 }
 
@@ -66,4 +79,16 @@ func unmarshallURIList(uriList []string) (map[string]string, error) {
 		toReturn[split[0]] = split[1]
 	}
 	return toReturn, nil
+}
+
+func marshallURIMap(uriMap map[string]string) string {
+	var marshalledMap = ""
+	if uriMap == nil {
+		return marshalledMap
+	}
+
+	for key, value := range uriMap {
+		marshalledMap += key + "=" + value + "&"
+	}
+	return marshalledMap[:len(marshalledMap) - 1]
 }
