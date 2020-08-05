@@ -52,7 +52,7 @@ func InitializeServer() (Server, error) {
 	teamService := mongo.NewMongoTeamService(logger, env, teamRepository, userService)
 	apiv1Router := v1.NewAPIV1Router(logger, appConfig, env, userService, emailService, teamService)
 	timeProvider := utils.NewTimeProvider()
-	authorizer := v2.NewAuthorizer(timeProvider, env)
+	authorizer := v2.NewAuthorizer(timeProvider, env, logger)
 	apiv2Router := v2_2.NewAPIV2Router(logger, authorizer)
 	router := frontend.NewRouter(logger, appConfig, env, userService, teamService, emailService)
 	mainRouter := routers.NewMainRouter(logger, apiv1Router, apiv2Router, router)

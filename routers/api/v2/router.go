@@ -9,9 +9,11 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"net/http"
-	"strings"
 	"time"
 )
+
+const resourcePath = "hs:hs_auth:api:v2"
+const authTokenHeader = "Authorization"
 
 type APIV2Router interface {
 	models.Router
@@ -22,14 +24,13 @@ type APIV2Router interface {
 
 type apiV2Router struct {
 	models.BaseRouter
-	logger *zap.Logger
+	logger     *zap.Logger
 	authorizer v2.Authorizer
 }
 
-
 func NewAPIV2Router(logger *zap.Logger, authorizer v2.Authorizer) APIV2Router {
 	return &apiV2Router{
-		logger: logger,
+		logger:     logger,
 		authorizer: authorizer,
 	}
 }
@@ -38,11 +39,24 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("/", r.Heartbeat)
 
 	usersGroup := routerGroup.Group("/users")
-	usersGroup.GET("/", r.buildAuthChecker("hs:hs_auth:api:v2:getUsers"), r.GetUsers)
+	usersGroup.GET("/", r.authorizer.WithAuthMiddleware(r, r.GetUsers))
 	usersGroup.POST("/login", r.Login)
 
 	tokensGroup := routerGroup.Group("/tokens")
-	tokensGroup.GET("/resources/authorized", r.buildAuthChecker("hs:hs_auth:api:v2:getAuthorizedResources"), r.GetAuthorizedResources)
+	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
+}
+
+func (r *apiV2Router) GetResourcePath() string {
+	return resourcePath
+}
+
+func (r *apiV2Router) GetAuthToken(ctx *gin.Context) (string, error) {
+	return ctx.GetHeader(authTokenHeader), nil
+}
+
+func (r *apiV2Router) HandleUnauthorized(ctx *gin.Context) {
+	models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this operation")
+	ctx.Abort()
 }
 
 func (r *apiV2Router) Login(ctx *gin.Context) {
@@ -62,31 +76,36 @@ func (r *apiV2Router) GetUsers(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, getUsersRes{
 		Users: []entities.User{
 			{
-				ID:            primitive.NewObjectID(),
-				Name:          "Bob the Tester",
-				Email:         "bob@test.com",
+				ID:    primitive.NewObjectID(),
+				Name:  "Bob the Tester",
+				Email: "bob@test.com",
 			},
 			{
-				ID:            primitive.NewObjectID(),
-				Name:          "Rob the Tester",
-				Email:         "rob@test.com",
+				ID:    primitive.NewObjectID(),
+				Name:  "Rob the Tester",
+				Email: "rob@test.com",
 			},
 		},
 	})
 }
 
 func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
+	// TODO: extract URIs from request, requires string -> URI mapper
 	var requestedUris []v2.UniformResourceIdentifier
-	for _, uri := range strings.Split(ctx.Query("from"), ",") {
-		requestedUris = append(requestedUris, v2.UniformResourceIdentifier(uri))
+
+	token, err := r.GetAuthToken(ctx)
+	if err != nil {
+		r.logger.Debug("could not extract auth token", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
 	}
 
-	authorizedUris, err := r.authorizer.GetAuthorizedResources(extractAuthTokenFromCtx(ctx), requestedUris)
+	authorizedUris, err := r.authorizer.GetAuthorizedResources(token, requestedUris)
 	if err != nil {
 		switch errors.Cause(err) {
 		case v2.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
-			handleUnauthorized(ctx)
+			r.HandleUnauthorized(ctx)
 		default:
 			r.logger.Error("could not get authorized URIs", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
@@ -97,35 +116,4 @@ func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, getAuthorizedResourcesRes{
 		AuthorizedUris: authorizedUris,
 	})
-}
-
-func (r *apiV2Router) buildAuthChecker(resources ...v2.UniformResourceIdentifier) func(ctx *gin.Context) {
-	return func(ctx *gin.Context) {
-		authorizedResources, err := r.authorizer.GetAuthorizedResources(extractAuthTokenFromCtx(ctx), resources)
-		if err != nil {
-			switch errors.Cause(err) {
-			case v2.ErrInvalidToken:
-				r.logger.Debug("invalid token", zap.Error(err))
-				handleUnauthorized(ctx)
-			default:
-				r.logger.Error("could not get authorized URIs", zap.Error(err))
-				models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-			}
-			return
-		}
-
-		if len(authorizedResources) == 0 {
-			handleUnauthorized(ctx)
-			return
-		}
-	}
-}
-
-func handleUnauthorized(ctx *gin.Context) {
-	models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this operation")
-	ctx.Abort()
-}
-
-func extractAuthTokenFromCtx(ctx *gin.Context) string {
-	return ctx.GetHeader("Authorization")
 }
