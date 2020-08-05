@@ -49,13 +49,6 @@ func NewURIFromString(source string) (URI, error) {
 	}, nil
 }
 
-func MarshalJSON() ([]byte, error) {
-	if lvl, ok := stringAuthLevels[al]; ok {
-		return []byte(lvl), nil
-	}
-	return nil, ErrUnknownAuthLevel
-}
-
 func unmarshalArguments(source string) (map[string]string, error) {
 	arguments := strings.Split(source, "&")
 	return unmarshallURIList(arguments)
