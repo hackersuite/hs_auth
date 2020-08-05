@@ -24,13 +24,13 @@ func NewUriFromRequest(resource resources.Resource, handler gin.HandlerFunc, ctx
 	}
 }
 
-// NewURIFromString parses the string representation of a URI into the URI struct.
-// NewURIFromString expects the string to be of the following form, otherwise ErrInvalidURI is returned
+// NewURIFromString parses the string representation of a URI into the UniformResourceIdentifier struct.
+// NewURIFromString expects the string to be of the following form, otherwise ErrInvalidURI is returned.
 // hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
 func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	var (
-		arguments map[string]string = nil
-		metadata  map[string]string = nil
+		arguments map[string]string
+		metadata  map[string]string
 	)
 
 	pathArgumentSplit := strings.Split(source, "?")
@@ -64,7 +64,7 @@ func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	}, nil
 }
 
-// MarshalJSON will convert the URI structure into the standard string representation for URIs
+// MarshalJSON will convert the UniformResourceIdentifier struct into the standard string representation for URIs.
 func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 	var (
 		marshalledURI      = uri.path
@@ -134,5 +134,6 @@ func marshallURIMap(uriMap map[string]string) string {
 	for key, value := range uriMap {
 		marshalledMap += key + "=" + value + "&"
 	}
+
 	return marshalledMap[:len(marshalledMap)-1]
 }
