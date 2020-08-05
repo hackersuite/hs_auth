@@ -4,6 +4,8 @@ import (
 	"strings"
 )
 
+// NewURIFromString parses the string representation of a URI into the URI struct.
+// NewURIFromString expects the string to be of the following form, otherwise ErrInvalidURI is returned
 // hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
 func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	var (
@@ -42,7 +44,8 @@ func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	}, nil
 }
 
-func (uri UniformResourceIdentifier) MarshalJSON() string {
+// MarshalJSON will convert the URI structure into the standard string representation for URIs
+func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 	var (
 		marshalledURI      = uri.path
 		marshalledArgs     = marshallURIMap(uri.arguments)
@@ -56,7 +59,7 @@ func (uri UniformResourceIdentifier) MarshalJSON() string {
 	if len(marshalledMetadata) > 0 {
 		marshalledURI += "#" + marshalledMetadata
 	}
-	return marshalledURI
+	return []byte(marshalledURI), nil
 }
 
 func unmarshalArguments(source string) (map[string]string, error) {
