@@ -4,15 +4,8 @@ import (
 	"strings"
 )
 
-//hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
-type URI struct {
-	path      string
-	arguments map[string]string
-	metadata  map[string]string
-}
-
 // hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
-func NewURIFromString(source string) (URI, error) {
+func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	var (
 		arguments map[string]string = nil
 		metadata  map[string]string = nil
@@ -22,7 +15,7 @@ func NewURIFromString(source string) (URI, error) {
 	path := pathArgumentSplit[0]
 
 	if len(pathArgumentSplit) > 2 {
-		return URI{}, ErrInvalidURI
+		return UniformResourceIdentifier{}, ErrInvalidURI
 	}
 
 	if len(pathArgumentSplit) == 2 {
@@ -31,28 +24,28 @@ func NewURIFromString(source string) (URI, error) {
 		argumentsMetadataSplit := strings.Split(pathArgumentSplit[1], "#")
 		arguments, err = unmarshalArguments(argumentsMetadataSplit[0])
 		if err != nil {
-			return URI{}, err
+			return UniformResourceIdentifier{}, err
 		}
 
 		if len(argumentsMetadataSplit) > 1 {
 			metadata, err = unmarshalArguments(argumentsMetadataSplit[1])
 			if err != nil {
-				return URI{}, err
+				return UniformResourceIdentifier{}, err
 			}
 		}
 	}
 
-	return URI{
+	return UniformResourceIdentifier{
 		path:      path,
 		arguments: arguments,
 		metadata:  metadata,
 	}, nil
 }
 
-func (uri URI) MarshalJSON() string {
+func (uri UniformResourceIdentifier) MarshalJSON() string {
 	var (
-		marshalledURI = uri.path
-		marshalledArgs = marshallURIMap(uri.arguments)
+		marshalledURI      = uri.path
+		marshalledArgs     = marshallURIMap(uri.arguments)
 		marshalledMetadata = marshallURIMap(uri.metadata)
 	)
 
@@ -65,7 +58,6 @@ func (uri URI) MarshalJSON() string {
 	}
 	return marshalledURI
 }
-
 
 func unmarshalArguments(source string) (map[string]string, error) {
 	arguments := strings.Split(source, "&")
@@ -90,5 +82,5 @@ func marshallURIMap(uriMap map[string]string) string {
 	for key, value := range uriMap {
 		marshalledMap += key + "=" + value + "&"
 	}
-	return marshalledMap[:len(marshalledMap) - 1]
+	return marshalledMap[:len(marshalledMap)-1]
 }
