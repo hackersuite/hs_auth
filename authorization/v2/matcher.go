@@ -1,12 +1,7 @@
-package uri
+package v2
 
 import (
-	"errors"
 	"strings"
-)
-
-var (
-	ErrInvalidURI = errors.New("invalid URI string")
 )
 
 //hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
@@ -17,7 +12,7 @@ type URI struct {
 }
 
 // hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
-func ParseURI(source string) (*URI, error) {
+func NewURIFromString(source string) (URI, error) {
 	var (
 		arguments map[string]string = nil
 		metadata  map[string]string = nil
@@ -27,7 +22,7 @@ func ParseURI(source string) (*URI, error) {
 	path := pathArgumentSplit[0]
 
 	if len(pathArgumentSplit) > 2 {
-		return nil, ErrInvalidURI
+		return URI{}, ErrInvalidURI
 	}
 
 	if len(pathArgumentSplit) == 2 {
@@ -36,22 +31,29 @@ func ParseURI(source string) (*URI, error) {
 		argumentsMetadataSplit := strings.Split(pathArgumentSplit[1], "#")
 		arguments, err = unmarshalArguments(argumentsMetadataSplit[0])
 		if err != nil {
-			return nil, err
+			return URI{}, err
 		}
 
 		if len(argumentsMetadataSplit) > 1 {
 			metadata, err = unmarshalMetadata(argumentsMetadataSplit[1])
 			if err != nil {
-				return nil, err
+				return URI{}, err
 			}
 		}
 	}
 
-	return &URI{
+	return URI{
 		path:      path,
 		arguments: arguments,
 		metadata:  metadata,
 	}, nil
+}
+
+func MarshalJSON() ([]byte, error) {
+	if lvl, ok := stringAuthLevels[al]; ok {
+		return []byte(lvl), nil
+	}
+	return nil, ErrUnknownAuthLevel
 }
 
 func unmarshalArguments(source string) (map[string]string, error) {
