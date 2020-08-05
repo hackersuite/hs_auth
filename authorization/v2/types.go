@@ -2,8 +2,6 @@ package v2
 
 import "github.com/dgrijalva/jwt-go"
 
-type UniformResourceIdentifier string
-
 type TokenType string
 
 const user TokenType = "user"
