@@ -31,34 +31,33 @@ func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	var (
 		arguments map[string]string
 		metadata  map[string]string
+		err       error
 	)
 
-	pathArgumentSplit := strings.Split(source, "?")
-	path := pathArgumentSplit[0]
-
-	if len(pathArgumentSplit) > 2 {
+	pathMetadataSplit := strings.Split(source, "#")
+	if len(pathMetadataSplit) > 2 {
 		return UniformResourceIdentifier{}, ErrInvalidURI
-	}
+	} else if len(pathMetadataSplit) == 2 {
+		metadata, err = unmarshallURIList(pathMetadataSplit[1])
 
-	if len(pathArgumentSplit) == 2 {
-		var err error
-
-		argumentsMetadataSplit := strings.Split(pathArgumentSplit[1], "#")
-		arguments, err = unmarshalArguments(argumentsMetadataSplit[0])
 		if err != nil {
 			return UniformResourceIdentifier{}, err
 		}
+	}
 
-		if len(argumentsMetadataSplit) > 1 {
-			metadata, err = unmarshalArguments(argumentsMetadataSplit[1])
-			if err != nil {
-				return UniformResourceIdentifier{}, err
-			}
+	pathArgumentSplit := strings.Split(pathMetadataSplit[0], "?")
+	if len(pathArgumentSplit) > 2 {
+		return UniformResourceIdentifier{}, ErrInvalidURI
+	} else if len(pathArgumentSplit) == 2 {
+		arguments, err = unmarshallURIList(pathArgumentSplit[1])
+
+		if err != nil {
+			return UniformResourceIdentifier{}, err
 		}
 	}
 
 	return UniformResourceIdentifier{
-		path:      path,
+		path:      pathArgumentSplit[0],
 		arguments: arguments,
 		metadata:  metadata,
 	}, nil
@@ -111,22 +110,19 @@ func getRequestArguments(ctx *gin.Context) map[string]string {
 	return args
 }
 
-func unmarshalArguments(source string) (map[string]string, error) {
-	arguments := strings.Split(source, "&")
-	return unmarshallURIList(arguments)
-}
+func unmarshallURIList(source string) (map[string]string, error) {
+	uriListMapping := map[string]string{}
+	keyValuePairs := strings.Split(source, "&")
 
-func unmarshallURIList(uriList []string) (map[string]string, error) {
-	toReturn := map[string]string{}
-	for _, arg := range uriList {
-		split := strings.Split(arg, "=")
+	for _, keyValuePair := range keyValuePairs {
+		split := strings.Split(keyValuePair, "=")
 		if len(split) != 2 {
 			return nil, ErrInvalidURI
 		}
-
-		toReturn[split[0]] = split[1]
+		uriListMapping[split[0]] = split[1]
 	}
-	return toReturn, nil
+
+	return uriListMapping, nil
 }
 
 func marshallURIMap(uriMap map[string]string) string {
