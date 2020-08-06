@@ -87,6 +87,15 @@ func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("\"%s\"", marshalledURI)), nil
 }
 
+func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
+	parsedURI, err := NewURIFromString(string(data))
+	if err == nil {
+		*uri = parsedURI
+	}
+
+	return err
+}
+
 func getHandlerName(handler gin.HandlerFunc) string {
 	parts := strings.Split(runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name(), ".")
 	funcName := parts[len(parts)-1]
