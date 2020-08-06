@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/unicsmcr/hs_auth/authorization/v2/resources"
+	"net/url"
 	"reflect"
 	"runtime"
 	"strings"
@@ -31,15 +32,18 @@ func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	var (
 		arguments map[string]string
 		metadata  map[string]string
-		err       error
 	)
 
 	pathMetadataSplit := strings.Split(source, "#")
 	if len(pathMetadataSplit) > 2 {
 		return UniformResourceIdentifier{}, ErrInvalidURI
 	} else if len(pathMetadataSplit) == 2 {
-		metadata, err = unmarshallURIList(pathMetadataSplit[1])
+		unescapedMetadata, err := url.QueryUnescape(pathMetadataSplit[1])
+		if err != nil {
+			return UniformResourceIdentifier{}, ErrInvalidURI
+		}
 
+		metadata, err = unmarshallURIList(unescapedMetadata)
 		if err != nil {
 			return UniformResourceIdentifier{}, err
 		}
@@ -49,8 +53,12 @@ func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	if len(pathArgumentSplit) > 2 {
 		return UniformResourceIdentifier{}, ErrInvalidURI
 	} else if len(pathArgumentSplit) == 2 {
-		arguments, err = unmarshallURIList(pathArgumentSplit[1])
+		unescapedArguments, err := url.QueryUnescape(pathArgumentSplit[1])
+		if err != nil {
+			return UniformResourceIdentifier{}, ErrInvalidURI
+		}
 
+		arguments, err = unmarshallURIList(unescapedArguments)
 		if err != nil {
 			return UniformResourceIdentifier{}, err
 		}
@@ -72,11 +80,11 @@ func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 	)
 
 	if len(marshalledArgs) > 0 {
-		marshalledURI += "?" + marshalledArgs
+		marshalledURI += "?" + url.QueryEscape(marshalledArgs)
 	}
 
 	if len(marshalledMetadata) > 0 {
-		marshalledURI += "#" + marshalledMetadata
+		marshalledURI += "#" + url.QueryEscape(marshalledMetadata)
 	}
 
 	return []byte(fmt.Sprintf("\"%s\"", marshalledURI)), nil
