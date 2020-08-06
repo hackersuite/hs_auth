@@ -91,6 +91,8 @@ func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
 	parsedURI, err := NewURIFromString(string(data))
 	if err == nil {
 		*uri = parsedURI
+		// Unquote the URI path
+		uri.path = uri.path[1 : len(uri.path)-1]
 	}
 
 	return err
