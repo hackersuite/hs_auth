@@ -42,3 +42,77 @@ func TestNewUriFromRequest(t *testing.T) {
 	}, uri.arguments)
 	assert.Nil(t, uri.metadata)
 }
+
+func Test_NewURIFromString__should_return_correct_URI(t *testing.T) {
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri"
+
+	expectedURI := UniformResourceIdentifier{
+		path:      testURI,
+		arguments: nil,
+		metadata:  nil,
+	}
+
+	actualURI, err := NewURIFromString(testURI)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedURI, actualURI)
+}
+
+func Test_NewURIFromString__should_return_correct_URI_with_arguments(t *testing.T) {
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri=hs:hs_application:*"
+
+	expectedURI := UniformResourceIdentifier{
+		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+		arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+		metadata:  nil,
+	}
+
+	actualURI, err := NewURIFromString(testURI)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedURI, actualURI)
+}
+
+func Test_NewURIFromString__should_return_correct_URI_with_arguments_and_metadata(t *testing.T) {
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri=hs:hs_application:*#until=21392103"
+
+	expectedURI := UniformResourceIdentifier{
+		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+		arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+		metadata:  map[string]string{"until": "21392103"},
+	}
+
+	actualURI, err := NewURIFromString(testURI)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedURI, actualURI)
+}
+
+func Test_NewURIFromString__should_return_correct_URI_with_metadata(t *testing.T) {
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri#until=21392103"
+
+	expectedURI := UniformResourceIdentifier{
+		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+		arguments: nil,
+		metadata:  map[string]string{"until": "21392103"},
+	}
+
+	actualURI, err := NewURIFromString(testURI)
+	assert.NoError(t, err)
+
+	assert.Equal(t, expectedURI, actualURI)
+}
+
+func Test_NewURIFromString__should_throw_error_with_malformed_arguments(t *testing.T) {
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?test_arg"
+
+	_, err := NewURIFromString(testURI)
+	assert.Error(t, err)
+}
+
+func Test_NewURIFromString__should_throw_error_with_malformed_metadata(t *testing.T) {
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri#test_arg_metadata"
+
+	_, err := NewURIFromString(testURI)
+	assert.Error(t, err)
+}
