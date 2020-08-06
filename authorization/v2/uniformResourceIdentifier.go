@@ -78,7 +78,8 @@ func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 	if len(marshalledMetadata) > 0 {
 		marshalledURI += "#" + marshalledMetadata
 	}
-	return []byte(marshalledURI), nil
+
+	return []byte(fmt.Sprintf("\"%s\"", marshalledURI)), nil
 }
 
 func getHandlerName(handler gin.HandlerFunc) string {
