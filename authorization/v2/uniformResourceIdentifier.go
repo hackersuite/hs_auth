@@ -3,6 +3,7 @@ package v2
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/authorization/v2/resources"
 	"net/url"
 	"reflect"
@@ -31,12 +32,12 @@ func NewUriFromRequest(resource resources.Resource, handler gin.HandlerFunc, ctx
 func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	remainingURI, metadata, err := newURIListFromString(source, "#")
 	if err != nil {
-		return UniformResourceIdentifier{}, ErrInvalidURI
+		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, err.Error())
 	}
 
 	remainingURI, arguments, err := newURIListFromString(remainingURI, "?")
 	if err != nil {
-		return UniformResourceIdentifier{}, ErrInvalidURI
+		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, err.Error())
 	}
 
 	return UniformResourceIdentifier{
@@ -50,16 +51,16 @@ func newURIListFromString(source string, sep string) (remainingURI string, uriLi
 	sourceSplit := strings.Split(source, sep)
 
 	if len(sourceSplit) > 2 {
-		return "", nil, ErrInvalidURI
+		return "", nil, errors.New("malformed uri list")
 	} else if len(sourceSplit) == 2 {
 		unescapedURIList, err := url.QueryUnescape(sourceSplit[1])
 		if err != nil {
-			return "", nil, ErrInvalidURI
+			return "", nil, errors.Wrap(err, "could not unmarshall uri metadata")
 		}
 
 		uriList, err := unmarshallURIList(unescapedURIList)
 		if err != nil {
-			return "", nil, err
+			return "", nil, errors.New("could not unmarshall uri metadata")
 		}
 
 		return sourceSplit[0], uriList, nil
@@ -131,10 +132,10 @@ func unmarshallURIList(source string) (map[string]string, error) {
 	uriListMapping := map[string]string{}
 	keyValuePairs := strings.Split(source, "&")
 
-	for _, keyValuePair := range keyValuePairs {
+	for index, keyValuePair := range keyValuePairs {
 		split := strings.Split(keyValuePair, "=")
 		if len(split) != 2 {
-			return nil, ErrInvalidURI
+			return nil, errors.New("malformed key value pair at index " + string(index))
 		}
 		uriListMapping[split[0]] = split[1]
 	}
