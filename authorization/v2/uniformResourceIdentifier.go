@@ -29,46 +29,43 @@ func NewUriFromRequest(resource resources.Resource, handler gin.HandlerFunc, ctx
 // NewURIFromString expects the string to be of the following form, otherwise ErrInvalidURI is returned.
 // hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
 func NewURIFromString(source string) (UniformResourceIdentifier, error) {
-	var (
-		arguments map[string]string
-		metadata  map[string]string
-	)
-
-	pathMetadataSplit := strings.Split(source, "#")
-	if len(pathMetadataSplit) > 2 {
+	remainingURI, metadata, err := newURIListFromString(source, "#")
+	if err != nil {
 		return UniformResourceIdentifier{}, ErrInvalidURI
-	} else if len(pathMetadataSplit) == 2 {
-		unescapedMetadata, err := url.QueryUnescape(pathMetadataSplit[1])
-		if err != nil {
-			return UniformResourceIdentifier{}, ErrInvalidURI
-		}
-
-		metadata, err = unmarshallURIList(unescapedMetadata)
-		if err != nil {
-			return UniformResourceIdentifier{}, err
-		}
 	}
 
-	pathArgumentSplit := strings.Split(pathMetadataSplit[0], "?")
-	if len(pathArgumentSplit) > 2 {
+	remainingURI, arguments, err := newURIListFromString(remainingURI, "?")
+	if err != nil {
 		return UniformResourceIdentifier{}, ErrInvalidURI
-	} else if len(pathArgumentSplit) == 2 {
-		unescapedArguments, err := url.QueryUnescape(pathArgumentSplit[1])
-		if err != nil {
-			return UniformResourceIdentifier{}, ErrInvalidURI
-		}
-
-		arguments, err = unmarshallURIList(unescapedArguments)
-		if err != nil {
-			return UniformResourceIdentifier{}, err
-		}
 	}
 
 	return UniformResourceIdentifier{
-		path:      pathArgumentSplit[0],
+		path:      remainingURI,
 		arguments: arguments,
 		metadata:  metadata,
 	}, nil
+}
+
+func newURIListFromString(source string, sep string) (remainingURI string, uriList map[string]string, error error) {
+	sourceSplit := strings.Split(source, sep)
+
+	if len(sourceSplit) > 2 {
+		return "", nil, ErrInvalidURI
+	} else if len(sourceSplit) == 2 {
+		unescapedURIList, err := url.QueryUnescape(sourceSplit[1])
+		if err != nil {
+			return "", nil, ErrInvalidURI
+		}
+
+		uriList, err := unmarshallURIList(unescapedURIList)
+		if err != nil {
+			return "", nil, err
+		}
+
+		return sourceSplit[0], uriList, nil
+	} else {
+		return source, nil, nil
+	}
 }
 
 // MarshalJSON will convert the UniformResourceIdentifier struct into the standard string representation for URIs.
