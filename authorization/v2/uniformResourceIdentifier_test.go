@@ -59,7 +59,7 @@ func Test_NewURIFromString__should_return_correct_URI(t *testing.T) {
 }
 
 func Test_NewURIFromString__should_return_correct_URI_with_arguments(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri=hs:hs_application:*"
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A"
 
 	expectedURI := UniformResourceIdentifier{
 		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
@@ -74,7 +74,7 @@ func Test_NewURIFromString__should_return_correct_URI_with_arguments(t *testing.
 }
 
 func Test_NewURIFromString__should_return_correct_URI_with_arguments_and_metadata(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri=hs:hs_application:*#until=21392103"
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A#until%3D21392103"
 
 	expectedURI := UniformResourceIdentifier{
 		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
@@ -89,7 +89,7 @@ func Test_NewURIFromString__should_return_correct_URI_with_arguments_and_metadat
 }
 
 func Test_NewURIFromString__should_return_correct_URI_with_metadata(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri#until=21392103"
+	testURI := "hs:hs_auth:api:v2:provide_access_to_uri#until%3D21392103"
 
 	expectedURI := UniformResourceIdentifier{
 		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
@@ -118,15 +118,15 @@ func Test_NewURIFromString__should_throw_error(t *testing.T) {
 		},
 		{
 			name: "when malformed uri provided",
-			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#test_arg_metadata=test1#test_arg2=test2",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#test_arg_metadata%3Dtest1#test_arg2%3Dtest2",
 		},
 		{
 			name: "when malformed url encoded arguments provided",
-			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?test_arg=test1%ZZ",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1%ZZ",
 		},
 		{
 			name: "when malformed url encoded metadata provided",
-			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#test_arg=test1%NN%UU",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#test_arg%3Dtest1%NN%UU",
 		},
 	}
 
@@ -135,6 +135,60 @@ func Test_NewURIFromString__should_throw_error(t *testing.T) {
 			testURI := tt.uri
 			_, err := NewURIFromString(testURI)
 			assert.Error(t, err)
+		})
+	}
+}
+
+func Test_MarshalJSON__should_return_correct_string(t *testing.T) {
+	tests := []struct {
+		name           string
+		uri            UniformResourceIdentifier
+		expectedResult string
+	}{
+		{
+			name: "with only path",
+			uri: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: nil,
+				metadata:  nil,
+			},
+			expectedResult: "\"hs:hs_auth:api:v2:provide_access_to_uri\"",
+		},
+		{
+			name: "with path and arguments",
+			uri: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+				metadata:  nil,
+			},
+			expectedResult: "\"hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A\"",
+		},
+		{
+			name: "with path and metadata",
+			uri: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: nil,
+				metadata:  map[string]string{"test_arg": "test1"},
+			},
+			expectedResult: "\"hs:hs_auth:api:v2:provide_access_to_uri#test_arg%3Dtest1\"",
+		},
+		{
+			name: "with path, arguments and metadata",
+			uri: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"test_arg": "test1"},
+				metadata:  map[string]string{"until": "21392103"},
+			},
+			expectedResult: "\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.uri.MarshalJSON()
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expectedResult, string(result))
 		})
 	}
 }
