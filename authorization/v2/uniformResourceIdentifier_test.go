@@ -103,16 +103,38 @@ func Test_NewURIFromString__should_return_correct_URI_with_metadata(t *testing.T
 	assert.Equal(t, expectedURI, actualURI)
 }
 
-func Test_NewURIFromString__should_throw_error_with_malformed_arguments(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?test_arg"
+func Test_NewURIFromString__should_throw_error(t *testing.T) {
+	tests := []struct {
+		name string
+		uri  string
+	}{
+		{
+			name: "when malformed arguments provided",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?test_arg",
+		},
+		{
+			name: "when malformed metadata provided",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#test_arg_metadata",
+		},
+		{
+			name: "when malformed uri provided",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#test_arg_metadata=test1#test_arg2=test2",
+		},
+		{
+			name: "when malformed url encoded arguments provided",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?test_arg=test1%ZZ",
+		},
+		{
+			name: "when malformed url encoded metadata provided",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#test_arg=test1%NN%UU",
+		},
+	}
 
-	_, err := NewURIFromString(testURI)
-	assert.Error(t, err)
-}
-
-func Test_NewURIFromString__should_throw_error_with_malformed_metadata(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri#test_arg_metadata"
-
-	_, err := NewURIFromString(testURI)
-	assert.Error(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testURI := tt.uri
+			_, err := NewURIFromString(testURI)
+			assert.Error(t, err)
+		})
+	}
 }
