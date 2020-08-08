@@ -51,16 +51,16 @@ func newURIListFromString(source string, sep string) (remainingURI string, uriLi
 	sourceSplit := strings.Split(source, sep)
 
 	if len(sourceSplit) > 2 {
-		return "", nil, errors.New("malformed uri list")
+		return "", nil, errors.New(fmt.Sprintf("malformed uri, more than two '%s' characters found", sep))
 	} else if len(sourceSplit) == 2 {
 		unescapedURIList, err := url.QueryUnescape(sourceSplit[1])
 		if err != nil {
-			return "", nil, errors.Wrap(err, "could not unmarshall uri metadata")
+			return "", nil, errors.Wrap(err, "could not unescape URI list")
 		}
 
 		uriList, err := unmarshallURIList(unescapedURIList)
 		if err != nil {
-			return "", nil, errors.New("could not unmarshall uri metadata")
+			return "", nil, errors.Wrap(err, "could not unmarshall URI List")
 		}
 
 		return sourceSplit[0], uriList, nil
@@ -89,11 +89,12 @@ func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 }
 
 func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
-	parsedURI, err := NewURIFromString(string(data))
+	uriString := string(data)
+	unquotedURI := uriString[1 : len(uriString)-1]
+
+	parsedURI, err := NewURIFromString(unquotedURI)
 	if err == nil {
 		*uri = parsedURI
-		// Unquote the URI path
-		uri.path = uri.path[1 : len(uri.path)-1]
 	}
 
 	return err
@@ -153,5 +154,6 @@ func marshallURIMap(uriMap map[string]string) string {
 		marshalledMap += key + "=" + value + "&"
 	}
 
+	// Remove the extra '&' character introduced when marshaling the uriMap
 	return marshalledMap[:len(marshalledMap)-1]
 }

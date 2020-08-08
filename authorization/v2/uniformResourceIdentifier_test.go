@@ -44,63 +44,57 @@ func TestNewUriFromRequest(t *testing.T) {
 }
 
 func Test_NewURIFromString__should_return_correct_URI(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri"
-
-	expectedURI := UniformResourceIdentifier{
-		path:      testURI,
-		arguments: nil,
-		metadata:  nil,
+	tests := []struct {
+		name        string
+		uri         string
+		expectedURI UniformResourceIdentifier
+	}{
+		{
+			name: "with only path",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri",
+			expectedURI: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: nil,
+				metadata:  nil,
+			},
+		},
+		{
+			name: "with path and arguments",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A",
+			expectedURI: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+				metadata:  nil,
+			},
+		},
+		{
+			name: "with path, arguments and metadata",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A#until%3D21392103",
+			expectedURI: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+				metadata:  map[string]string{"until": "21392103"},
+			},
+		},
+		{
+			name: "with path and metadata",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri#until%3D21392103",
+			expectedURI: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: nil,
+				metadata:  map[string]string{"until": "21392103"},
+			},
+		},
 	}
 
-	actualURI, err := NewURIFromString(testURI)
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualURI, err := NewURIFromString(tt.uri)
+			assert.NoError(t, err)
 
-	assert.Equal(t, expectedURI, actualURI)
-}
-
-func Test_NewURIFromString__should_return_correct_URI_with_arguments(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A"
-
-	expectedURI := UniformResourceIdentifier{
-		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
-		arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
-		metadata:  nil,
+			assert.Equal(t, actualURI, tt.expectedURI)
+		})
 	}
-
-	actualURI, err := NewURIFromString(testURI)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedURI, actualURI)
-}
-
-func Test_NewURIFromString__should_return_correct_URI_with_arguments_and_metadata(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A#until%3D21392103"
-
-	expectedURI := UniformResourceIdentifier{
-		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
-		arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
-		metadata:  map[string]string{"until": "21392103"},
-	}
-
-	actualURI, err := NewURIFromString(testURI)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedURI, actualURI)
-}
-
-func Test_NewURIFromString__should_return_correct_URI_with_metadata(t *testing.T) {
-	testURI := "hs:hs_auth:api:v2:provide_access_to_uri#until%3D21392103"
-
-	expectedURI := UniformResourceIdentifier{
-		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
-		arguments: nil,
-		metadata:  map[string]string{"until": "21392103"},
-	}
-
-	actualURI, err := NewURIFromString(testURI)
-	assert.NoError(t, err)
-
-	assert.Equal(t, expectedURI, actualURI)
 }
 
 func Test_NewURIFromString__should_throw_error(t *testing.T) {
@@ -191,4 +185,20 @@ func Test_MarshalJSON__should_return_correct_string(t *testing.T) {
 			assert.Equal(t, tt.expectedResult, string(result))
 		})
 	}
+}
+
+func Test_UnmarshalJSON__should_return_correct_URI(t *testing.T) {
+	testURIString := "\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\""
+
+	expectedURI := UniformResourceIdentifier{
+		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+		arguments: map[string]string{"test_arg": "test1"},
+		metadata:  map[string]string{"until": "21392103"},
+	}
+
+	identifier := UniformResourceIdentifier{}
+	err := identifier.UnmarshalJSON([]byte(testURIString))
+	assert.NoError(t, err)
+
+	assert.Equal(t, identifier, expectedURI)
 }
