@@ -84,13 +84,12 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 				assert.Equal(t, service, claims.TokenType)
 			},
 		},
-		// TODO: uncomment this test when string -> URI -> string mapping is implemented
-		//{
-		//	name: "should use correct AllowedResources",
-		//	checks: func(claims TokenClaims) {
-		//		assert.Equal(t, testAllowedResources, claims.AllowedResources)
-		//	},
-		//},
+		{
+			name: "should use correct AllowedResources",
+			checks: func(claims TokenClaims) {
+				assert.Equal(t, testAllowedResources, claims.AllowedResources)
+			},
+		},
 	}
 
 	jwtSecret := "test_secret"
