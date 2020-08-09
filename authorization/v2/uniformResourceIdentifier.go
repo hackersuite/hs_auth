@@ -30,12 +30,12 @@ func NewUriFromRequest(resource resources.Resource, handler gin.HandlerFunc, ctx
 // NewURIFromString expects the string to be of the following form, otherwise ErrInvalidURI is returned.
 // hs:<service_name>:<subsystem>:<version>:<category>:<resource_name>?<allowed_arguments>#<permission_metadata>
 func NewURIFromString(source string) (UniformResourceIdentifier, error) {
-	remainingURI, metadata, err := newURIListFromString(source, "#")
+	remainingURI, metadata, err := extractURIListFromString(source, "#")
 	if err != nil {
 		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, errors.Wrap(err, "could not unmarshall metadata").Error())
 	}
 
-	remainingURI, arguments, err := newURIListFromString(remainingURI, "?")
+	remainingURI, arguments, err := extractURIListFromString(remainingURI, "?")
 	if err != nil {
 		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, errors.Wrap(err, "could not unmarshall arguments").Error())
 	}
@@ -47,7 +47,7 @@ func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	}, nil
 }
 
-func newURIListFromString(source string, sep string) (remainingURI string, uriList map[string]string, error error) {
+func extractURIListFromString(source string, sep string) (remainingURI string, uriList map[string]string, error error) {
 	sourceSplit := strings.Split(source, sep)
 
 	if len(sourceSplit) > 2 {
