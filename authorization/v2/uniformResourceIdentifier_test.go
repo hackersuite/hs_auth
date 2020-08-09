@@ -85,6 +85,15 @@ func Test_NewURIFromString__should_return_correct_URI(t *testing.T) {
 				metadata:  map[string]string{"until": "21392103"},
 			},
 		},
+		{
+			name: "with url encoded metadata rune in metadata",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?test=ok%23#test2=ok",
+			expectedURI: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"test": "ok#"},
+				metadata:  map[string]string{"test2": "ok"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -103,8 +112,16 @@ func Test_NewURIFromString__should_throw_error(t *testing.T) {
 		uri  string
 	}{
 		{
-			name: "when malformed arguments provided",
+			name: "when malformed arguments provided, with key only",
 			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?test_arg",
+		},
+		{
+			name: "when malformed arguments provided with key, no value",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri?test=",
+		},
+		{
+			name: "when more than one argument rune provided",
+			uri:  "hs:hs_auth:api:v2:provide_access_to_uri??",
 		},
 		{
 			name: "when malformed metadata provided",
