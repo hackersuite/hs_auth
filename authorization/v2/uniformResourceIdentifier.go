@@ -32,12 +32,12 @@ func NewUriFromRequest(resource resources.Resource, handler gin.HandlerFunc, ctx
 func NewURIFromString(source string) (UniformResourceIdentifier, error) {
 	remainingURI, metadata, err := newURIListFromString(source, "#")
 	if err != nil {
-		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, err.Error())
+		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, errors.Wrap(err, "could not unmarshall metadata").Error())
 	}
 
 	remainingURI, arguments, err := newURIListFromString(remainingURI, "?")
 	if err != nil {
-		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, err.Error())
+		return UniformResourceIdentifier{}, errors.Wrap(ErrInvalidURI, errors.Wrap(err, "could not unmarshall arguments").Error())
 	}
 
 	return UniformResourceIdentifier{
