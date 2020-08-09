@@ -157,3 +157,28 @@ func marshallURIMap(uriMap map[string]string) string {
 	// Remove the extra '&' character introduced when marshaling the uriMap
 	return marshalledMap[:len(marshalledMap)-1]
 }
+
+func IsURIMatch(source UniformResourceIdentifier, target UniformResourceIdentifier) bool {
+	var (
+		validPath     = true
+		sourcePathLen = len(source.path)
+		targetPathLen = len(target.path)
+	)
+
+	// Compare URI path
+	for i := 0; validPath && i < sourcePathLen && i < targetPathLen; i++ {
+		if source.path[i] != target.path[i] {
+			validPath = false
+		}
+	}
+
+	return validPath && targetPathLen <= sourcePathLen
+}
+
+func CompareURI(source UniformResourceIdentifier, targets []UniformResourceIdentifier) bool {
+	targetsMatch := true
+	for i := 0; targetsMatch && i < len(targets); i++ {
+		targetsMatch = IsURIMatch(source, targets[i])
+	}
+	return targetsMatch
+}
