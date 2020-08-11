@@ -224,3 +224,59 @@ func Test_UnmarshalJSON__should_return_correct_URI(t *testing.T) {
 
 	assert.Equal(t, identifier, expectedURI)
 }
+
+func Test_CompareURI__should_return_true_with_source_in_target_set(t *testing.T) {
+	tests := []struct {
+		name   string
+		source UniformResourceIdentifier
+		target []UniformResourceIdentifier
+	}{
+		{
+			name: "with valid source URI in target set, only path",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: nil,
+				metadata:  nil,
+			},
+			target: []UniformResourceIdentifier{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: nil,
+				metadata:  nil,
+			}},
+		},
+		{
+			name: "with valid source URI in target set, path and arguments",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+				metadata:  nil,
+			},
+			target: []UniformResourceIdentifier{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:checkin:*"},
+				metadata:  nil,
+			}},
+		},
+		{
+			name: "with valid source URI in target set, path, arguments and metadata",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+				metadata:  map[string]string{"until": "21392103"},
+			},
+			target: []UniformResourceIdentifier{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:checkin:*"},
+				metadata:  map[string]string{"until": "21392103"},
+			}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			valid := CompareURI(tt.source, tt.target)
+
+			assert.Equal(t, valid, true)
+		})
+	}
+}
