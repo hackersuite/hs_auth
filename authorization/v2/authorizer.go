@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -28,6 +29,8 @@ type Authorizer interface {
 	GetAuthorizedResources(token string, urisToCheck []UniformResourceIdentifier) ([]UniformResourceIdentifier, error)
 	// WithAuthMiddleware wraps the given operation handler with authorization middleware
 	WithAuthMiddleware(router resources.RouterResource, handler gin.HandlerFunc) gin.HandlerFunc
+	// GetUserIdFromToken extracts the user id from user tokens
+	GetUserIdFromToken(token string) (primitive.ObjectID, error)
 }
 
 func NewAuthorizer(provider utils.TimeProvider, env *environment.Env, logger *zap.Logger) Authorizer {
@@ -74,10 +77,7 @@ func (a *authorizer) CreateServiceToken(owner string, allowedResources []Uniform
 }
 
 func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []UniformResourceIdentifier) ([]UniformResourceIdentifier, error) {
-	var claims TokenClaims
-	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
-		return []byte(a.env.Get(environment.JWTSecret)), nil
-	})
+	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
 	if err != nil {
 		return nil, errors.Wrap(ErrInvalidToken, err.Error())
 	}
@@ -93,9 +93,9 @@ func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []UniformR
 
 func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operationHandler gin.HandlerFunc) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		token, err := router.GetAuthToken(ctx)
-		if err != nil || token == "" {
-			a.logger.Debug("empty token", zap.Error(err))
+		token := router.GetAuthToken(ctx)
+		if token == "" {
+			a.logger.Debug("empty token")
 			router.HandleUnauthorized(ctx)
 			return
 		}
@@ -119,6 +119,35 @@ func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operati
 		operationHandler(ctx)
 		return
 	}
+}
+
+func (a *authorizer) GetUserIdFromToken(token string) (primitive.ObjectID, error) {
+	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
+	if err != nil {
+		return primitive.ObjectID{}, errors.Wrap(ErrInvalidToken, err.Error())
+	}
+
+	if claims.TokenType != user {
+		return primitive.ObjectID{}, errors.Wrap(ErrInvalidTokenType, fmt.Sprintf("user id can only be "+
+			"extracted from tokens of type %s", user))
+	}
+
+	userId, err := primitive.ObjectIDFromHex(claims.StandardClaims.Id)
+	if err != nil {
+		return primitive.ObjectID{}, errors.Wrap(ErrInvalidToken, errors.Wrap(err, "malformed user id").Error())
+	}
+	return userId, nil
+}
+
+func getTokenClaims(token string, jwtSecret string) (TokenClaims, error) {
+	var claims TokenClaims
+	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
+		return []byte(jwtSecret), nil
+	})
+	if err != nil {
+		return TokenClaims{}, errors.Wrap(err, "could not parse token claims")
+	}
+	return claims, nil
 }
 
 func verifyTokenType(tokenType TokenType) error {

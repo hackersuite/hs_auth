@@ -8,12 +8,12 @@ import (
 type UserField string
 
 const (
-	UserID            UserField = "_id"
-	UserName          UserField = "name"
-	UserEmail         UserField = "email"
-	UserPassword      UserField = "password"
-	UserAuthLevel     UserField = "auth_level"
-	UserTeam          UserField = "team"
+	UserID        UserField = "_id"
+	UserName      UserField = "name"
+	UserEmail     UserField = "email"
+	UserPassword  UserField = "password"
+	UserAuthLevel UserField = "auth_level"
+	UserTeam      UserField = "team"
 )
 
 // User is the struct to store registered users
@@ -24,5 +24,6 @@ type User struct {
 	Password      string             `json:"-" bson:"password" validate:"required,min=6,max=160"`
 	EmailVerified bool               `json:"email_verified,omitempty" bson:"email_verified,omitempty"`
 	AuthLevel     common.AuthLevel   `json:"auth_level" bson:"auth_level" validate:"min=0,max=3"`
-	Team          primitive.ObjectID `json:"team,omitempty" bson:"team,omitempty"`
+	// TODO: omit team from JSON when team is primitive.NilObjectID
+	Team primitive.ObjectID `json:"team,omitempty" bson:"team,omitempty"`
 }
