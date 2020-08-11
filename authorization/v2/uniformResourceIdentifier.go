@@ -7,6 +7,7 @@ import (
 	"github.com/unicsmcr/hs_auth/authorization/v2/resources"
 	"net/url"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -158,27 +159,48 @@ func marshallURIMap(uriMap map[string]string) string {
 	return marshalledMap[:len(marshalledMap)-1]
 }
 
-func IsURIMatch(source UniformResourceIdentifier, target UniformResourceIdentifier) bool {
-	var (
-		validPath     = true
-		sourcePathLen = len(source.path)
-		targetPathLen = len(target.path)
-	)
+// isURIMatch checks that the target URI is a subset of the source URI (the URI which the user can access)
+func isURIMatch(source UniformResourceIdentifier, target UniformResourceIdentifier) bool {
+	// Ensure the target path is a subset of the source path
+	if len(source.path) > len(target.path) {
+		return false
+	}
 
 	// Compare URI path
-	for i := 0; validPath && i < sourcePathLen && i < targetPathLen; i++ {
-		if source.path[i] != target.path[i] {
-			validPath = false
+	for i, sourceCharacter := range source.path {
+		if uint8(sourceCharacter) != target.path[i] {
+			return false
 		}
 	}
 
-	return validPath && targetPathLen <= sourcePathLen
+	// Validate URI arguments
+	for key, sourceValue := range source.arguments {
+		if targetValue, ok := target.arguments[key]; ok {
+			match, err := regexp.Match(sourceValue, []byte(targetValue))
+			if !match || err != nil {
+				// Fail-soft, if the regex is invalid or the regex pattern match fails, the URIs don't match
+				return false
+			}
+		}
+	}
+
+	// Validate URI metadata
+	for key, sourceValue := range source.metadata {
+		targetValue, ok := target.metadata[key]
+		if !ok || sourceValue != targetValue {
+			return false
+		}
+	}
+
+	return true
 }
 
+// CompareURI validates that the source URI (the URI for which the user has permissions) matches
+// one of the URIs in the target set
 func CompareURI(source UniformResourceIdentifier, targets []UniformResourceIdentifier) bool {
 	targetsMatch := true
 	for i := 0; targetsMatch && i < len(targets); i++ {
-		targetsMatch = IsURIMatch(source, targets[i])
+		targetsMatch = isURIMatch(source, targets[i])
 	}
 	return targetsMatch
 }
