@@ -34,7 +34,7 @@ func (r *apiV2Router) Login(ctx *gin.Context) {
 	if err != nil {
 		switch errors.Cause(err) {
 		case services.ErrNotFound:
-			r.logger.Debug("user not found", zap.String("email", email))
+			r.logger.Debug("user not found", zap.String("email", email), zap.Error(err))
 			models.SendAPIError(ctx, http.StatusUnauthorized, "user not found")
 		default:
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -60,7 +60,7 @@ func (r *apiV2Router) Login(ctx *gin.Context) {
 // x-www-form-urlencoded
 // Request:  name string
 //           email string
-//			 password string
+//           password string
 // Response:
 func (r *apiV2Router) Register(ctx *gin.Context) {
 	name := ctx.PostForm("name")
@@ -77,7 +77,7 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 	if err != nil {
 		switch errors.Cause(err) {
 		case services.ErrEmailTaken:
-			r.logger.Debug("email taken", zap.String("email", email))
+			r.logger.Debug("email taken", zap.String("email", email), zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "user with given email already exists")
 		default:
 			r.logger.Error("could not create user", zap.Error(err))
