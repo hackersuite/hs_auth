@@ -259,7 +259,7 @@ func Test_isURIMatch__should_return_true_with_source_in_target_set(t *testing.T)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			valid := isURIMatch(tt.source, tt.target)
+			valid := tt.source.isSubsetOf(tt.target)
 
 			assert.Equal(t, valid, true)
 		})
@@ -297,7 +297,7 @@ func Test_isURIMatch__should_return_false_with_source_not_in_target_set(t *testi
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			valid := isURIMatch(tt.source, tt.target)
+			valid := tt.source.isSubsetOf(tt.target)
 
 			assert.Equal(t, valid, false)
 		})

@@ -160,21 +160,21 @@ func marshallURIMap(uriMap map[string]string) string {
 }
 
 // isURIMatch checks that the target URI is a subset of the source URI (the URI which the user can access)
-func isURIMatch(source UniformResourceIdentifier, target UniformResourceIdentifier) bool {
+func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier) bool {
 	// Ensure the target path is a subset of the source path
-	if len(source.path) > len(target.path) {
+	if len(uri.path) > len(target.path) {
 		return false
 	}
 
 	// Compare URI path
-	for i, sourceCharacter := range source.path {
+	for i, sourceCharacter := range uri.path {
 		if uint8(sourceCharacter) != target.path[i] {
 			return false
 		}
 	}
 
 	// Validate URI arguments
-	for key, sourceValue := range source.arguments {
+	for key, sourceValue := range uri.arguments {
 		if targetValue, ok := target.arguments[key]; ok {
 			match, err := regexp.Match(sourceValue, []byte(targetValue))
 			if !match || err != nil {
@@ -185,7 +185,7 @@ func isURIMatch(source UniformResourceIdentifier, target UniformResourceIdentifi
 	}
 
 	// Validate URI metadata
-	for key, sourceValue := range source.metadata {
+	for key, sourceValue := range uri.metadata {
 		targetValue, ok := target.metadata[key]
 		if !ok || sourceValue != targetValue {
 			return false
@@ -200,7 +200,7 @@ func isURIMatch(source UniformResourceIdentifier, target UniformResourceIdentifi
 func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
 	targetsMatch := false
 	for i := 0; !targetsMatch && i < len(targets); i++ {
-		targetsMatch = isURIMatch(uri, targets[i])
+		targetsMatch = uri.isSubsetOf(targets[i])
 	}
 	return targetsMatch
 }
