@@ -17,14 +17,14 @@ import (
 // Headers:  Authorization <- token
 func (r *apiV2Router) Login(ctx *gin.Context) {
 	email := ctx.PostForm("email")
-	if email == "" {
+	if len(email) == 0 {
 		r.logger.Debug("email was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "email must be provided")
 		return
 	}
 
 	password := ctx.PostForm("password")
-	if password == "" {
+	if len(password) == 0 {
 		r.logger.Debug("password was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "password must be provided")
 		return
@@ -56,7 +56,7 @@ func (r *apiV2Router) Login(ctx *gin.Context) {
 	})
 }
 
-// POST: /api/v1/users
+// POST: /api/v2/users
 // x-www-form-urlencoded
 // Request:  name string
 //           email string
