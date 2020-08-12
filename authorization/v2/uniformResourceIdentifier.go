@@ -197,10 +197,10 @@ func isURIMatch(source UniformResourceIdentifier, target UniformResourceIdentifi
 
 // CompareURI validates that the source URI (the URI for which the user has permissions) matches
 // one of the URIs in the target set
-func CompareURI(source UniformResourceIdentifier, targets []UniformResourceIdentifier) bool {
-	targetsMatch := true
-	for i := 0; targetsMatch && i < len(targets); i++ {
-		targetsMatch = isURIMatch(source, targets[i])
+func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
+	targetsMatch := false
+	for i := 0; !targetsMatch && i < len(targets); i++ {
+		targetsMatch = isURIMatch(uri, targets[i])
 	}
 	return targetsMatch
 }
