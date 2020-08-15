@@ -346,6 +346,20 @@ func Test_isSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T
 	assert.Equal(t, valid, false)
 }
 
+func Test_isSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *testing.T) {
+	testSource := UniformResourceIdentifier{
+		path: "hs:hs_auth1",
+	}
+	testTargets := []UniformResourceIdentifier{
+		{
+			path: "hs:hs_autb1",
+		},
+	}
+
+	valid := testSource.isSubsetOfAtLeastOne(testTargets)
+	assert.Equal(t, valid, false)
+}
+
 func Test_isSubsetOfAtLeastOne__should_return_false_when_metadata_doesnt_match(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:     "hs:hs_auth1",
