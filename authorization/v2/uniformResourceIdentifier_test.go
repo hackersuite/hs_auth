@@ -216,23 +216,23 @@ func Test_UnmarshalJSON__should_return_correct_URI(t *testing.T) {
 	assert.Equal(t, identifier, expectedURI)
 }
 
-func Test_isURIMatch__should_return_true_with_source_in_target_set(t *testing.T) {
+func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T) {
 	tests := []struct {
 		name   string
 		source UniformResourceIdentifier
 		target UniformResourceIdentifier
 	}{
 		{
-			name: "with source URI in target set, only path",
+			name: "only path",
 			source: UniformResourceIdentifier{
-				path: "hs:hs_auth:api:v2:provide_access_to_uri",
+				path: "hs:hs_auth:api:v2",
 			},
 			target: UniformResourceIdentifier{
 				path: "hs:hs_auth:api:v2:provide_access_to_uri",
 			},
 		},
 		{
-			name: "with source URI in target set, path and arguments",
+			name: "path and arguments",
 			source: UniformResourceIdentifier{
 				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
 				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
@@ -243,7 +243,7 @@ func Test_isURIMatch__should_return_true_with_source_in_target_set(t *testing.T)
 			},
 		},
 		{
-			name: "with source URI in target set, path, arguments and metadata",
+			name: "path, arguments and metadata",
 			source: UniformResourceIdentifier{
 				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
 				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
@@ -266,14 +266,14 @@ func Test_isURIMatch__should_return_true_with_source_in_target_set(t *testing.T)
 	}
 }
 
-func Test_isURIMatch__should_return_false_with_source_not_in_target_set(t *testing.T) {
+func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testing.T) {
 	tests := []struct {
 		name   string
 		source UniformResourceIdentifier
 		target UniformResourceIdentifier
 	}{
 		{
-			name: "with source URI not in target set, only path",
+			name: "only path",
 			source: UniformResourceIdentifier{
 				path: "hs:hs_application:user:@me",
 			},
@@ -282,7 +282,7 @@ func Test_isURIMatch__should_return_false_with_source_not_in_target_set(t *testi
 			},
 		},
 		{
-			name: "with source URI in target set, path and arguments",
+			name: "path and arguments",
 			source: UniformResourceIdentifier{
 				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
 				arguments: map[string]string{"allowed_uri": "hs:hs_application:checkin:*"},
@@ -302,4 +302,46 @@ func Test_isURIMatch__should_return_false_with_source_not_in_target_set(t *testi
 			assert.Equal(t, valid, false)
 		})
 	}
+}
+
+func Test_isSubsetOf__should_return_false_when_target_doesnt_contain_source_arguments(t *testing.T) {
+	testSource := UniformResourceIdentifier{
+		path:      "hs:hs_auth",
+		arguments: map[string]string{"test": "1"},
+	}
+	testTarget := UniformResourceIdentifier{
+		path: "hs:hs_auth",
+	}
+
+	valid := testSource.isSubsetOf(testTarget)
+	assert.Equal(t, valid, false)
+}
+
+func Test_isSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {
+	testSource := UniformResourceIdentifier{
+		path:      "hs:hs_auth",
+		arguments: map[string]string{"test": "1"},
+	}
+	testTargets := []UniformResourceIdentifier{
+		{
+			path: "hs:hs_auth",
+		},
+		{
+			path:      "hs:hs_auth",
+			arguments: map[string]string{"test": "1"},
+		},
+	}
+
+	valid := testSource.isSubsetOfAtLeastOne(testTargets)
+	assert.Equal(t, valid, true)
+}
+
+func Test_isSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T) {
+	testSource := UniformResourceIdentifier{
+		path:      "hs:hs_auth",
+		arguments: map[string]string{"test": "1"},
+	}
+
+	valid := testSource.isSubsetOfAtLeastOne(nil)
+	assert.Equal(t, valid, false)
 }
