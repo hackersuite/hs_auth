@@ -181,6 +181,13 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 				// Fail-soft, if the regex is invalid or the regex pattern match fails, the URIs don't match
 				return false
 			}
+		} else {
+			// In the case the target URI doesn't contain an argument in the source
+			// the target is no longer a subset of the source.
+			// e.g. Source = hs:hs_auth?test=1 and Target = hs:hs_auth
+			// this means, hs:hs_auth is not a subset of the source since it is limited
+			// by the argument "test=1"
+			return false
 		}
 	}
 
@@ -198,9 +205,10 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 // CompareURI validates that the source URI (the URI for which the user has permissions) matches
 // one of the URIs in the target set
 func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
-	targetsMatch := false
-	for i := 0; !targetsMatch && i < len(targets); i++ {
-		targetsMatch = uri.isSubsetOf(targets[i])
+	for i := 0; i < len(targets); i++ {
+		if uri.isSubsetOf(targets[i]) {
+			return true
+		}
 	}
-	return targetsMatch
+	return false
 }
