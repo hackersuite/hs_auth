@@ -116,9 +116,6 @@ func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operati
 		}
 
 		if len(authorized) == 0 {
-			// TODO: implement unit test for this branch.
-			// Blocked as GetAuthorizedResources does not actually
-			// check what resources the token can access.
 			router.HandleUnauthorized(ctx)
 			return
 		}
