@@ -27,6 +27,11 @@ func (r *apiV2Router) ServiceToken(ctx *gin.Context) {
 		return
 	}
 
+	// expiresAt is optional in the form, the default value is -1, i.e. never expires
+	if len(expiresAt) == 0 {
+		expiresAt = "-1"
+	}
+
 	uriList := strings.Split(allowedURIs, ",")
 	var parsedURIs []v2.UniformResourceIdentifier
 	for _, uriString := range uriList {
@@ -39,15 +44,14 @@ func (r *apiV2Router) ServiceToken(ctx *gin.Context) {
 		parsedURIs = append(parsedURIs, uri)
 	}
 
-	var expiresAtParsed int64
-	expiresAtParsed, err := strconv.ParseInt(expiresAt, 10, 64)
+	parsedExpiresAt, err := strconv.ParseInt(expiresAt, 10, 64)
 	if err != nil {
 		r.logger.Error("expiresAt time could not be parsed", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusBadRequest, "expiresAt must be an integer")
 		return
 	}
 
-	token, err := r.authorizer.CreateServiceToken(owner, parsedURIs, expiresAtParsed)
+	token, err := r.authorizer.CreateServiceToken(owner, parsedURIs, parsedExpiresAt)
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with creating service token")
