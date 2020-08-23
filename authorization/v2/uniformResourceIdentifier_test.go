@@ -282,6 +282,15 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 			},
 		},
 		{
+			name: "only path with same number of components",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUser",
+			},
+			target: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUsers",
+			},
+		},
+		{
 			name: "path and arguments",
 			source: UniformResourceIdentifier{
 				path:      "hs:hs_auth:api:v2:provide_access_to_uri",

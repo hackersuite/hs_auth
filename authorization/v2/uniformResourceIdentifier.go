@@ -159,7 +159,7 @@ func marshallURIMap(uriMap map[string]string) string {
 	return marshalledMap[:len(marshalledMap)-1]
 }
 
-// isURIMatch checks that the target URI is a subset of the source URI (the URI which the user can access)
+// isSubsetOf checks that the URI is a subset of the given URI
 func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier) bool {
 	// Ensure the target path is a subset of the source path
 	if len(uri.path) > len(target.path) {
@@ -167,8 +167,10 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 	}
 
 	// Compare URI path
-	for i, sourceCharacter := range uri.path {
-		if uint8(sourceCharacter) != target.path[i] {
+	sourcePathComponents := strings.Split(uri.path, ":")
+	targetPathComponents := strings.Split(target.path, ":")
+	for i, pathComponent := range sourcePathComponents {
+		if pathComponent != targetPathComponents[i] {
 			return false
 		}
 	}
@@ -202,8 +204,7 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 	return true
 }
 
-// CompareURI validates that the source URI (the URI for which the user has permissions) matches
-// one of the URIs in the target set
+// isSubsetOfAtLeastOne checks if the URI is a subset of at least one of the given URIs
 func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
 	for i := 0; i < len(targets); i++ {
 		if uri.isSubsetOf(targets[i]) {
