@@ -193,14 +193,7 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 		}
 	}
 
-	// Validate URI metadata
-	for key, sourceValue := range uri.metadata {
-		targetValue, ok := target.metadata[key]
-		if !ok || sourceValue != targetValue {
-			return false
-		}
-	}
-
+	// TODO: Add URI metadata validation. See https://github.com/unicsmcr/hs_auth/pull/91#discussion_r471787861
 	return true
 }
 
