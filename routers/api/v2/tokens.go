@@ -24,7 +24,7 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 	}
 	err := ctx.Bind(&req)
 	if err != nil {
-		r.logger.Debug(err.Error())
+		r.logger.Debug("could not parse service token request", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse request")
 		return
 	}
@@ -46,7 +46,7 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 	for i, uriString := range uriList {
 		err = parsedURIs[i].UnmarshalJSON([]byte(uriString))
 		if err != nil {
-			r.logger.Error("provided URI could not be parsed", zap.Error(err))
+			r.logger.Debug("provided URI could not be parsed", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "invalid URI string in allowedURIs")
 			return
 		}
