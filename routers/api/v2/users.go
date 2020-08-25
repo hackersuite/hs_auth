@@ -16,25 +16,29 @@ import (
 // Response: token string
 // Headers:  Authorization <- token
 func (r *apiV2Router) Login(ctx *gin.Context) {
-	email := ctx.PostForm("email")
-	if len(email) == 0 {
+	var req struct {
+		Email    string `form:"email"`
+		Password string `form:"password"`
+	}
+	ctx.Bind(&req)
+
+	if len(req.Email) == 0 {
 		r.logger.Debug("email was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "email must be provided")
 		return
 	}
 
-	password := ctx.PostForm("password")
-	if len(password) == 0 {
+	if len(req.Password) == 0 {
 		r.logger.Debug("password was not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "password must be provided")
 		return
 	}
 
-	user, err := r.userService.GetUserWithEmailAndPwd(ctx, email, password)
+	user, err := r.userService.GetUserWithEmailAndPwd(ctx, req.Email, req.Password)
 	if err != nil {
 		switch errors.Cause(err) {
 		case services.ErrNotFound:
-			r.logger.Debug("user not found", zap.String("email", email), zap.Error(err))
+			r.logger.Debug("user not found", zap.String("email", req.Email), zap.Error(err))
 			models.SendAPIError(ctx, http.StatusUnauthorized, "user not found")
 		default:
 			r.logger.Error("could not fetch user", zap.Error(err))
@@ -63,21 +67,24 @@ func (r *apiV2Router) Login(ctx *gin.Context) {
 //           password string
 // Response:
 func (r *apiV2Router) Register(ctx *gin.Context) {
-	name := ctx.PostForm("name")
-	email := ctx.PostForm("email")
-	password := ctx.PostForm("password")
+	var req struct {
+		Name     string `form:"name"`
+		Email    string `form:"email"`
+		Password string `form:"password"`
+	}
+	ctx.Bind(&req)
 
-	if len(name) == 0 || len(email) == 0 || len(password) == 0 {
-		r.logger.Debug("one of name, email or password not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)))
+	if len(req.Name) == 0 || len(req.Email) == 0 || len(req.Password) == 0 {
+		r.logger.Debug("one of name, email or password not specified", zap.String("name", req.Name), zap.String("email", req.Email), zap.Int("password length", len(req.Password)))
 		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the user's name, email and passowrd")
 		return
 	}
 
-	_, err := r.userService.CreateUser(ctx, name, email, password)
+	_, err := r.userService.CreateUser(ctx, req.Name, req.Email, req.Password)
 	if err != nil {
 		switch errors.Cause(err) {
 		case services.ErrEmailTaken:
-			r.logger.Debug("email taken", zap.String("email", email), zap.Error(err))
+			r.logger.Debug("email taken", zap.String("email", req.Email), zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "user with given email already exists")
 		default:
 			r.logger.Error("could not create user", zap.Error(err))
