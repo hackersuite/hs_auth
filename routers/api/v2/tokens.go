@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
@@ -44,7 +45,7 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 	uriList := strings.Split(req.AllowedURIs, ",")
 	parsedURIs := make([]v2.UniformResourceIdentifier, len(uriList))
 	for i, uriString := range uriList {
-		err = parsedURIs[i].UnmarshalJSON([]byte(uriString))
+		err := json.Unmarshal([]byte(uriString), &parsedURIs[i])
 		if err != nil {
 			r.logger.Debug("provided URI could not be parsed", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "invalid URI string in allowedURIs")
