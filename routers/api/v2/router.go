@@ -23,6 +23,7 @@ type APIV2Router interface {
 	Register(ctx *gin.Context)
 	GetUsers(ctx *gin.Context)
 	GetAuthorizedResources(ctx *gin.Context)
+	CreateServiceToken(ctx *gin.Context)
 }
 
 type apiV2Router struct {
@@ -55,6 +56,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 
 	tokensGroup := routerGroup.Group("/tokens")
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
+	tokensGroup.POST("/service", r.authorizer.WithAuthMiddleware(r, r.CreateServiceToken))
 }
 
 func (r *apiV2Router) GetResourcePath() string {
