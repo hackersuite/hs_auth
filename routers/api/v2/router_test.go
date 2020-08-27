@@ -27,6 +27,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
 	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrNotFound)
+	mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
 	router.RegisterRoutes(&testServer.RouterGroup)
