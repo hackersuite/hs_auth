@@ -260,7 +260,7 @@ func TestAuthorizer_WithAuthMiddleware_should_call_HandleUnauthorized(t *testing
 			name: "when GetAuthorizedResources returns empty array",
 			prep: func(setup *authorizerTestSetup) {
 				token := createToken(t, "test_token", nil, int64(10000), service, "")
-				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token, nil).Times(1)
+				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
 				setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 			},
 		},
