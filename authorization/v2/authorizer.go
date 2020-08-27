@@ -49,7 +49,7 @@ type authorizer struct {
 
 func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate int64) (string, error) {
 	timestamp := a.timeProvider.Now().Unix()
-	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        userId.Hex(),
 			IssuedAt:  timestamp,
@@ -63,7 +63,7 @@ func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate i
 
 func (a *authorizer) CreateServiceToken(owner string, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
 	timestamp := a.timeProvider.Now().Unix()
-	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        owner,
 			IssuedAt:  timestamp,
@@ -139,13 +139,13 @@ func (a *authorizer) GetUserIdFromToken(token string) (primitive.ObjectID, error
 	return userId, nil
 }
 
-func getTokenClaims(token string, jwtSecret string) (TokenClaims, error) {
-	var claims TokenClaims
+func getTokenClaims(token string, jwtSecret string) (tokenClaims, error) {
+	var claims tokenClaims
 	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
 		return []byte(jwtSecret), nil
 	})
 	if err != nil {
-		return TokenClaims{}, errors.Wrap(err, "could not parse token claims")
+		return tokenClaims{}, errors.Wrap(err, "could not parse token claims")
 	}
 	return claims, nil
 }

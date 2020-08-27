@@ -60,35 +60,35 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		checks func(claims TokenClaims)
+		checks func(claims tokenClaims)
 	}{
 		{
 			name: "should use correct Id",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testOwner, claims.Id)
 			},
 		},
 		{
 			name: "should use correct IssuedAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix(), claims.IssuedAt)
 			},
 		},
 		{
 			name: "should use correct ExpiresAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix()+testTTL, claims.ExpiresAt)
 			},
 		},
 		{
 			name: "should use correct TokenType",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, service, claims.TokenType)
 			},
 		},
 		{
 			name: "should use correct AllowedResources",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testAllowedResources, claims.AllowedResources)
 			},
 		},
@@ -117,29 +117,29 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		checks func(claims TokenClaims)
+		checks func(claims tokenClaims)
 	}{
 		{
 			name: "should use correct Id",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testUserId.Hex(), claims.Id)
 			},
 		},
 		{
 			name: "should use correct IssuedAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix(), claims.IssuedAt)
 			},
 		},
 		{
 			name: "should use correct ExpiresAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix()+testTTL, claims.ExpiresAt)
 			},
 		},
 		{
 			name: "should use correct TokenType",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, user, claims.TokenType)
 			},
 		},
@@ -336,7 +336,7 @@ func TestAuthorizer_GetUserIdFromToken__should_return_correct_user_id(t *testing
 }
 
 func createToken(t *testing.T, id string, allowedResources []UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {
-	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        id,
 			IssuedAt:  time.Now().Unix(),
@@ -352,8 +352,8 @@ func createToken(t *testing.T, id string, allowedResources []UniformResourceIden
 	return tokenStr
 }
 
-func extractTokenClaims(t *testing.T, token string, jwtSecret string) TokenClaims {
-	var claims TokenClaims
+func extractTokenClaims(t *testing.T, token string, jwtSecret string) tokenClaims {
+	var claims tokenClaims
 	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
 		return []byte(jwtSecret), nil
 	})
