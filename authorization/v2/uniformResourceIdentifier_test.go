@@ -313,13 +313,14 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 	}
 }
 
-func Test_isSubsetOf__should_return_false_when_target_doesnt_contain_source_arguments(t *testing.T) {
+func Test_isSubsetOf__should_return_false_when_source_doesnt_match_target_arguments(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
 	}
 	testTarget := UniformResourceIdentifier{
-		path: "hs:hs_auth",
+		path:      "hs:hs_auth",
+		arguments: map[string]string{"test": "1", "foo": "bar"},
 	}
 
 	valid := testSource.isSubsetOf(testTarget)
@@ -333,7 +334,7 @@ func Test_isSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *t
 	}
 	testTargets := []UniformResourceIdentifier{
 		{
-			path: "hs:hs_auth",
+			path: "hs:hs_application",
 		},
 		{
 			path:      "hs:hs_auth",

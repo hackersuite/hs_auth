@@ -176,19 +176,18 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 	}
 
 	// Validate URI arguments
-	for key, sourceValue := range uri.arguments {
-		if targetValue, ok := target.arguments[key]; ok {
+	for key, targetValue := range target.arguments {
+		if sourceValue, ok := uri.arguments[key]; ok {
 			match, err := regexp.Match(sourceValue, []byte(targetValue))
 			if !match || err != nil {
 				// Fail-soft, if the regex is invalid or the regex pattern match fails, the URIs don't match
 				return false
 			}
 		} else {
-			// In the case the target URI doesn't contain an argument in the source
-			// the target is no longer a subset of the source.
-			// e.g. Source = hs:hs_auth?test=1 and Target = hs:hs_auth
-			// this means, hs:hs_auth is not a subset of the source since it is limited
-			// by the argument "test=1"
+			// In the case the source URI doesn't contain an argument that exists in the target URI
+			// the uri is no longer a subset of the target.
+			// e.g. Source = hs:hs_auth and Target = hs:hs_auth?test=1
+			// this means, the source is not a subset of the target since it is limited by the argument "test=1"
 			return false
 		}
 	}
