@@ -12,7 +12,7 @@ type Resource interface {
 type RouterResource interface {
 	Resource
 	// GetAuthToken extracts the authorization token from given request
-	GetAuthToken(ctx *gin.Context) (string, error)
+	GetAuthToken(ctx *gin.Context) string
 	// HandleUnauthorized handles an unauthorized request
 	HandleUnauthorized(ctx *gin.Context)
 }

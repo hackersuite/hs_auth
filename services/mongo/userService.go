@@ -184,7 +184,7 @@ func (s *mongoUserService) GetUserWithJWT(ctx context.Context, jwt string) (*ent
 	return s.GetUserWithID(ctx, claims.Id)
 }
 
-func (s *mongoUserService) GetTeammatesForUserWithID(ctx context.Context, userID string) ([]entities.User, error) {
+func (s *mongoUserService) GetTeamMembersForUserWithID(ctx context.Context, userID string) ([]entities.User, error) {
 	user, err := s.GetUserWithID(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -199,9 +199,18 @@ func (s *mongoUserService) GetTeammatesForUserWithID(ctx context.Context, userID
 		return nil, err
 	}
 
+	return teamMembers, nil
+}
+
+func (s *mongoUserService) GetTeammatesForUserWithID(ctx context.Context, userID string) ([]entities.User, error) {
+	teamMembers, err := s.GetTeamMembersForUserWithID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
 	// removing the given user from the list of team members to ensure only the teammates are returned
 	for i, member := range teamMembers {
-		if member.ID == user.ID {
+		if member.ID.Hex() == userID {
 			teamMembers = append(teamMembers[:i], teamMembers[i+1:]...)
 			break
 		}

@@ -1,6 +1,11 @@
 package v2
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
@@ -12,10 +17,6 @@ import (
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
 )
 
 type authorizerTestSetup struct {
@@ -25,6 +26,8 @@ type authorizerTestSetup struct {
 	testCtx            *gin.Context
 	ctrl               *gomock.Controller
 }
+
+var testUserId = primitive.NewObjectID()
 
 func setupAuthorizerTests(t *testing.T, jwtSecret string) authorizerTestSetup {
 	restore := testutils.SetEnvVars(map[string]string{
@@ -243,19 +246,13 @@ func TestAuthorizer_WithAuthMiddleware_should_call_HandleUnauthorized(t *testing
 		{
 			name: "when token is empty",
 			prep: func(setup *authorizerTestSetup) {
-				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return("", nil).Times(1)
-			},
-		},
-		{
-			name: "when GetAuthToken returns err",
-			prep: func(setup *authorizerTestSetup) {
-				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return("123123", errors.New("test err")).Times(1)
+				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return("").Times(1)
 			},
 		},
 		{
 			name: "when GetAuthorizedResources returns err",
 			prep: func(setup *authorizerTestSetup) {
-				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return("invalid_token", nil).Times(1)
+				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return("invalid_token").Times(1)
 				setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 			},
 		},
@@ -297,7 +294,7 @@ func TestAuthorizer_WithAuthMiddleware_should_call_handler_when_request_is_autho
 			path: "resource",
 		},
 	}, int64(10000), service, "")
-	setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token, nil).Times(1)
+	setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
 	setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 
 	wrappedHandler := setup.authorizer.WithAuthMiddleware(setup.mockRouterResource, mockHandler)
@@ -305,6 +302,54 @@ func TestAuthorizer_WithAuthMiddleware_should_call_handler_when_request_is_autho
 	wrappedHandler(setup.testCtx)
 
 	assert.True(t, mockHandlerCalled)
+}
+
+func TestAuthorizer_GetUserIdFromToken__should_return_error(t *testing.T) {
+	tests := []struct {
+		name       string
+		token      string
+		wantErr    error
+		wantUserId primitive.ObjectID
+	}{
+		{
+			name:    "when token is empty",
+			token:   "",
+			wantErr: ErrInvalidToken,
+		},
+		{
+			name:    "when token type is not user",
+			token:   createToken(t, "id", nil, int64(10000), service, ""),
+			wantErr: ErrInvalidTokenType,
+		},
+		{
+			name:    "when user id is malformed",
+			token:   createToken(t, "invalid id", nil, int64(10000), user, ""),
+			wantErr: ErrInvalidToken,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupAuthorizerTests(t, "")
+			defer setup.ctrl.Finish()
+
+			userId, err := setup.authorizer.GetUserIdFromToken(tt.token)
+
+			assert.Equal(t, tt.wantUserId, userId)
+			assert.Equal(t, tt.wantErr, errors.Cause(err))
+		})
+	}
+}
+
+func TestAuthorizer_GetUserIdFromToken__should_return_correct_user_id(t *testing.T) {
+	setup := setupAuthorizerTests(t, "")
+	defer setup.ctrl.Finish()
+	token := createToken(t, testUserId.Hex(), nil, int64(10000), user, "")
+
+	userId, err := setup.authorizer.GetUserIdFromToken(token)
+
+	assert.Equal(t, testUserId, userId)
+	assert.NoError(t, err)
 }
 
 func createToken(t *testing.T, id string, allowedResources []UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {

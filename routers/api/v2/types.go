@@ -9,8 +9,16 @@ type loginRes struct {
 	Token string `json:"token"`
 }
 
+type serviceTokenRes struct {
+	Token string `json:"token"`
+}
+
 type getUsersRes struct {
 	Users []entities.User `json:"users"`
+}
+
+type getUserRes struct {
+	User entities.User `json:"user"`
 }
 
 type getAuthorizedResourcesRes struct {

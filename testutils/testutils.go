@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"reflect"
-
-	"github.com/gin-gonic/gin"
+	"runtime"
 )
 
 // UnmarshallResponse unmarshalls the reponse in res and stores it in out
@@ -144,4 +144,34 @@ func (r RouterGroupMatcher) Matches(x interface{}) bool {
 
 func (r RouterGroupMatcher) String() string {
 	return fmt.Sprintf("router group's base path is %s", r.Path)
+}
+
+// HandlerFuncMatcher matches gin handlers
+type HandlerFuncMatcher struct {
+	handlerName string
+}
+
+func NewHandlerFuncMatcher(handler gin.HandlerFunc) HandlerFuncMatcher {
+	return HandlerFuncMatcher{
+		handlerName: getHandlerName(handler),
+	}
+}
+
+// Matches implements the gomock.Matcher interface
+func (m HandlerFuncMatcher) Matches(x interface{}) bool {
+	handler, ok := x.(gin.HandlerFunc)
+	if !ok {
+		return false
+	}
+	return m.handlerName == getHandlerName(handler)
+}
+
+// String implements the gomock.Matcher interface
+func (m HandlerFuncMatcher) String() string {
+	return fmt.Sprintf("handler name equal to %s", m.handlerName)
+}
+
+
+func getHandlerName(handler gin.HandlerFunc) string {
+	return runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
 }

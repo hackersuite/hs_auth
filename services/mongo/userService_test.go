@@ -723,3 +723,54 @@ func Test_GetTeammatesForUserWithID__should_return_expected_users(t *testing.T) 
 
 	assert.Equal(t, []entities.User{testUser2}, teammates)
 }
+
+func Test_GetTeammatesForUserWithID__should_return_error_when_id_is_invalid(t *testing.T) {
+	uService, _, cleanup := setupUserTest(t)
+	defer cleanup()
+
+	teammates, err := uService.GetTeammatesForUserWithID(context.Background(), "invalid id")
+
+	assert.Equal(t, services.ErrInvalidID, err)
+	assert.Nil(t, teammates)
+}
+
+func Test_GetTeamMembersForUserWithID__should_return_expected_users(t *testing.T) {
+	uService, uRepo, cleanup := setupUserTest(t)
+	defer cleanup()
+
+	testUser2 := testUser
+	testUser2.ID = primitive.NewObjectID()
+	testUser2.Email = "test2@email.com"
+
+	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2})
+	assert.NoError(t, err)
+
+	members, err := uService.GetTeamMembersForUserWithID(context.Background(), testUser.ID.Hex())
+
+	assert.NoError(t, err)
+	assert.Equal(t, []entities.User{testUser, testUser2}, members)
+}
+
+func Test_GetTeamMembersForUserWithID__should_return_error_when_user_id_is_invalid(t *testing.T) {
+	uService, _, cleanup := setupUserTest(t)
+	defer cleanup()
+
+	members, err := uService.GetTeamMembersForUserWithID(context.Background(), "invalid id")
+
+	assert.Equal(t, services.ErrInvalidID, err)
+	assert.Nil(t, members)
+}
+
+func Test_GetTeamMembersForUserWithID__should_return_error_when_user_is_not_in_a_team(t *testing.T) {
+	uService, uRepo, cleanup := setupUserTest(t)
+	defer cleanup()
+
+	_, err := uRepo.InsertOne(context.Background(), entities.User{
+		ID: testUser.ID,
+	})
+
+	members, err := uService.GetTeamMembersForUserWithID(context.Background(), testUser.ID.Hex())
+
+	assert.Equal(t, services.ErrUserNotInTeam, err)
+	assert.Nil(t, members)
+}
