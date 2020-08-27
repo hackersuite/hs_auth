@@ -31,6 +31,8 @@ type Authorizer interface {
 	WithAuthMiddleware(router resources.RouterResource, handler gin.HandlerFunc) gin.HandlerFunc
 	// GetUserIdFromToken extracts the user id from user tokens
 	GetUserIdFromToken(token string) (primitive.ObjectID, error)
+	// GetTokenTypeFromToke extracts the token type from the given token
+	GetTokenTypeFromToken(token string) (TokenType, error)
 }
 
 func NewAuthorizer(provider utils.TimeProvider, env *environment.Env, logger *zap.Logger) Authorizer {
@@ -55,7 +57,7 @@ func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate i
 			IssuedAt:  timestamp,
 			ExpiresAt: expirationDate,
 		},
-		TokenType: user,
+		TokenType: User,
 	})
 
 	return token.SignedString([]byte(a.env.Get(environment.JWTSecret)))
@@ -69,7 +71,7 @@ func (a *authorizer) CreateServiceToken(owner string, allowedResources []Uniform
 			IssuedAt:  timestamp,
 			ExpiresAt: expirationDate,
 		},
-		TokenType:        service,
+		TokenType:        Service,
 		AllowedResources: allowedResources,
 	})
 
@@ -127,9 +129,9 @@ func (a *authorizer) GetUserIdFromToken(token string) (primitive.ObjectID, error
 		return primitive.ObjectID{}, errors.Wrap(ErrInvalidToken, err.Error())
 	}
 
-	if claims.TokenType != user {
+	if claims.TokenType != User {
 		return primitive.ObjectID{}, errors.Wrap(ErrInvalidTokenType, fmt.Sprintf("user id can only be "+
-			"extracted from tokens of type %s", user))
+			"extracted from tokens of type %s", User))
 	}
 
 	userId, err := primitive.ObjectIDFromHex(claims.StandardClaims.Id)
@@ -137,6 +139,15 @@ func (a *authorizer) GetUserIdFromToken(token string) (primitive.ObjectID, error
 		return primitive.ObjectID{}, errors.Wrap(ErrInvalidToken, errors.Wrap(err, "malformed user id").Error())
 	}
 	return userId, nil
+}
+
+func (a *authorizer) GetTokenTypeFromToken(token string) (TokenType, error) {
+	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
+	if err != nil {
+		return "", errors.Wrap(ErrInvalidToken, err.Error())
+	}
+
+	return claims.TokenType, nil
 }
 
 func getTokenClaims(token string, jwtSecret string) (TokenClaims, error) {
@@ -152,8 +163,8 @@ func getTokenClaims(token string, jwtSecret string) (TokenClaims, error) {
 
 func verifyTokenType(tokenType TokenType) error {
 	switch tokenType {
-	case user:
-	case service:
+	case User:
+	case Service:
 	default:
 		return errors.Errorf(unknownTokenTypeErrTemplate, tokenType)
 	}

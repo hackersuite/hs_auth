@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -18,19 +19,9 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 	mockUService := mock_services.NewMockUserService(ctrl)
-	router := &apiV2Router{
-		logger:      zap.NewNop(),
-		authorizer:  mockAuthorizer,
-		userService: mockUService,
-	}
-	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
-	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
-	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrNotFound)
-	mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
-	w := httptest.NewRecorder()
-	_, testServer := gin.CreateTestContext(w)
-	router.RegisterRoutes(&testServer.RouterGroup)
+	mockTService := mock_services.NewMockTeamService(ctrl)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 
 	tests := []struct {
 		route  string
@@ -56,10 +47,42 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			route:  "/users/login",
 			method: http.MethodPost,
 		},
+		// TODO: add missing test cases for token routes
+		{
+			route:  "/teams",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/teams/123",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/teams",
+			method: http.MethodPost,
+		},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.route, func(t *testing.T) {
+		t.Run(fmt.Sprintf("%s:%s", tt.method, tt.route), func(t *testing.T) {
+			router := &apiV2Router{
+				logger:      zap.NewNop(),
+				authorizer:  mockAuthorizer,
+				userService: mockUService,
+				teamService: mockTService,
+			}
+			w := httptest.NewRecorder()
+			_, testServer := gin.CreateTestContext(w)
+
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeams)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)
+
+			router.RegisterRoutes(&testServer.RouterGroup)
+
 			req := httptest.NewRequest(tt.method, tt.route, nil)
 
 			testServer.ServeHTTP(w, req)

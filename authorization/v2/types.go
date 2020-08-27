@@ -4,8 +4,8 @@ import "github.com/dgrijalva/jwt-go"
 
 type TokenType string
 
-const user TokenType = "user"
-const service TokenType = "service"
+const User TokenType = "user"
+const Service TokenType = "service"
 
 type TokenClaims struct {
 	jwt.StandardClaims

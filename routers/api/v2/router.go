@@ -23,6 +23,9 @@ type APIV2Router interface {
 	GetUser(ctx *gin.Context)
 	GetAuthorizedResources(ctx *gin.Context)
 	CreateServiceToken(ctx *gin.Context)
+	CreateTeam(ctx *gin.Context)
+	GetTeams(ctx *gin.Context)
+	GetTeam(ctx *gin.Context)
 }
 
 type apiV2Router struct {
@@ -31,17 +34,19 @@ type apiV2Router struct {
 	cfg          *config.AppConfig
 	authorizer   v2.Authorizer
 	userService  services.UserService
+	teamService  services.TeamService
 	timeProvider utils.TimeProvider
 }
 
 func NewAPIV2Router(logger *zap.Logger, cfg *config.AppConfig, authorizer v2.Authorizer,
-	userService services.UserService, timeProvider utils.TimeProvider) APIV2Router {
+	userService services.UserService, teamService services.TeamService, timeProvider utils.TimeProvider) APIV2Router {
 	return &apiV2Router{
 		logger:       logger,
 		cfg:          cfg,
 		authorizer:   authorizer,
 		userService:  userService,
 		timeProvider: timeProvider,
+		teamService:  teamService,
 	}
 }
 
@@ -57,6 +62,11 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	tokensGroup := routerGroup.Group("/tokens")
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
 	tokensGroup.POST("/service", r.authorizer.WithAuthMiddleware(r, r.CreateServiceToken))
+
+	teamsGroups := routerGroup.Group("/teams")
+	teamsGroups.GET("/", r.authorizer.WithAuthMiddleware(r, r.GetTeams))
+	teamsGroups.GET("/:id", r.authorizer.WithAuthMiddleware(r, r.GetTeam))
+	teamsGroups.POST("/", r.authorizer.WithAuthMiddleware(r, r.CreateTeam))
 }
 
 func (r *apiV2Router) GetResourcePath() string {
