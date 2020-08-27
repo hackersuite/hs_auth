@@ -5,6 +5,8 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
+	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.uber.org/zap"
 	"net/http"
@@ -15,12 +17,16 @@ import (
 func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
+	mockUService := mock_services.NewMockUserService(ctrl)
 	router := &apiV2Router{
-		logger:     zap.NewNop(),
-		authorizer: mockAuthorizer,
+		logger:      zap.NewNop(),
+		authorizer:  mockAuthorizer,
+		userService: mockUService,
 	}
 	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
+	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
 	mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrNotFound)
 	mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
@@ -36,6 +42,10 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 		},
 		{
 			route:  "/users",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/users/123",
 			method: http.MethodGet,
 		},
 		{
@@ -74,8 +84,7 @@ func TestApiV2Router_GetAuthToken(t *testing.T) {
 	ctx.Request = req
 	router := &apiV2Router{}
 
-	actualToken, err := router.GetAuthToken(ctx)
-	assert.NoError(t, err)
+	actualToken := router.GetAuthToken(ctx)
 	assert.Equal(t, token, actualToken)
 }
 

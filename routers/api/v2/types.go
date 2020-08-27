@@ -17,6 +17,10 @@ type getUsersRes struct {
 	Users []entities.User `json:"users"`
 }
 
+type getUserRes struct {
+	User entities.User `json:"user"`
+}
+
 type getAuthorizedResourcesRes struct {
 	AuthorizedUris []v2.UniformResourceIdentifier `json:"authorizedUris"`
 }

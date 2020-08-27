@@ -7,4 +7,6 @@ var (
 	ErrInvalidToken = errors.New("invalid token")
 	// ErrInvalidURI is returned when the provided URI string is invalid or cannot be parsed
 	ErrInvalidURI = errors.New("invalid URI string")
+	// ErrInvalidTokenType is returned when the type of the token is invalid for the requested operation
+	ErrInvalidTokenType = errors.New("invalid token type for requested operation")
 )

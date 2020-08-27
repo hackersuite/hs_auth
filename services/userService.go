@@ -48,6 +48,8 @@ type UserService interface {
 	GetUserWithEmailAndPwd(ctx context.Context, email, pwd string) (*entities.User, error)
 	GetUserWithJWT(ctx context.Context, jwt string) (*entities.User, error)
 
+	GetTeamMembersForUserWithID(ctx context.Context, userID string) ([]entities.User, error)
+
 	GetTeammatesForUserWithID(ctx context.Context, userID string) ([]entities.User, error)
 	GetTeammatesForUserWithJWT(ctx context.Context, jwt string) ([]entities.User, error)
 
