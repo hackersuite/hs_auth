@@ -7,7 +7,7 @@ type TokenType string
 const user TokenType = "user"
 const service TokenType = "service"
 
-type TokenClaims struct {
+type tokenClaims struct {
 	jwt.StandardClaims
 	TokenType        `json:"token_type"`
 	AllowedResources []UniformResourceIdentifier `json:"allowed_resources,omitempty"`
