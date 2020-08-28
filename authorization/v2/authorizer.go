@@ -87,8 +87,15 @@ func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []UniformR
 		return nil, errors.Wrap(ErrInvalidToken, err.Error())
 	}
 
-	// TODO: implement filtering for resources the token does not have access to
-	return urisToCheck, nil
+	// filtering for resources the token has access to
+	var allowedResources []UniformResourceIdentifier
+	for _, resource := range claims.AllowedResources {
+		if resource.isSubsetOfAtLeastOne(urisToCheck) {
+			allowedResources = append(allowedResources, resource)
+		}
+	}
+
+	return allowedResources, nil
 }
 
 func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operationHandler gin.HandlerFunc) gin.HandlerFunc {
@@ -109,9 +116,6 @@ func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operati
 		}
 
 		if len(authorized) == 0 {
-			// TODO: implement unit test for this branch.
-			// Blocked as GetAuthorizedResources does not actually
-			// check what resources the token can access.
 			router.HandleUnauthorized(ctx)
 			return
 		}
