@@ -24,3 +24,15 @@ type getUserRes struct {
 type getAuthorizedResourcesRes struct {
 	AuthorizedUris []v2.UniformResourceIdentifier `json:"authorizedUris"`
 }
+
+type getTeamsRes struct {
+	Teams []entities.Team `json:"teams"`
+}
+
+type getTeamRes struct {
+	Team entities.Team `json:"team"`
+}
+
+type createTeamRes struct {
+	Team entities.Team `json:"team"`
+}
