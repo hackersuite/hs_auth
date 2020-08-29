@@ -83,7 +83,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 		},
 		{
 			name: "should use correct TokenType",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, Service, claims.TokenType)
 			},
 		},
@@ -140,7 +140,7 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 		},
 		{
 			name: "should use correct TokenType",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, User, claims.TokenType)
 			},
 		},
@@ -259,7 +259,7 @@ func TestAuthorizer_WithAuthMiddleware_should_call_HandleUnauthorized(t *testing
 		{
 			name: "when GetAuthorizedResources returns empty array",
 			prep: func(setup *authorizerTestSetup) {
-				token := createToken(t, "test_token", nil, int64(10000), service, "")
+				token := createToken(t, "test_token", nil, int64(10000), Service, "")
 				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
 				setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 			},
