@@ -51,7 +51,7 @@ type authorizer struct {
 
 func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate int64) (string, error) {
 	timestamp := a.timeProvider.Now().Unix()
-	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        userId.Hex(),
 			IssuedAt:  timestamp,
@@ -65,7 +65,7 @@ func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate i
 
 func (a *authorizer) CreateServiceToken(owner string, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
 	timestamp := a.timeProvider.Now().Unix()
-	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        owner,
 			IssuedAt:  timestamp,
@@ -89,8 +89,15 @@ func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []UniformR
 		return nil, errors.Wrap(ErrInvalidToken, err.Error())
 	}
 
-	// TODO: implement filtering for resources the token does not have access to
-	return urisToCheck, nil
+	// filtering for resources the token has access to
+	var allowedResources []UniformResourceIdentifier
+	for _, resource := range claims.AllowedResources {
+		if resource.isSubsetOfAtLeastOne(urisToCheck) {
+			allowedResources = append(allowedResources, resource)
+		}
+	}
+
+	return allowedResources, nil
 }
 
 func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operationHandler gin.HandlerFunc) gin.HandlerFunc {
@@ -111,9 +118,6 @@ func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operati
 		}
 
 		if len(authorized) == 0 {
-			// TODO: implement unit test for this branch.
-			// Blocked as GetAuthorizedResources does not actually
-			// check what resources the token can access.
 			router.HandleUnauthorized(ctx)
 			return
 		}
@@ -155,13 +159,13 @@ func (a *authorizer) GetTokenTypeFromToken(token string) (TokenType, error) {
 	return claims.TokenType, nil
 }
 
-func getTokenClaims(token string, jwtSecret string) (TokenClaims, error) {
-	var claims TokenClaims
+func getTokenClaims(token string, jwtSecret string) (tokenClaims, error) {
+	var claims tokenClaims
 	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
 		return []byte(jwtSecret), nil
 	})
 	if err != nil {
-		return TokenClaims{}, errors.Wrap(err, "could not parse token claims")
+		return tokenClaims{}, errors.Wrap(err, "could not parse token claims")
 	}
 	return claims, nil
 }

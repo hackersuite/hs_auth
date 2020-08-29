@@ -1,6 +1,11 @@
 package v2
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
@@ -12,10 +17,6 @@ import (
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
 )
 
 type authorizerTestSetup struct {
@@ -60,23 +61,23 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		checks func(claims TokenClaims)
+		checks func(claims tokenClaims)
 	}{
 		{
 			name: "should use correct Id",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testOwner, claims.Id)
 			},
 		},
 		{
 			name: "should use correct IssuedAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix(), claims.IssuedAt)
 			},
 		},
 		{
 			name: "should use correct ExpiresAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix()+testTTL, claims.ExpiresAt)
 			},
 		},
@@ -88,7 +89,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 		},
 		{
 			name: "should use correct AllowedResources",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testAllowedResources, claims.AllowedResources)
 			},
 		},
@@ -117,23 +118,23 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		checks func(claims TokenClaims)
+		checks func(claims tokenClaims)
 	}{
 		{
 			name: "should use correct Id",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testUserId.Hex(), claims.Id)
 			},
 		},
 		{
 			name: "should use correct IssuedAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix(), claims.IssuedAt)
 			},
 		},
 		{
 			name: "should use correct ExpiresAt",
-			checks: func(claims TokenClaims) {
+			checks: func(claims tokenClaims) {
 				assert.Equal(t, testTimestamp.Unix()+testTTL, claims.ExpiresAt)
 			},
 		},
@@ -164,7 +165,11 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token_is_valid(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
-	token := createToken(t, "testuser", nil, int64(100), User, jwtSecret)
+	token := createToken(t, "testuser", []UniformResourceIdentifier{
+		{
+			path: "test",
+		},
+	}, int64(100), User, jwtSecret)
 	uris := []UniformResourceIdentifier{{path: "test"}}
 
 	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
@@ -251,6 +256,14 @@ func TestAuthorizer_WithAuthMiddleware_should_call_HandleUnauthorized(t *testing
 				setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 			},
 		},
+		{
+			name: "when GetAuthorizedResources returns empty array",
+			prep: func(setup *authorizerTestSetup) {
+				token := createToken(t, "test_token", nil, int64(10000), service, "")
+				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
+				setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -276,7 +289,11 @@ func TestAuthorizer_WithAuthMiddleware_should_call_handler_when_request_is_autho
 	mockHandlerCalled := false
 	mockHandler := func(*gin.Context) { mockHandlerCalled = true }
 
-	token := createToken(t, "test_token", nil, int64(10000), Service, "")
+	token := createToken(t, "test_token", []UniformResourceIdentifier{
+		{
+			path: "resource",
+		},
+	}, int64(10000), Service, "")
 	setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
 	setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 
@@ -368,7 +385,7 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_expected_token_type(t *
 }
 
 func createToken(t *testing.T, id string, allowedResources []UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {
-	token := jwt.NewWithClaims(jwtSigningMethod, TokenClaims{
+	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        id,
 			IssuedAt:  time.Now().Unix(),
@@ -384,8 +401,8 @@ func createToken(t *testing.T, id string, allowedResources []UniformResourceIden
 	return tokenStr
 }
 
-func extractTokenClaims(t *testing.T, token string, jwtSecret string) TokenClaims {
-	var claims TokenClaims
+func extractTokenClaims(t *testing.T, token string, jwtSecret string) tokenClaims {
+	var claims tokenClaims
 	_, err := jwt.ParseWithClaims(token, &claims, func(*jwt.Token) (interface{}, error) {
 		return []byte(jwtSecret), nil
 	})

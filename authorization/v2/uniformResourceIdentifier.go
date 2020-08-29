@@ -7,6 +7,7 @@ import (
 	"github.com/unicsmcr/hs_auth/authorization/v2/resources"
 	"net/url"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -156,4 +157,51 @@ func marshallURIMap(uriMap map[string]string) string {
 
 	// Remove the extra '&' character introduced when marshaling the uriMap
 	return marshalledMap[:len(marshalledMap)-1]
+}
+
+// isSubsetOf checks that the URI is a subset of the given URI
+func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier) bool {
+	// Ensure the target path is a subset of the source path
+	if len(uri.path) > len(target.path) {
+		return false
+	}
+
+	// Compare URI path
+	sourcePathComponents := strings.Split(uri.path, ":")
+	targetPathComponents := strings.Split(target.path, ":")
+	for i, pathComponent := range sourcePathComponents {
+		if pathComponent != targetPathComponents[i] {
+			return false
+		}
+	}
+
+	// Validate URI arguments
+	for key, targetValue := range target.arguments {
+		if sourceValue, ok := uri.arguments[key]; ok {
+			match, err := regexp.Match(sourceValue, []byte(targetValue))
+			if !match || err != nil {
+				// Fail-soft, if the regex is invalid or the regex pattern match fails, the URIs don't match
+				return false
+			}
+		} else {
+			// In the case the source URI doesn't contain an argument that exists in the target URI
+			// the uri is no longer a subset of the target.
+			// e.g. Source = hs:hs_auth and Target = hs:hs_auth?test=1
+			// this means, the source is not a subset of the target since it is limited by the argument "test=1"
+			return false
+		}
+	}
+
+	// TODO: Add URI metadata validation. See https://github.com/unicsmcr/hs_auth/pull/91#discussion_r471787861
+	return true
+}
+
+// isSubsetOfAtLeastOne checks if the URI is a subset of at least one of the given URIs
+func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
+	for i := 0; i < len(targets); i++ {
+		if uri.isSubsetOf(targets[i]) {
+			return true
+		}
+	}
+	return false
 }
