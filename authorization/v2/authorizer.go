@@ -31,7 +31,7 @@ type Authorizer interface {
 	WithAuthMiddleware(router resources.RouterResource, handler gin.HandlerFunc) gin.HandlerFunc
 	// GetUserIdFromToken extracts the user id from user tokens
 	GetUserIdFromToken(token string) (primitive.ObjectID, error)
-	// GetTokenTypeFromToke extracts the token type from the given token
+	// GetTokenTypeFromToken extracts the token type from the given token
 	GetTokenTypeFromToken(token string) (TokenType, error)
 }
 
