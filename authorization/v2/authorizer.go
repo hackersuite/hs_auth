@@ -147,6 +147,11 @@ func (a *authorizer) GetTokenTypeFromToken(token string) (TokenType, error) {
 		return "", errors.Wrap(ErrInvalidToken, err.Error())
 	}
 
+	err = verifyTokenType(claims.TokenType)
+	if err != nil {
+		return "", errors.Wrap(ErrInvalidToken, err.Error())
+	}
+
 	return claims.TokenType, nil
 }
 

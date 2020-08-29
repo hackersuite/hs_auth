@@ -345,6 +345,17 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_is_inv
 	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
 }
 
+func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_type_is_invalid(t *testing.T) {
+	setup := setupAuthorizerTests(t, "")
+	defer setup.ctrl.Finish()
+	token := createToken(t, testUserId.Hex(), nil, int64(10000), "invalid token type", "")
+
+	tokenType, err := setup.authorizer.GetTokenTypeFromToken(token)
+
+	assert.Zero(t, tokenType)
+	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
+}
+
 func TestAuthorizer_GetTokenTypeFromToken__should_return_expected_token_type(t *testing.T) {
 	setup := setupAuthorizerTests(t, "")
 	defer setup.ctrl.Finish()
