@@ -81,7 +81,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 					Return(setup.testToken.JWT, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
-				setup.mockTService.EXPECT().AddServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), setup.testToken.JWT).
+				setup.mockTService.EXPECT().AddServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
 					Return(setup.testToken, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -97,7 +97,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 					Return(setup.testToken.JWT, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
-				setup.mockTService.EXPECT().AddServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), setup.testToken.JWT).
+				setup.mockTService.EXPECT().AddServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
 					Return(setup.testToken, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -147,7 +147,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 					Return(testUserId, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), int64(0)).
 					Return(setup.testToken.JWT, nil).Times(1)
-				setup.mockTService.EXPECT().AddServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), setup.testToken.JWT).
+				setup.mockTService.EXPECT().AddServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
 					Return(nil, errors.New("random error")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
@@ -194,7 +194,7 @@ func TestApiV2Router_DeleteServiceToken(t *testing.T) {
 			name:    "should return 2xx when request is valid token id",
 			tokenId: testTokenId.Hex(),
 			prep: func(setup *tokensTestSetup) {
-				setup.mockTService.EXPECT().DeleteServiceToken(gomock.Any(), testTokenId.Hex()).
+				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
 					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -207,7 +207,7 @@ func TestApiV2Router_DeleteServiceToken(t *testing.T) {
 			name:    "should return 500 when DeleteServiceToken returns unknown error",
 			tokenId: testTokenId.Hex(),
 			prep: func(setup *tokensTestSetup) {
-				setup.mockTService.EXPECT().DeleteServiceToken(gomock.Any(), testTokenId.Hex()).
+				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
 					Return(errors.New("random error")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
