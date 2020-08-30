@@ -58,7 +58,7 @@ func InitializeServer() (Server, error) {
 		return Server{}, err
 	}
 	tokenService := mongo.NewMongoTokenService(logger, env, tokenRepository)
-	apiv2Router := v2_2.NewAPIV2Router(logger, appConfig, authorizer, userService, tokenService, timeProvider)
+	apiv2Router := v2_2.NewAPIV2Router(logger, appConfig, authorizer, userService, teamService, tokenService, timeProvider)
 	router := frontend.NewRouter(logger, appConfig, env, userService, teamService, emailService)
 	mainRouter := routers.NewMainRouter(logger, apiv1Router, apiv2Router, router)
 	server := NewServer(mainRouter, env)

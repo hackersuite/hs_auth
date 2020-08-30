@@ -2,6 +2,10 @@ package v2
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -13,9 +17,6 @@ import (
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 var (
@@ -41,7 +42,7 @@ func setupTokensTest(t *testing.T) *tokensTestSetup {
 
 	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{
 		AuthTokenLifetime: testAuthTokenLifetime,
-	}, mockAuthorizer, nil, mockTService, mockTimeProvider)
+	}, mockAuthorizer, nil, nil, mockTService, mockTimeProvider)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)

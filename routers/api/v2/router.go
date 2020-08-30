@@ -1,6 +1,8 @@
 package v2
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
@@ -9,7 +11,6 @@ import (
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
 	"go.uber.org/zap"
-	"net/http"
 )
 
 const resourcePath = "hs:hs_auth:api:v2"
@@ -24,6 +25,9 @@ type APIV2Router interface {
 	GetAuthorizedResources(ctx *gin.Context)
 	CreateServiceToken(ctx *gin.Context)
 	DeleteServiceToken(ctx *gin.Context)
+	CreateTeam(ctx *gin.Context)
+	GetTeams(ctx *gin.Context)
+	GetTeam(ctx *gin.Context)
 }
 
 type apiV2Router struct {
@@ -33,12 +37,12 @@ type apiV2Router struct {
 	authorizer   v2.Authorizer
 	userService  services.UserService
 	tokenService services.TokenService
+	teamService  services.TeamService
 	timeProvider utils.TimeProvider
 }
 
 func NewAPIV2Router(logger *zap.Logger, cfg *config.AppConfig, authorizer v2.Authorizer,
-	userService services.UserService, tokenService services.TokenService,
-	timeProvider utils.TimeProvider) APIV2Router {
+	userService services.UserService, teamService services.TeamService, tokenService services.TokenService, timeProvider utils.TimeProvider) APIV2Router {
 	return &apiV2Router{
 		logger:       logger,
 		cfg:          cfg,
@@ -46,6 +50,7 @@ func NewAPIV2Router(logger *zap.Logger, cfg *config.AppConfig, authorizer v2.Aut
 		userService:  userService,
 		tokenService: tokenService,
 		timeProvider: timeProvider,
+		teamService:  teamService,
 	}
 }
 
@@ -62,6 +67,11 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
 	tokensGroup.POST("/service", r.authorizer.WithAuthMiddleware(r, r.CreateServiceToken))
 	tokensGroup.DELETE("/service/:id", r.authorizer.WithAuthMiddleware(r, r.DeleteServiceToken))
+
+	teamsGroups := routerGroup.Group("/teams")
+	teamsGroups.GET("/", r.authorizer.WithAuthMiddleware(r, r.GetTeams))
+	teamsGroups.GET("/:id", r.authorizer.WithAuthMiddleware(r, r.GetTeam))
+	teamsGroups.POST("/", r.authorizer.WithAuthMiddleware(r, r.CreateTeam))
 }
 
 func (r *apiV2Router) GetResourcePath() string {

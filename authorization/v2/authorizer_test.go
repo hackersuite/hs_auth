@@ -1,6 +1,11 @@
 package v2
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
@@ -12,10 +17,6 @@ import (
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-	"time"
 )
 
 type authorizerTestSetup struct {
@@ -83,7 +84,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 		{
 			name: "should use correct TokenType",
 			checks: func(claims tokenClaims) {
-				assert.Equal(t, service, claims.TokenType)
+				assert.Equal(t, Service, claims.TokenType)
 			},
 		},
 		{
@@ -140,7 +141,7 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 		{
 			name: "should use correct TokenType",
 			checks: func(claims tokenClaims) {
-				assert.Equal(t, user, claims.TokenType)
+				assert.Equal(t, User, claims.TokenType)
 			},
 		},
 	}
@@ -164,7 +165,11 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token_is_valid(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
-	token := createToken(t, "testuser", nil, int64(100), user, jwtSecret)
+	token := createToken(t, "testuser", []UniformResourceIdentifier{
+		{
+			path: "test",
+		},
+	}, int64(100), User, jwtSecret)
 	uris := []UniformResourceIdentifier{{path: "test"}}
 
 	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
@@ -193,7 +198,7 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 		},
 		{
 			name:      "when token is expired",
-			token:     createToken(t, "user id", nil, int64(-5), user, jwtSecret),
+			token:     createToken(t, "user id", nil, int64(-5), User, jwtSecret),
 			wantedErr: ErrInvalidToken,
 		},
 	}
@@ -215,10 +220,10 @@ func Test_verifyTokenType(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			tokenType: user,
+			tokenType: User,
 		},
 		{
-			tokenType: service,
+			tokenType: Service,
 		},
 		{
 			tokenType: "unknown type",
@@ -251,6 +256,14 @@ func TestAuthorizer_WithAuthMiddleware_should_call_HandleUnauthorized(t *testing
 				setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 			},
 		},
+		{
+			name: "when GetAuthorizedResources returns empty array",
+			prep: func(setup *authorizerTestSetup) {
+				token := createToken(t, "test_token", nil, int64(10000), Service, "")
+				setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
+				setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -276,7 +289,11 @@ func TestAuthorizer_WithAuthMiddleware_should_call_handler_when_request_is_autho
 	mockHandlerCalled := false
 	mockHandler := func(*gin.Context) { mockHandlerCalled = true }
 
-	token := createToken(t, "test_token", nil, int64(10000), service, "")
+	token := createToken(t, "test_token", []UniformResourceIdentifier{
+		{
+			path: "resource",
+		},
+	}, int64(10000), Service, "")
 	setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
 	setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 
@@ -301,12 +318,12 @@ func TestAuthorizer_GetUserIdFromToken__should_return_error(t *testing.T) {
 		},
 		{
 			name:    "when token type is not user",
-			token:   createToken(t, "id", nil, int64(10000), service, ""),
+			token:   createToken(t, "id", nil, int64(10000), Service, ""),
 			wantErr: ErrInvalidTokenType,
 		},
 		{
 			name:    "when user id is malformed",
-			token:   createToken(t, "invalid id", nil, int64(10000), user, ""),
+			token:   createToken(t, "invalid id", nil, int64(10000), User, ""),
 			wantErr: ErrInvalidToken,
 		},
 	}
@@ -327,11 +344,43 @@ func TestAuthorizer_GetUserIdFromToken__should_return_error(t *testing.T) {
 func TestAuthorizer_GetUserIdFromToken__should_return_correct_user_id(t *testing.T) {
 	setup := setupAuthorizerTests(t, "")
 	defer setup.ctrl.Finish()
-	token := createToken(t, testUserId.Hex(), nil, int64(10000), user, "")
+	token := createToken(t, testUserId.Hex(), nil, int64(10000), User, "")
 
 	userId, err := setup.authorizer.GetUserIdFromToken(token)
 
 	assert.Equal(t, testUserId, userId)
+	assert.NoError(t, err)
+}
+
+func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_is_invalid(t *testing.T) {
+	setup := setupAuthorizerTests(t, "")
+	defer setup.ctrl.Finish()
+
+	tokenType, err := setup.authorizer.GetTokenTypeFromToken("invalid token")
+
+	assert.Zero(t, tokenType)
+	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
+}
+
+func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_type_is_invalid(t *testing.T) {
+	setup := setupAuthorizerTests(t, "")
+	defer setup.ctrl.Finish()
+	token := createToken(t, testUserId.Hex(), nil, int64(10000), "invalid token type", "")
+
+	tokenType, err := setup.authorizer.GetTokenTypeFromToken(token)
+
+	assert.Zero(t, tokenType)
+	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
+}
+
+func TestAuthorizer_GetTokenTypeFromToken__should_return_expected_token_type(t *testing.T) {
+	setup := setupAuthorizerTests(t, "")
+	defer setup.ctrl.Finish()
+	token := createToken(t, testUserId.Hex(), nil, int64(10000), User, "")
+
+	tokenType, err := setup.authorizer.GetTokenTypeFromToken(token)
+
+	assert.Equal(t, User, tokenType)
 	assert.NoError(t, err)
 }
 
