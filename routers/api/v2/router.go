@@ -23,6 +23,7 @@ type APIV2Router interface {
 	GetUser(ctx *gin.Context)
 	GetAuthorizedResources(ctx *gin.Context)
 	CreateServiceToken(ctx *gin.Context)
+	DeleteServiceToken(ctx *gin.Context)
 }
 
 type apiV2Router struct {
@@ -31,16 +32,19 @@ type apiV2Router struct {
 	cfg          *config.AppConfig
 	authorizer   v2.Authorizer
 	userService  services.UserService
+	tokenService services.TokenService
 	timeProvider utils.TimeProvider
 }
 
 func NewAPIV2Router(logger *zap.Logger, cfg *config.AppConfig, authorizer v2.Authorizer,
-	userService services.UserService, timeProvider utils.TimeProvider) APIV2Router {
+	userService services.UserService, tokenService services.TokenService,
+	timeProvider utils.TimeProvider) APIV2Router {
 	return &apiV2Router{
 		logger:       logger,
 		cfg:          cfg,
 		authorizer:   authorizer,
 		userService:  userService,
+		tokenService: tokenService,
 		timeProvider: timeProvider,
 	}
 }
@@ -57,6 +61,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	tokensGroup := routerGroup.Group("/tokens")
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
 	tokensGroup.POST("/service", r.authorizer.WithAuthMiddleware(r, r.CreateServiceToken))
+	tokensGroup.DELETE("/service/:id", r.authorizer.WithAuthMiddleware(r, r.DeleteServiceToken))
 }
 
 func (r *apiV2Router) GetResourcePath() string {

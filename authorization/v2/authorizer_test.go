@@ -53,7 +53,7 @@ func setupAuthorizerTests(t *testing.T, jwtSecret string) authorizerTestSetup {
 }
 
 func TestAuthorizer_CreateServiceToken(t *testing.T) {
-	testOwner := "test_service"
+	testID := primitive.NewObjectID()
 	var testTTL int64 = 100
 	testTimestamp := time.Now()
 	testAllowedResources := []UniformResourceIdentifier{{path: "test"}}
@@ -65,7 +65,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 		{
 			name: "should use correct Id",
 			checks: func(claims tokenClaims) {
-				assert.Equal(t, testOwner, claims.Id)
+				assert.Equal(t, testID.Hex(), claims.Id)
 			},
 		},
 		{
@@ -98,7 +98,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	setup := setupAuthorizerTests(t, jwtSecret)
 	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
 
-	token, err := setup.authorizer.CreateServiceToken(testOwner, testAllowedResources, testTimestamp.Unix()+testTTL)
+	token, err := setup.authorizer.CreateServiceToken(testID, testAllowedResources, testTimestamp.Unix()+testTTL)
 	assert.NoError(t, err)
 
 	claims := extractTokenClaims(t, token, jwtSecret)

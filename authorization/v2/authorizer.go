@@ -21,9 +21,9 @@ type Authorizer interface {
 	// CreateUserToken creates a token for the given user.
 	// Setting expirationDate to 0 will create a token that does not expire.
 	CreateUserToken(userId primitive.ObjectID, expirationDate int64) (string, error)
-	// CreateServiceToken creates a token for the given owner with the provided permissions.
+	// CreateServiceToken creates a token with the given permissions.
 	// Setting expirationDate to 0 will create a token that does not expire.
-	CreateServiceToken(owner string, allowedResources []UniformResourceIdentifier, timeToLive int64) (string, error)
+	CreateServiceToken(tokenId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error)
 	// GetAuthorizedResources returns what resources from urisToCheck the given token can access.
 	// Will return ErrInvalidToken if the provided token is invalid.
 	GetAuthorizedResources(token string, urisToCheck []UniformResourceIdentifier) ([]UniformResourceIdentifier, error)
@@ -61,11 +61,11 @@ func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate i
 	return token.SignedString([]byte(a.env.Get(environment.JWTSecret)))
 }
 
-func (a *authorizer) CreateServiceToken(owner string, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
+func (a *authorizer) CreateServiceToken(tokenId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
 	timestamp := a.timeProvider.Now().Unix()
 	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
-			Id:        owner,
+			Id:        tokenId.Hex(),
 			IssuedAt:  timestamp,
 			ExpiresAt: expirationDate,
 		},
