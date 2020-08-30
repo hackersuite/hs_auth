@@ -23,6 +23,8 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockTokenService := mock_services.NewMockTokenService(ctrl)
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockTokenService.EXPECT().AddServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockTokenService.EXPECT().DeleteServiceToken(gomock.Any(), gomock.Any()).Return(services.ErrInvalidToken)
 
 	tests := []struct {
 		route  string
