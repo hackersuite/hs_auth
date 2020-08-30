@@ -48,7 +48,14 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			route:  "/users/login",
 			method: http.MethodPost,
 		},
-		// TODO: add missing test cases for token routes
+		{
+			route:  "/tokens/service",
+			method: http.MethodPost,
+		},
+		{
+			route:  "/tokens/service/testMe",
+			method: http.MethodDelete,
+		},
 		{
 			route:  "/teams",
 			method: http.MethodGet,
