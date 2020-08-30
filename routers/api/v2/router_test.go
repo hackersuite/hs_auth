@@ -20,6 +20,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
+	mockTokenService := mock_services.NewMockTokenService(ctrl)
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 
@@ -65,10 +66,11 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s:%s", tt.method, tt.route), func(t *testing.T) {
 			router := &apiV2Router{
-				logger:      zap.NewNop(),
-				authorizer:  mockAuthorizer,
-				userService: mockUService,
-				teamService: mockTService,
+				logger:       zap.NewNop(),
+				authorizer:   mockAuthorizer,
+				userService:  mockUService,
+				teamService:  mockTService,
+				tokenService: mockTokenService,
 			}
 			w := httptest.NewRecorder()
 			_, testServer := gin.CreateTestContext(w)
@@ -77,6 +79,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.DeleteServiceToken)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeams)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)
