@@ -77,7 +77,7 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 // DELETE: /api/v2/tokens/service/:id
 // Response:
 // Headers:  Authorization <- token
-func (r *apiV2Router) DeleteServiceToken(ctx *gin.Context) {
+func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 	tokenID := ctx.Param("id")
 	if len(tokenID) == 0 {
 		r.logger.Debug("token id must be provided in request")
