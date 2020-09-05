@@ -24,7 +24,7 @@ type APIV2Router interface {
 	GetUser(ctx *gin.Context)
 	GetAuthorizedResources(ctx *gin.Context)
 	CreateServiceToken(ctx *gin.Context)
-	DeleteServiceToken(ctx *gin.Context)
+	InvalidateServiceToken(ctx *gin.Context)
 	CreateTeam(ctx *gin.Context)
 	GetTeams(ctx *gin.Context)
 	GetTeam(ctx *gin.Context)
@@ -66,7 +66,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	tokensGroup := routerGroup.Group("/tokens")
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
 	tokensGroup.POST("/service", r.authorizer.WithAuthMiddleware(r, r.CreateServiceToken))
-	tokensGroup.DELETE("/service/:id", r.authorizer.WithAuthMiddleware(r, r.DeleteServiceToken))
+	tokensGroup.DELETE("/service/:id", r.authorizer.WithAuthMiddleware(r, r.InvalidateServiceToken))
 
 	teamsGroups := routerGroup.Group("/teams")
 	teamsGroups.GET("/", r.authorizer.WithAuthMiddleware(r, r.GetTeams))

@@ -1,12 +1,14 @@
 package v2
 
 import (
+	"context"
 	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/authorization/v2/resources"
 	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
@@ -23,7 +25,7 @@ type Authorizer interface {
 	CreateUserToken(userId primitive.ObjectID, expirationDate int64) (string, error)
 	// CreateServiceToken creates a token with the given permissions.
 	// Setting expirationDate to 0 will create a token that does not expire.
-	CreateServiceToken(tokenId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error)
+	CreateServiceToken(ctx context.Context, userId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error)
 	// GetAuthorizedResources returns what resources from urisToCheck the given token can access.
 	// Will return ErrInvalidToken if the provided token is invalid.
 	GetAuthorizedResources(token string, urisToCheck []UniformResourceIdentifier) ([]UniformResourceIdentifier, error)
@@ -35,11 +37,12 @@ type Authorizer interface {
 	GetTokenTypeFromToken(token string) (TokenType, error)
 }
 
-func NewAuthorizer(provider utils.TimeProvider, env *environment.Env, logger *zap.Logger) Authorizer {
+func NewAuthorizer(provider utils.TimeProvider, env *environment.Env, logger *zap.Logger, tokenService services.TokenService) Authorizer {
 	return &authorizer{
 		timeProvider: provider,
 		env:          env,
 		logger:       logger,
+		tokenService: tokenService,
 	}
 }
 
@@ -47,6 +50,7 @@ type authorizer struct {
 	timeProvider utils.TimeProvider
 	env          *environment.Env
 	logger       *zap.Logger
+	tokenService services.TokenService
 }
 
 func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate int64) (string, error) {
@@ -63,7 +67,8 @@ func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate i
 	return token.SignedString([]byte(a.env.Get(environment.JWTSecret)))
 }
 
-func (a *authorizer) CreateServiceToken(tokenId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
+func (a *authorizer) CreateServiceToken(ctx context.Context, userId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
+	tokenId := primitive.NewObjectID()
 	timestamp := a.timeProvider.Now().Unix()
 	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
@@ -74,6 +79,12 @@ func (a *authorizer) CreateServiceToken(tokenId primitive.ObjectID, allowedResou
 		TokenType:        Service,
 		AllowedResources: allowedResources,
 	})
+
+	// Store the service token in the database
+	_, err := a.tokenService.CreateServiceToken(ctx, userId.Hex(), token.Raw)
+	if err != nil {
+		return "", errors.Wrap(ErrPersistToken, err.Error())
+	}
 
 	return token.SignedString([]byte(a.env.Get(environment.JWTSecret)))
 }

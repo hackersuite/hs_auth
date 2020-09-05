@@ -3,9 +3,10 @@ package v2
 import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/unicsmcr/hs_auth/services"
 	"go.uber.org/zap"
 	"net/http"
 	"strings"
@@ -54,15 +55,7 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 		return
 	}
 
-	tokenID := primitive.NewObjectID()
-	token, err := r.authorizer.CreateServiceToken(tokenID, parsedURIs, req.ExpiresAt)
-	if err != nil {
-		r.logger.Error("could not create JWT", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
-	_, err = r.tokenService.AddServiceToken(ctx, tokenID, userID.Hex(), token)
+	token, err := r.authorizer.CreateServiceToken(ctx, userID, parsedURIs, req.ExpiresAt)
 	if err != nil {
 		r.logger.Error("could not create service token", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
@@ -87,8 +80,17 @@ func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 
 	err := r.tokenService.DeleteServiceToken(ctx, tokenID)
 	if err != nil {
-		r.logger.Error("could not delete service token", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		switch errors.Cause(err) {
+		case services.ErrInvalidID:
+			r.logger.Error("service token id is not valid", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid id")
+		case services.ErrNotFound:
+			r.logger.Error("service token not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "service token not found")
+		default:
+			r.logger.Error("could not fetch team", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
 		return
 	}
 

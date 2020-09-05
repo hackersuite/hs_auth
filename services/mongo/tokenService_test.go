@@ -12,12 +12,13 @@ import (
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
 
 var (
-	testToken = entities.Token{
+	testToken = entities.ServiceToken{
 		ID:      primitive.NewObjectID(),
 		JWT:     "test_token",
 		Creator: primitive.NewObjectID(),
@@ -74,7 +75,7 @@ func Test_Token_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *t
 		{
 			name: "AddServiceToken",
 			testFunction: func(id string) error {
-				_, err := setup.tService.AddServiceToken(context.Background(), primitive.ObjectID{}, "", id)
+				_, err := setup.tService.CreateServiceToken(context.Background(), id, "")
 				return err
 			},
 		},
@@ -98,10 +99,15 @@ func Test_AddServiceToken__should_return_expected_token(t *testing.T) {
 	setup := setupTokenTest(t)
 	defer setup.cleanup()
 
-	token, err := setup.tService.AddServiceToken(context.Background(), testToken.ID, testToken.Creator.Hex(), testToken.JWT)
-
+	token, err := setup.tService.CreateServiceToken(context.Background(), testToken.Creator.Hex(), testToken.JWT)
 	assert.NoError(t, err)
-	assert.Equal(t, testToken, *token)
+	assert.Equal(t, testToken.JWT, token.JWT)
+
+	res := setup.tRepo.FindOne(context.Background(), bson.M{
+		string(entities.ServiceTokenCreator): testToken.Creator,
+		string(entities.ServiceTokenJWT):     testToken.JWT,
+	})
+	assert.NoError(t, res.Err())
 }
 
 func Test_DeleteServiceToken__should_return_ErrNotFound_when_token_not_found(t *testing.T) {

@@ -1,6 +1,7 @@
 package v2
 
 import (
+	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,6 +24,7 @@ type authorizerTestSetup struct {
 	authorizer         Authorizer
 	mockTimeProvider   *mock_utils.MockTimeProvider
 	mockRouterResource *mock_resources.MockRouterResource
+	mockTokenService   *mock_services.MockTokenService
 	testCtx            *gin.Context
 	ctrl               *gomock.Controller
 }
@@ -39,15 +41,17 @@ func setupAuthorizerTests(t *testing.T, jwtSecret string) authorizerTestSetup {
 	ctrl := gomock.NewController(t)
 	mockTimeProvider := mock_utils.NewMockTimeProvider(ctrl)
 	mockRouterResource := mock_resources.NewMockRouterResource(ctrl)
+	mockTokenService := mock_services.NewMockTokenService(ctrl)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)
 	testutils.AddRequestWithFormParamsToCtx(testCtx, http.MethodGet, nil)
 
 	return authorizerTestSetup{
-		authorizer:         NewAuthorizer(mockTimeProvider, env, zap.NewNop()),
+		authorizer:         NewAuthorizer(mockTimeProvider, env, zap.NewNop(), mockTokenService),
 		mockTimeProvider:   mockTimeProvider,
 		mockRouterResource: mockRouterResource,
+		mockTokenService:   mockTokenService,
 		testCtx:            testCtx,
 		ctrl:               ctrl,
 	}
@@ -63,12 +67,6 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 		name   string
 		checks func(claims tokenClaims)
 	}{
-		{
-			name: "should use correct Id",
-			checks: func(claims tokenClaims) {
-				assert.Equal(t, testID.Hex(), claims.Id)
-			},
-		},
 		{
 			name: "should use correct IssuedAt",
 			checks: func(claims tokenClaims) {
@@ -98,8 +96,9 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
 	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
+	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), gomock.Any())
 
-	token, err := setup.authorizer.CreateServiceToken(testID, testAllowedResources, testTimestamp.Unix()+testTTL)
+	token, err := setup.authorizer.CreateServiceToken(setup.testCtx, testID, testAllowedResources, testTimestamp.Unix()+testTTL)
 	assert.NoError(t, err)
 
 	claims := extractTokenClaims(t, token, jwtSecret)

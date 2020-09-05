@@ -29,7 +29,7 @@ type tokensTestSetup struct {
 	mockTService     *mock_services.MockTokenService
 	mockAuthorizer   *mock_v2.MockAuthorizer
 	mockTimeProvider *mock_utils.MockTimeProvider
-	testToken        *entities.Token
+	testToken        *entities.ServiceToken
 	testCtx          *gin.Context
 	w                *httptest.ResponseRecorder
 }
@@ -46,7 +46,7 @@ func setupTokensTest(t *testing.T) *tokensTestSetup {
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)
-	testToken := entities.Token{
+	testToken := entities.ServiceToken{
 		ID:  testTokenId,
 		JWT: "test_token",
 	}
@@ -77,11 +77,11 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 			testAllowedURIs: "\"hs:hs_application\"",
 			testExpiresAt:   "100",
 			prep: func(setup *tokensTestSetup) {
-				setup.mockAuthorizer.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), int64(100)).
+				setup.mockAuthorizer.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), int64(100)).
 					Return(setup.testToken.JWT, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
-				setup.mockTService.EXPECT().AddServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
+				setup.mockTService.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), setup.testToken.JWT).
 					Return(setup.testToken, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -93,11 +93,11 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 			name:            "should return 200 when request is valid with multiple allowed URIs",
 			testAllowedURIs: "\"hs:hs_application\",\"hs:hs_hub\"",
 			prep: func(setup *tokensTestSetup) {
-				setup.mockAuthorizer.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), int64(0)).
+				setup.mockAuthorizer.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), int64(0)).
 					Return(setup.testToken.JWT, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
-				setup.mockTService.EXPECT().AddServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
+				setup.mockTService.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), setup.testToken.JWT).
 					Return(setup.testToken, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -132,7 +132,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 			name:            "should return 500 when CreateServiceToken returns unknown error",
 			testAllowedURIs: "\"hs:hs_application\"",
 			prep: func(setup *tokensTestSetup) {
-				setup.mockAuthorizer.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), int64(0)).
+				setup.mockAuthorizer.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), int64(0)).
 					Return("", errors.New("random error")).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
@@ -140,15 +140,13 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:            "should return 500 when AddServiceToken returns error",
+			name:            "should return 500 when CreateServiceToken returns error",
 			testAllowedURIs: "\"hs:hs_application\"",
 			prep: func(setup *tokensTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
-				setup.mockAuthorizer.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), int64(0)).
-					Return(setup.testToken.JWT, nil).Times(1)
-				setup.mockTService.EXPECT().AddServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
-					Return(nil, errors.New("random error")).Times(1)
+				setup.mockAuthorizer.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), int64(0)).
+					Return("", errors.New("random error")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
@@ -183,7 +181,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 	}
 }
 
-func TestApiV2Router_DeleteServiceToken(t *testing.T) {
+func TestApiV2Router_InvalidateServiceToken(t *testing.T) {
 	tests := []struct {
 		name        string
 		prep        func(prep *tokensTestSetup)
@@ -225,7 +223,7 @@ func TestApiV2Router_DeleteServiceToken(t *testing.T) {
 				tt.prep(setup)
 			}
 
-			setup.router.DeleteServiceToken(setup.testCtx)
+			setup.router.InvalidateServiceToken(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})

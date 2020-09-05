@@ -23,7 +23,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockTokenService := mock_services.NewMockTokenService(ctrl)
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
-	mockTokenService.EXPECT().AddServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockTokenService.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockTokenService.EXPECT().DeleteServiceToken(gomock.Any(), gomock.Any()).Return(services.ErrInvalidToken)
 
 	tests := []struct {
@@ -88,7 +88,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
-			mockAuthMiddlewareCall(router, mockAuthorizer, router.DeleteServiceToken)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.InvalidateServiceToken)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeams)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)

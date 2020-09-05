@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
@@ -26,14 +27,14 @@ func NewMongoTokenService(logger *zap.Logger, env *environment.Env, tokenReposit
 	}
 }
 
-func (s *mongoTokenService) CreateServiceToken(ctx context.Context, tokenId primitive.ObjectID, creatorID, jwt string) (*entities.Token, error) {
+func (s *mongoTokenService) CreateServiceToken(ctx context.Context, creatorID, jwt string) (*entities.ServiceToken, error) {
 	creatorMongoID, err := primitive.ObjectIDFromHex(creatorID)
 	if err != nil {
 		return nil, services.ErrInvalidID
 	}
 
-	token := &entities.Token{
-		ID:      tokenId,
+	token := &entities.ServiceToken{
+		ID:      primitive.NewObjectID(),
 		JWT:     jwt,
 		Creator: creatorMongoID,
 	}
@@ -53,7 +54,7 @@ func (s *mongoTokenService) DeleteServiceToken(ctx context.Context, id string) e
 	}
 
 	res, err := s.tokenRepository.DeleteOne(ctx, bson.M{
-		string(entities.TokenID): mongoID,
+		string(entities.ServiceTokenID): mongoID,
 	})
 
 	if err != nil {
