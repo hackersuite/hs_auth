@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"github.com/unicsmcr/hs_auth/entities"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"net/http"
 	"net/http/httptest"
@@ -96,7 +97,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
 	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
-	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), gomock.Any())
+	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), gomock.Any()).Return(&entities.ServiceToken{}, nil).Times(1)
 
 	token, err := setup.authorizer.CreateServiceToken(setup.testCtx, testID, testAllowedResources, testTimestamp.Unix()+testTTL)
 	assert.NoError(t, err)
@@ -108,6 +109,22 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 			tt.checks(claims)
 		})
 	}
+}
+
+func TestAuthorizer_CreateServiceToken_throws_unknown_error(t *testing.T) {
+	testID := primitive.NewObjectID()
+	var testTTL int64 = 100
+	testTimestamp := time.Now()
+	testAllowedResources := []UniformResourceIdentifier{{path: "test"}}
+
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
+	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), gomock.Any()).
+		Return(nil, errors.New("random error")).Times(1)
+
+	_, err := setup.authorizer.CreateServiceToken(setup.testCtx, testID, testAllowedResources, testTimestamp.Unix()+testTTL)
+	assert.Error(t, err)
 }
 
 func TestAuthorizer_CreateUserToken(t *testing.T) {

@@ -95,7 +95,7 @@ func Test_Token_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *t
 	}
 }
 
-func Test_AddServiceToken__should_return_expected_token(t *testing.T) {
+func Test_CreateServiceToken__should_return_expected_token(t *testing.T) {
 	setup := setupTokenTest(t)
 	defer setup.cleanup()
 

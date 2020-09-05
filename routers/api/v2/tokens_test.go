@@ -2,6 +2,7 @@ package v2
 
 import (
 	"errors"
+	"github.com/unicsmcr/hs_auth/services"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -199,6 +200,24 @@ func TestApiV2Router_InvalidateServiceToken(t *testing.T) {
 		},
 		{
 			name:        "should return 400 when token id not provided",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:    "should return 400 when token id is invalid",
+			tokenId: testTokenId.Hex(),
+			prep: func(setup *tokensTestSetup) {
+				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
+					Return(services.ErrInvalidID).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:    "should return 400 when token not found",
+			tokenId: testTokenId.Hex(),
+			prep: func(setup *tokensTestSetup) {
+				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
+					Return(services.ErrNotFound).Times(1)
+			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
