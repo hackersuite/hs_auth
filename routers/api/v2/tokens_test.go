@@ -193,7 +193,7 @@ func TestApiV2Router_InvalidateServiceToken(t *testing.T) {
 			name:    "should return 2xx when request is valid token id",
 			tokenId: testTokenId.Hex(),
 			prep: func(setup *tokensTestSetup) {
-				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testTokenId.Hex()).
 					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -206,7 +206,7 @@ func TestApiV2Router_InvalidateServiceToken(t *testing.T) {
 			name:    "should return 400 when token id is invalid",
 			tokenId: testTokenId.Hex(),
 			prep: func(setup *tokensTestSetup) {
-				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testTokenId.Hex()).
 					Return(services.ErrInvalidID).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -215,7 +215,7 @@ func TestApiV2Router_InvalidateServiceToken(t *testing.T) {
 			name:    "should return 400 when token not found",
 			tokenId: testTokenId.Hex(),
 			prep: func(setup *tokensTestSetup) {
-				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testTokenId.Hex()).
 					Return(services.ErrNotFound).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -224,7 +224,7 @@ func TestApiV2Router_InvalidateServiceToken(t *testing.T) {
 			name:    "should return 500 when DeleteServiceToken returns unknown error",
 			tokenId: testTokenId.Hex(),
 			prep: func(setup *tokensTestSetup) {
-				setup.mockTService.EXPECT().DeleteServiceToken(setup.testCtx, testTokenId.Hex()).
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testTokenId.Hex()).
 					Return(errors.New("random error")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,

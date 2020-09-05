@@ -111,6 +111,16 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	}
 }
 
+func TestAuthorizer_InvalidateServiceToken(t *testing.T) {
+	testID := primitive.NewObjectID()
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	setup.mockTokenService.EXPECT().DeleteServiceToken(setup.testCtx, testID.Hex()).Return(nil).Times(1)
+
+	err := setup.authorizer.InvalidateServiceToken(setup.testCtx, testID.Hex())
+	assert.NoError(t, err)
+}
+
 func TestAuthorizer_CreateServiceToken_throws_unknown_error(t *testing.T) {
 	testID := primitive.NewObjectID()
 	var testTTL int64 = 100

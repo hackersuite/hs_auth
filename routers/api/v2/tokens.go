@@ -78,7 +78,7 @@ func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 		return
 	}
 
-	err := r.tokenService.DeleteServiceToken(ctx, tokenID)
+	err := r.authorizer.InvalidateServiceToken(ctx, tokenID)
 	if err != nil {
 		switch errors.Cause(err) {
 		case services.ErrInvalidID:
@@ -88,7 +88,7 @@ func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 			r.logger.Error("service token not found", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "service token not found")
 		default:
-			r.logger.Error("could not fetch team", zap.Error(err))
+			r.logger.Error("could not invalidate token", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
 		}
 		return

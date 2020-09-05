@@ -26,6 +26,8 @@ type Authorizer interface {
 	// CreateServiceToken creates a token with the given permissions.
 	// Setting expirationDate to 0 will create a token that does not expire.
 	CreateServiceToken(ctx context.Context, userId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error)
+	// InvalidateServiceToken invalidates a token with the given ID
+	InvalidateServiceToken(ctx context.Context, tokenId string) error
 	// GetAuthorizedResources returns what resources from urisToCheck the given token can access.
 	// Will return ErrInvalidToken if the provided token is invalid.
 	GetAuthorizedResources(token string, urisToCheck []UniformResourceIdentifier) ([]UniformResourceIdentifier, error)
@@ -87,6 +89,10 @@ func (a *authorizer) CreateServiceToken(ctx context.Context, userId primitive.Ob
 	}
 
 	return token.SignedString([]byte(a.env.Get(environment.JWTSecret)))
+}
+
+func (a *authorizer) InvalidateServiceToken(ctx context.Context, tokenId string) error {
+	return a.tokenService.DeleteServiceToken(ctx, tokenId)
 }
 
 func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []UniformResourceIdentifier) ([]UniformResourceIdentifier, error) {
