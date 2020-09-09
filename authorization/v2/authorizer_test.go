@@ -98,6 +98,7 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	setup := setupAuthorizerTests(t, jwtSecret)
 	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
 	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), gomock.Any()).Return(&entities.ServiceToken{}, nil).Times(1)
+	setup.mockTokenService.EXPECT().GenerateServiceTokenID().Return(testID).Times(1)
 
 	token, err := setup.authorizer.CreateServiceToken(setup.testCtx, testID, testAllowedResources, testTimestamp.Unix()+testTTL)
 	assert.NoError(t, err)
@@ -132,6 +133,7 @@ func TestAuthorizer_CreateServiceToken_throws_unknown_error(t *testing.T) {
 	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
 	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), gomock.Any()).
 		Return(nil, errors.New("random error")).Times(1)
+	setup.mockTokenService.EXPECT().GenerateServiceTokenID().Return(testID).Times(1)
 
 	_, err := setup.authorizer.CreateServiceToken(setup.testCtx, testID, testAllowedResources, testTimestamp.Unix()+testTTL)
 	assert.Error(t, err)

@@ -140,8 +140,8 @@ func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operati
 		}
 
 		if len(authorized) == 0 {
-			//router.HandleUnauthorized(ctx)
-			//return
+			router.HandleUnauthorized(ctx)
+			return
 		}
 
 		operationHandler(ctx)
