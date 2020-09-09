@@ -73,9 +73,9 @@ func Test_Token_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *t
 		testFunction func(id string) error
 	}{
 		{
-			name: "AddServiceToken",
+			name: "CreateServiceToken",
 			testFunction: func(id string) error {
-				_, err := setup.tService.CreateServiceToken(context.Background(), id, "")
+				_, err := setup.tService.CreateServiceToken(context.Background(), id, id, "")
 				return err
 			},
 		},
@@ -99,15 +99,24 @@ func Test_CreateServiceToken__should_return_expected_token(t *testing.T) {
 	setup := setupTokenTest(t)
 	defer setup.cleanup()
 
-	token, err := setup.tService.CreateServiceToken(context.Background(), testToken.Creator.Hex(), testToken.JWT)
+	token, err := setup.tService.CreateServiceToken(context.Background(), testToken.ID.Hex(), testToken.Creator.Hex(), testToken.JWT)
 	assert.NoError(t, err)
 	assert.Equal(t, testToken.JWT, token.JWT)
 
 	res := setup.tRepo.FindOne(context.Background(), bson.M{
+		string(entities.ServiceTokenID):      testToken.ID,
 		string(entities.ServiceTokenCreator): testToken.Creator,
 		string(entities.ServiceTokenJWT):     testToken.JWT,
 	})
 	assert.NoError(t, res.Err())
+}
+
+func Test_GenerateServiceTokenID__should_return_valid_id(t *testing.T) {
+	setup := setupTokenTest(t)
+	defer setup.cleanup()
+
+	token := setup.tService.GenerateServiceTokenID()
+	assert.Equal(t, 24, len(token.Hex()))
 }
 
 func Test_DeleteServiceToken__should_return_ErrNotFound_when_token_not_found(t *testing.T) {

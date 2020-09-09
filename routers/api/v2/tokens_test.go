@@ -82,7 +82,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 					Return(setup.testToken.JWT, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
-				setup.mockTService.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), setup.testToken.JWT).
+				setup.mockTService.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
 					Return(setup.testToken, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -98,7 +98,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 					Return(setup.testToken.JWT, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(testUserId, nil).Times(1)
-				setup.mockTService.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), setup.testToken.JWT).
+				setup.mockTService.EXPECT().CreateServiceToken(setup.testCtx, gomock.Any(), gomock.Any(), setup.testToken.JWT).
 					Return(setup.testToken, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,

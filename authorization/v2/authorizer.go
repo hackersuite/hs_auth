@@ -88,7 +88,7 @@ func (a *authorizer) CreateServiceToken(ctx context.Context, userId primitive.Ob
 	}
 
 	// Store the service token in the database
-	_, err = a.tokenService.CreateServiceToken(ctx, userId.Hex(), signedToken)
+	_, err = a.tokenService.CreateServiceToken(ctx, tokenId.Hex(), userId.Hex(), signedToken)
 	if err != nil {
 		return "", errors.Wrap(ErrPersistToken, err.Error())
 	}

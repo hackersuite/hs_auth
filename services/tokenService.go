@@ -8,6 +8,6 @@ import (
 
 type TokenService interface {
 	GenerateServiceTokenID() primitive.ObjectID
-	CreateServiceToken(ctx context.Context, creatorId, jwt string) (*entities.ServiceToken, error)
+	CreateServiceToken(ctx context.Context, tokenId, creatorId, jwt string) (*entities.ServiceToken, error)
 	DeleteServiceToken(ctx context.Context, id string) error
 }

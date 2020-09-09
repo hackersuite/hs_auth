@@ -31,14 +31,19 @@ func (s *mongoTokenService) GenerateServiceTokenID() primitive.ObjectID {
 	return primitive.NewObjectID()
 }
 
-func (s *mongoTokenService) CreateServiceToken(ctx context.Context, creatorID, jwt string) (*entities.ServiceToken, error) {
+func (s *mongoTokenService) CreateServiceToken(ctx context.Context, tokenID, creatorID, jwt string) (*entities.ServiceToken, error) {
 	creatorMongoID, err := primitive.ObjectIDFromHex(creatorID)
 	if err != nil {
 		return nil, services.ErrInvalidID
 	}
 
+	tokenMongoID, err := primitive.ObjectIDFromHex(tokenID)
+	if err != nil {
+		return nil, services.ErrInvalidID
+	}
+
 	token := &entities.ServiceToken{
-		ID:      primitive.NewObjectID(),
+		ID:      tokenMongoID,
 		JWT:     jwt,
 		Creator: creatorMongoID,
 	}
