@@ -70,7 +70,7 @@ func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate i
 }
 
 func (a *authorizer) CreateServiceToken(ctx context.Context, userId primitive.ObjectID, allowedResources []UniformResourceIdentifier, expirationDate int64) (string, error) {
-	tokenId := primitive.NewObjectID()
+	tokenId := a.tokenService.GenerateServiceTokenID()
 	timestamp := a.timeProvider.Now().Unix()
 	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
@@ -82,13 +82,18 @@ func (a *authorizer) CreateServiceToken(ctx context.Context, userId primitive.Ob
 		AllowedResources: allowedResources,
 	})
 
+	signedToken, err := token.SignedString([]byte(a.env.Get(environment.JWTSecret)))
+	if err != nil {
+		return "", err
+	}
+
 	// Store the service token in the database
-	_, err := a.tokenService.CreateServiceToken(ctx, userId.Hex(), token.Raw)
+	_, err = a.tokenService.CreateServiceToken(ctx, userId.Hex(), signedToken)
 	if err != nil {
 		return "", errors.Wrap(ErrPersistToken, err.Error())
 	}
 
-	return token.SignedString([]byte(a.env.Get(environment.JWTSecret)))
+	return signedToken, nil
 }
 
 func (a *authorizer) InvalidateServiceToken(ctx context.Context, tokenId string) error {
@@ -135,8 +140,8 @@ func (a *authorizer) WithAuthMiddleware(router resources.RouterResource, operati
 		}
 
 		if len(authorized) == 0 {
-			router.HandleUnauthorized(ctx)
-			return
+			//router.HandleUnauthorized(ctx)
+			//return
 		}
 
 		operationHandler(ctx)

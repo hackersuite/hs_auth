@@ -27,6 +27,10 @@ func NewMongoTokenService(logger *zap.Logger, env *environment.Env, tokenReposit
 	}
 }
 
+func (s *mongoTokenService) GenerateServiceTokenID() primitive.ObjectID {
+	return primitive.NewObjectID()
+}
+
 func (s *mongoTokenService) CreateServiceToken(ctx context.Context, creatorID, jwt string) (*entities.ServiceToken, error) {
 	creatorMongoID, err := primitive.ObjectIDFromHex(creatorID)
 	if err != nil {
