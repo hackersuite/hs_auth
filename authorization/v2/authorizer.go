@@ -91,9 +91,9 @@ func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []UniformR
 
 	// filtering for resources the token has access to
 	var allowedResources []UniformResourceIdentifier
-	for _, resource := range claims.AllowedResources {
+	for i, resource := range claims.AllowedResources {
 		if resource.isSubsetOfAtLeastOne(urisToCheck) {
-			allowedResources = append(allowedResources, resource)
+			allowedResources = append(allowedResources, urisToCheck[i])
 		}
 	}
 

@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
@@ -10,6 +11,7 @@ import (
 	"github.com/unicsmcr/hs_auth/utils"
 	"go.uber.org/zap"
 	"net/http"
+	"strings"
 )
 
 const resourcePath = "hs:hs_auth:api:v2"
@@ -60,7 +62,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.POST("/login", r.Login)
 
 	tokensGroup := routerGroup.Group("/tokens")
-	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
+	tokensGroup.GET("/resources/authorized", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
 	tokensGroup.POST("/service", r.authorizer.WithAuthMiddleware(r, r.CreateServiceToken))
 
 	teamsGroups := routerGroup.Group("/teams")
@@ -81,13 +83,32 @@ func (r *apiV2Router) HandleUnauthorized(ctx *gin.Context) {
 	models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this operation")
 }
 
-// TODO: finish implementation (https://github.com/unicsmcr/hs_auth/issues/83)
 func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
-	// TODO: extract URIs from request, requires string -> URI mapper
-	var requestedUris []v2.UniformResourceIdentifier
+	var req struct {
+		From string `form:"from"`
+	}
+	err := ctx.Bind(&req)
+	if err != nil {
+		r.logger.Debug("could not parse get authorized resources request", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse request")
+		return
+	}
+
+	// Remove the leading '[' and trailing ']' from the uri parameter
+	req.From = req.From[1 : len(req.From)-1]
+	rawUriList := strings.Split(req.From, ",")
+
+	var requestedUris = make([]v2.UniformResourceIdentifier, len(rawUriList))
+	for i, rawUri := range rawUriList {
+		err := requestedUris[i].UnmarshalJSON([]byte(rawUri))
+		if err != nil {
+			r.logger.Debug(fmt.Sprintf("uri could not be parsed at index %d", i))
+			models.SendAPIError(ctx, http.StatusBadRequest, "provided uri could not be parsed")
+			return
+		}
+	}
 
 	token := r.GetAuthToken(ctx)
-
 	authorizedUris, err := r.authorizer.GetAuthorizedResources(token, requestedUris)
 	if err != nil {
 		switch errors.Cause(err) {

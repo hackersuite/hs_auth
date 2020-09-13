@@ -91,9 +91,12 @@ func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 
 func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
 	uriString := string(data)
-	unquotedURI := uriString[1 : len(uriString)-1]
 
-	parsedURI, err := NewURIFromString(unquotedURI)
+	if len(uriString) > 0 && uriString[0] == '"' && uriString[len(uriString)-1] == '"' {
+		uriString = uriString[1 : len(uriString)-1]
+	}
+
+	parsedURI, err := NewURIFromString(uriString)
 	if err == nil {
 		*uri = parsedURI
 	}
