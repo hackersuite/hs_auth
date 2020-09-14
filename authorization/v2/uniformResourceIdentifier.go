@@ -200,11 +200,12 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 }
 
 // isSubsetOfAtLeastOne checks if the URI is a subset of at least one of the given URIs
-func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
+// Returns true if the uri matched a target uri along with the matching uri from the target set
+func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) (bool, UniformResourceIdentifier) {
 	for i := 0; i < len(targets); i++ {
 		if uri.isSubsetOf(targets[i]) {
-			return true
+			return true, targets[i]
 		}
 	}
-	return false
+	return false, UniformResourceIdentifier{}
 }

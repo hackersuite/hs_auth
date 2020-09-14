@@ -342,7 +342,7 @@ func Test_isSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *t
 		},
 	}
 
-	valid := testSource.isSubsetOfAtLeastOne(testTargets)
+	valid, _ := testSource.isSubsetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, true)
 }
 
@@ -352,7 +352,7 @@ func Test_isSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T
 		arguments: map[string]string{"test": "1"},
 	}
 
-	valid := testSource.isSubsetOfAtLeastOne(nil)
+	valid, _ := testSource.isSubsetOfAtLeastOne(nil)
 	assert.Equal(t, valid, false)
 }
 
@@ -366,7 +366,7 @@ func Test_isSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *te
 		},
 	}
 
-	valid := testSource.isSubsetOfAtLeastOne(testTargets)
+	valid, _ := testSource.isSubsetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, false)
 }
 
