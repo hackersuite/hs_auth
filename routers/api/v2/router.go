@@ -1,9 +1,7 @@
 package v2
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
@@ -11,7 +9,6 @@ import (
 	"github.com/unicsmcr/hs_auth/utils"
 	"go.uber.org/zap"
 	"net/http"
-	"strings"
 )
 
 const resourcePath = "hs:hs_auth:api:v2"
@@ -81,48 +78,4 @@ func (r *apiV2Router) GetAuthToken(ctx *gin.Context) string {
 
 func (r *apiV2Router) HandleUnauthorized(ctx *gin.Context) {
 	models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this operation")
-}
-
-func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
-	var req struct {
-		From string `form:"from"`
-	}
-	err := ctx.Bind(&req)
-	if err != nil {
-		r.logger.Debug("could not parse get authorized resources request", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse request")
-		return
-	}
-
-	// Remove the leading '[' and trailing ']' from the uri parameter
-	req.From = req.From[1 : len(req.From)-1]
-	rawUriList := strings.Split(req.From, ",")
-
-	var requestedUris = make([]v2.UniformResourceIdentifier, len(rawUriList))
-	for i, rawUri := range rawUriList {
-		err := requestedUris[i].UnmarshalJSON([]byte(rawUri))
-		if err != nil {
-			r.logger.Debug(fmt.Sprintf("uri could not be parsed at index %d", i))
-			models.SendAPIError(ctx, http.StatusBadRequest, "provided uri could not be parsed")
-			return
-		}
-	}
-
-	token := r.GetAuthToken(ctx)
-	authorizedUris, err := r.authorizer.GetAuthorizedResources(token, requestedUris)
-	if err != nil {
-		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
-			r.logger.Debug("invalid token", zap.Error(err))
-			r.HandleUnauthorized(ctx)
-		default:
-			r.logger.Error("could not get authorized URIs", zap.Error(err))
-			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		}
-		return
-	}
-
-	ctx.JSON(http.StatusOK, getAuthorizedResourcesRes{
-		AuthorizedUris: authorizedUris,
-	})
 }
