@@ -15,6 +15,27 @@ import (
 	"testing"
 )
 
+//func setupAuthorizerTest(t *testing.T) *authorizerTestSetup {
+//	ctrl := gomock.NewController(t)
+//	defer ctrl.Finish()
+//
+//	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
+//	router := &apiV2Router{authorizer: mockAuthorizer}
+//
+//	w := httptest.NewRecorder()
+//	testCtx, _ := gin.CreateTestContext(w)
+//	req := httptest.NewRequest(http.MethodGet, "/test?from=[hs:hs_application,hs:hs_auth:api]", nil)
+//	req.Header.Set(authTokenHeader, "test_token")
+//	testCtx.Request = req
+//
+//	return &authorizerTestSetup{
+//		router:       	router,
+//		w:            	w,
+//		testCtx:      	testCtx,
+//		mockAuthorizer: mockAuthorizer,
+//	}
+//}
+
 func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)

@@ -5,6 +5,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
@@ -147,6 +148,111 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, *tt.wantRes, actualRes)
 			}
+		})
+	}
+}
+
+func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
+	testUris := []string{"hs:hs_application", "hs:hs_auth:api"}
+	var expectedUriRes []v2.UniformResourceIdentifier
+	for _, uriString := range testUris {
+		uri, _ := v2.NewURIFromString(uriString)
+		expectedUriRes = append(expectedUriRes, uri)
+	}
+	expectedRes := &getAuthorizedResourcesRes{
+		AuthorizedUris: expectedUriRes,
+	}
+
+	tests := []struct {
+		name            string
+		prep            func(setup *tokensTestSetup)
+		testAllowedURIs string
+		wantResCode     int
+		wantRes         *getAuthorizedResourcesRes
+	}{
+		{
+			name: "with valid request",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any()).
+					Return(expectedUriRes, nil).Times(1)
+			},
+			testAllowedURIs: "[hs:hs_auth]",
+			wantResCode:     http.StatusOK,
+			wantRes:         expectedRes,
+		},
+		{
+			name:        "with no query params",
+			wantResCode: http.StatusBadRequest,
+			wantRes: &getAuthorizedResourcesRes{
+				nil,
+			},
+		},
+		{
+			name:            "with malformed encoded uri in request",
+			testAllowedURIs: "[%ZZhs%ZZhs_auth::]",
+			wantResCode:     http.StatusBadRequest,
+			wantRes: &getAuthorizedResourcesRes{
+				nil,
+			},
+		},
+		{
+			name:            "with malformed uri in request",
+			testAllowedURIs: "[hs:hs_auth??##]",
+			wantResCode:     http.StatusBadRequest,
+			wantRes: &getAuthorizedResourcesRes{
+				nil,
+			},
+		},
+		{
+			name:            "invalid jwt in req",
+			testAllowedURIs: "[hs:hs_auth]",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any()).
+					Return(nil, v2.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+			wantRes: &getAuthorizedResourcesRes{
+				nil,
+			},
+		},
+		{
+			name:            "authorizer method returns unknown error",
+			testAllowedURIs: "[hs:hs_auth]",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any()).
+					Return(nil, errors.New("random error")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+			wantRes: &getAuthorizedResourcesRes{
+				nil,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTokensTest(t)
+
+			var queryParams map[string]string
+			if len(tt.testAllowedURIs) > 0 {
+				queryParams = map[string]string{"from": tt.testAllowedURIs}
+			}
+
+			testutils.AddRequestWithUrlParamsToCtx(setup.testCtx, http.MethodGet, queryParams)
+			defer setup.ctrl.Finish()
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.router.GetAuthorizedResources(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+
+			var actualRes getAuthorizedResourcesRes
+			err := testutils.UnmarshallResponse(setup.w.Body, &actualRes)
+			assert.NoError(t, err)
+			assert.Equal(t, *tt.wantRes, actualRes)
 		})
 	}
 }

@@ -35,7 +35,7 @@ func AddRequestWithFormParamsToCtx(ctx *gin.Context, method string, params map[s
 	ctx.Request = req
 }
 
-// AddUrlParamsToCtx attaches a request with given method and url params to the context
+// AddUrlParamsToCtx attaches url params to the context
 func AddUrlParamsToCtx(ctx *gin.Context, params map[string]string) {
 	p := gin.Params{}
 	for key, val := range params {
@@ -46,6 +46,28 @@ func AddUrlParamsToCtx(ctx *gin.Context, params map[string]string) {
 	}
 
 	ctx.Params = p
+}
+
+// AddRequestWithUrlParamsToCtx attaches a request with given method and url params to the context
+func AddRequestWithUrlParamsToCtx(ctx *gin.Context, method string, params map[string]string) {
+	p := gin.Params{}
+	data := url.Values{}
+	for key, val := range params {
+		p = append(p, gin.Param{
+			Key:   key,
+			Value: val,
+		})
+		data.Add(key, val)
+	}
+
+	urlEncodedParams := "/test"
+	if params != nil {
+		urlEncodedParams = fmt.Sprintf("/test?%s", data.Encode())
+		ctx.Params = p
+	}
+
+	req := httptest.NewRequest(method, urlEncodedParams, nil)
+	ctx.Request = req
 }
 
 // SetEnvVars sets given environment variables and provides a callback function to restore the variables to their initial values
@@ -170,7 +192,6 @@ func (m HandlerFuncMatcher) Matches(x interface{}) bool {
 func (m HandlerFuncMatcher) String() string {
 	return fmt.Sprintf("handler name equal to %s", m.handlerName)
 }
-
 
 func getHandlerName(handler gin.HandlerFunc) string {
 	return runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()
