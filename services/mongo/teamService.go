@@ -203,6 +203,7 @@ func (s *mongoTeamService) AddUserWithIDToTeamWithID(ctx context.Context, userID
 		return err
 	}
 
+	// TODO: missing error handling
 	user, err := s.userService.GetUserWithID(ctx, userID)
 	if user.Team != primitive.NilObjectID {
 		return services.ErrUserInTeam

@@ -26,6 +26,7 @@ type APIV2Router interface {
 	CreateTeam(ctx *gin.Context)
 	GetTeams(ctx *gin.Context)
 	GetTeam(ctx *gin.Context)
+	SetTeam(ctx *gin.Context)
 }
 
 type apiV2Router struct {
@@ -56,6 +57,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup := routerGroup.Group("/users")
 	usersGroup.GET("/", r.authorizer.WithAuthMiddleware(r, r.GetUsers))
 	usersGroup.GET("/:id", r.authorizer.WithAuthMiddleware(r, r.GetUser))
+	usersGroup.PUT("/:id/team", r.authorizer.WithAuthMiddleware(r, r.SetTeam))
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 
