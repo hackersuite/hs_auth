@@ -69,7 +69,7 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 
 // DELETE: /api/v2/tokens/service/:id
 // Response:
-// Headers:  Authorization <- token
+// Headers:  Authorization -> token
 func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 	tokenID := ctx.Param("id")
 	if len(tokenID) == 0 {
@@ -82,11 +82,11 @@ func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 	if err != nil {
 		switch errors.Cause(err) {
 		case services.ErrInvalidID:
-			r.logger.Error("service token id is not valid", zap.Error(err))
+			r.logger.Debug("service token id is not valid", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "invalid id")
 		case services.ErrNotFound:
-			r.logger.Error("service token not found", zap.Error(err))
-			models.SendAPIError(ctx, http.StatusBadRequest, "service token not found")
+			r.logger.Debug("service token not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "service token not found")
 		default:
 			r.logger.Error("could not invalidate token", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
