@@ -50,8 +50,17 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 	userToken := r.GetAuthToken(ctx)
 	userID, err := r.authorizer.GetUserIdFromToken(userToken)
 	if err != nil {
-		r.logger.Debug("could not extract id from auth token", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusBadRequest, "could not extract user id from auth token")
+		switch errors.Cause(err) {
+		case v2.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
+		case v2.ErrInvalidTokenType:
+			r.logger.Debug("invalid token type", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
+		default:
+			r.logger.Error("could not extract token type", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
 		return
 	}
 
