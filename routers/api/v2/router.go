@@ -27,6 +27,7 @@ type APIV2Router interface {
 	GetTeams(ctx *gin.Context)
 	GetTeam(ctx *gin.Context)
 	SetTeam(ctx *gin.Context)
+	RemoveFromTeam(ctx *gin.Context)
 }
 
 type apiV2Router struct {
@@ -57,7 +58,8 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup := routerGroup.Group("/users")
 	usersGroup.GET("/", r.authorizer.WithAuthMiddleware(r, r.GetUsers))
 	usersGroup.GET("/:id", r.authorizer.WithAuthMiddleware(r, r.GetUser))
-	usersGroup.PUT("/:id/team", r.authorizer.WithAuthMiddleware(r, r.SetTeam))
+	usersGroup.PUT("/:id/team", r.SetTeam)
+	usersGroup.DELETE("/:id/team", r.RemoveFromTeam)
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
 
@@ -68,7 +70,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	teamsGroups := routerGroup.Group("/teams")
 	teamsGroups.GET("/", r.authorizer.WithAuthMiddleware(r, r.GetTeams))
 	teamsGroups.GET("/:id", r.authorizer.WithAuthMiddleware(r, r.GetTeam))
-	teamsGroups.POST("/", r.authorizer.WithAuthMiddleware(r, r.CreateTeam))
+	teamsGroups.POST("/", r.CreateTeam)
 }
 
 func (r *apiV2Router) GetResourcePath() string {

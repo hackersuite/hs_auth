@@ -596,6 +596,7 @@ func TestApiV2Router_GetUser(t *testing.T) {
 		})
 	}
 }
+
 func TestApiV2Router_SetTeam(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -721,6 +722,117 @@ func TestApiV2Router_SetTeam(t *testing.T) {
 			testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{"id": tt.testUserId})
 
 			setup.router.SetTeam(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
+func TestApiV2Router_RemoveFromTeam(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*usersTestSetup)
+		testUserId  string
+		wantResCode int
+	}{
+		{
+			name:       "should return 401 when authorizer.GetUserIdFromToken returns ErrInvalidToken",
+			testUserId: "me",
+			prep: func(setup *usersTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, v2.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:       "should return 400 when authorizer.GetUserIdFromToken returns ErrInvalidTokenType",
+			testUserId: "me",
+			prep: func(setup *usersTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, v2.ErrInvalidTokenType).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:       "should return 500 when authorizer.GetUserIdFromToken returns unknown error",
+			testUserId: "me",
+			prep: func(setup *usersTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, errors.New("authorizer err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:       "should return 400 when teamService.RemoveUserWithIDFromTheirTeam returns ErrInvalidID",
+			testUserId: testUserId.Hex(),
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(services.ErrInvalidID).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:       "should return 404 when teamService.RemoveUserWithIDFromTheirTeam returns ErrNotFound",
+			testUserId: testUserId.Hex(),
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusNotFound,
+		},
+		{
+			name:       "should return 400 when teamService.RemoveUserWithIDFromTheirTeam returns ErrUserNotInTeam",
+			testUserId: testUserId.Hex(),
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(services.ErrUserNotInTeam).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:       "should return 500 when teamService.RemoveUserWithIDFromTheirTeam returns unknown error",
+			testUserId: testUserId.Hex(),
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:       "should return 200 when user id is provided",
+			testUserId: testUserId.Hex(),
+			prep: func(setup *usersTestSetup) {
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
+			name:       "should return 200 when user id is me",
+			testUserId: "me",
+			prep: func(setup *usersTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t)
+			defer setup.ctrl.Finish()
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, nil)
+			setup.testCtx.Request.Header.Set(authTokenHeader, testAuthToken)
+			testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{"id": tt.testUserId})
+
+			setup.router.RemoveFromTeam(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})

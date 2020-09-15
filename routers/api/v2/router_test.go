@@ -47,6 +47,10 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			method: http.MethodPut,
 		},
 		{
+			route:  "/users/me/team",
+			method: http.MethodDelete,
+		},
+		{
 			route:  "/users",
 			method: http.MethodPost,
 		},
@@ -88,6 +92,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.RemoveFromTeam)
 
 			router.RegisterRoutes(&testServer.RouterGroup)
 
