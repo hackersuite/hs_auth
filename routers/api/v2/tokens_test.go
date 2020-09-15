@@ -2,6 +2,7 @@ package v2
 
 import (
 	"errors"
+	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/services"
 	"net/http"
 	"net/http/httptest"
@@ -121,13 +122,31 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 			wantResCode:     http.StatusBadRequest,
 		},
 		{
-			name:            "should return 400 when GetUserIdFromToken returns error",
+			name:            "should return 401 when GetUserIdFromToken returns ErrInvalidToken",
+			testAllowedURIs: "\"hs:hs_application\"",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
+					Return(primitive.ObjectID{}, v2.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:            "should return 400 when GetUserIdFromToken returns ErrInvalidTokenType",
+			testAllowedURIs: "\"hs:hs_application\"",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
+					Return(primitive.ObjectID{}, v2.ErrInvalidTokenType).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:            "should return 500 when GetUserIdFromToken returns unknown error",
 			testAllowedURIs: "\"hs:hs_application\"",
 			prep: func(setup *tokensTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
 					Return(primitive.ObjectID{}, errors.New("random error")).Times(1)
 			},
-			wantResCode: http.StatusBadRequest,
+			wantResCode: http.StatusInternalServerError,
 		},
 		{
 			name:            "should return 500 when CreateServiceToken returns unknown error",
@@ -212,13 +231,13 @@ func TestApiV2Router_InvalidateServiceToken(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:    "should return 400 when token not found",
+			name:    "should return 404 when token not found",
 			tokenId: testTokenId.Hex(),
 			prep: func(setup *tokensTestSetup) {
 				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testTokenId.Hex()).
 					Return(services.ErrNotFound).Times(1)
 			},
-			wantResCode: http.StatusBadRequest,
+			wantResCode: http.StatusNotFound,
 		},
 		{
 			name:    "should return 500 when DeleteServiceToken returns unknown error",
