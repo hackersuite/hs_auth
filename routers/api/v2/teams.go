@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
@@ -32,7 +33,7 @@ func (r *apiV2Router) CreateTeam(ctx *gin.Context) {
 	tokenType, err := r.authorizer.GetTokenTypeFromToken(r.GetAuthToken(ctx))
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
 		default:
@@ -47,10 +48,10 @@ func (r *apiV2Router) CreateTeam(ctx *gin.Context) {
 		userId, err = r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 		if err != nil {
 			switch errors.Cause(err) {
-			case v2.ErrInvalidToken:
+			case common.ErrInvalidToken:
 				r.logger.Debug("invalid token", zap.Error(err))
 				r.HandleUnauthorized(ctx)
-			case v2.ErrInvalidTokenType:
+			case common.ErrInvalidTokenType:
 				r.logger.Debug("invalid token type", zap.Error(err))
 				models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 			default:
@@ -110,10 +111,10 @@ func (r *apiV2Router) GetTeam(ctx *gin.Context) {
 	team, err := r.getTeamCtxAware(ctx, ctx.Param("id"))
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
-		case v2.ErrInvalidTokenType:
+		case common.ErrInvalidTokenType:
 			r.logger.Debug("invalid token type", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 		case services.ErrInvalidID:

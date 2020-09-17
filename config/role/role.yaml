@@ -1,0 +1,30 @@
+role:
+  # TODO: review permissions for roles after Auth System V2 is finished (https://github.com/unicsmcr/hs_auth/issues/81)
+  unverified:
+    - "hs:hs_auth:api:v2:users:Register"
+  applicant:
+    - "hs:hs_auth:api:v2:users:Register"
+    - "hs:hs_auth:api:v2:users?query_id=\"me\""
+    - "hs:hs_auth:api:v2:users:Login"
+    - "hs:hs_auth:api:v2:teams:CreateTeam"
+    - "hs:hs_auth:api:v2:teams?query_id=\"me\""
+    - "hs:hs_applications:apply"
+  attendee:
+    - "hs:hs_auth:api:v2:users:Register"
+    - "hs:hs_auth:api:v2:users?query_id=\"me\""
+    - "hs:hs_auth:api:v2:users:Login"
+    - "hs:hs_auth:api:v2:teams:CreateTeam"
+    - "hs:hs_auth:api:v2:teams?query_id=\"me\""
+    - "hs:hs_applications:apply"
+    - "hs:hs_hub"
+  volunteer:
+    - "hs:hs_auth:api:v2:users:Register"
+    - "hs:hs_auth:api:v2:users?query_id=\"me\""
+    - "hs:hs_auth:api:v2:users:Login"
+    - "hs:hs_auth:api:v2:teams:CreateTeam"
+    - "hs:hs_auth:api:v2:teams?query_id=\"me\""
+    - "hs:hs_applications:apply"
+    - "hs:hs_hub"
+    - "hs:hs_applications:review"
+  organiser:
+    - "hs"

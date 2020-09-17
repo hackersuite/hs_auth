@@ -6,8 +6,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
@@ -28,8 +29,15 @@ const (
 )
 
 var (
-	testUserId = primitive.NewObjectID()
-	testTeamId = primitive.NewObjectID()
+	testUserId     = primitive.NewObjectID()
+	testTeamId     = primitive.NewObjectID()
+	testRoleConfig = role.UserRoleConfig{
+		"unverified": nil,
+		"applicant":  nil,
+		"attendee":   nil,
+		"volunteer":  nil,
+		"organiser":  nil,
+	}
 )
 
 type usersTestSetup struct {
@@ -51,6 +59,7 @@ func setupUsersTest(t *testing.T) *usersTestSetup {
 
 	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{
 		AuthTokenLifetime: testAuthTokenLifetime,
+		UserRole:          testRoleConfig,
 	}, mockAuthorizer, mockUService, nil, nil, mockTimeProvider)
 
 	w := httptest.NewRecorder()
@@ -283,7 +292,7 @@ func TestApiV2Router_GetUsers(t *testing.T) {
 			teamId: "me",
 			prep: func(setup *usersTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidToken).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -292,7 +301,7 @@ func TestApiV2Router_GetUsers(t *testing.T) {
 			teamId: "me",
 			prep: func(setup *usersTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidTokenType).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidTokenType).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
@@ -481,7 +490,7 @@ func TestApiV2Router_GetUser(t *testing.T) {
 			userId: "me",
 			prep: func(setup *usersTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidToken).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -490,7 +499,7 @@ func TestApiV2Router_GetUser(t *testing.T) {
 			userId: "me",
 			prep: func(setup *usersTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidTokenType).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidTokenType).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
@@ -590,6 +599,80 @@ func TestApiV2Router_GetUser(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, *tt.wantRes, actualRes)
 			}
+		})
+	}
+}
+
+func TestApiV2Router_SetRole(t *testing.T) {
+	tests := []struct {
+		name        string
+		role        string
+		prep        func(*usersTestSetup)
+		wantResCode int
+	}{
+		{
+			name:        "should return 400 when role is not provided",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:        "should return 400 when provided role is invalid",
+			role:        "test",
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 400 when user service returns ErrInvalidID",
+			role: "attendee",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(services.ErrInvalidID).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name: "should return 404 when user service returns ErrNotFound",
+			role: "attendee",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusNotFound,
+		},
+		{
+			name: "should return 500 when user service returns unknown error",
+			role: "attendee",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(errors.New("random error")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 2xx when correct role is provided",
+			role: "attendee",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupUsersTest(t)
+			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPut, map[string]string{
+				"role": tt.role,
+			})
+			setup.testCtx.Request.Header.Set(authTokenHeader, testAuthToken)
+			testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{"id": testUserId.Hex()})
+			defer setup.ctrl.Finish()
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.router.SetRole(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})
 	}
 }

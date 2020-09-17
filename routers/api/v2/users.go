@@ -3,13 +3,15 @@ package v2
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
+	v1 "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"net/http"
+	"strconv"
 )
 
 // POST: /api/v2/users/login
@@ -117,10 +119,10 @@ func (r *apiV2Router) GetUsers(ctx *gin.Context) {
 
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
-		case v2.ErrInvalidTokenType:
+		case common.ErrInvalidTokenType:
 			r.logger.Debug("invalid token type", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 		case services.ErrInvalidID:
@@ -153,10 +155,10 @@ func (r *apiV2Router) GetUser(ctx *gin.Context) {
 	user, err = r.getUserCtxAware(ctx, ctx.Param("id"))
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
-		case v2.ErrInvalidTokenType:
+		case common.ErrInvalidTokenType:
 			r.logger.Debug("invalid token type", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 		case services.ErrInvalidID:
@@ -175,6 +177,50 @@ func (r *apiV2Router) GetUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, getUserRes{
 		User: *user,
 	})
+}
+
+// PUT: /api/v2/users/:id/role
+// x-www-form-urlencoded
+// Request:  role string
+// Headers:  Authorization -> token
+func (r *apiV2Router) SetRole(ctx *gin.Context) {
+	var err error
+
+	role := ctx.PostForm("role")
+	if len(role) == 0 {
+		r.logger.Debug("role not provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "user role must be provided")
+		return
+	}
+
+	// TODO: Replace auth level conversion once V1 is removed
+	var authLevel v1.AuthLevel
+	err = authLevel.UnmarshalJSON([]byte(strconv.Quote(role)))
+	if err != nil {
+		r.logger.Debug("invalid role", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "role does not exist")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, ctx.Param("id"), services.UserUpdateParams{
+		entities.UserAuthLevel: authLevel,
+	})
+	if err != nil {
+		switch err {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id")
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id provided")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found")
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not update user with id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem when updating the user")
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }
 
 // getUserCtxAware fetches user with the given id. If id is "me", getUserCtxAware tries to extract the user from the ctx

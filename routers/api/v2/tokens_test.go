@@ -2,7 +2,7 @@ package v2
 
 import (
 	"errors"
-	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/services"
 	"net/http"
 	"net/http/httptest"
@@ -126,7 +126,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 			testAllowedURIs: "\"hs:hs_application\"",
 			prep: func(setup *tokensTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
-					Return(primitive.ObjectID{}, v2.ErrInvalidToken).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -135,7 +135,7 @@ func TestApiV2Router_CreateServiceToken(t *testing.T) {
 			testAllowedURIs: "\"hs:hs_application\"",
 			prep: func(setup *tokensTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).
-					Return(primitive.ObjectID{}, v2.ErrInvalidTokenType).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidTokenType).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},

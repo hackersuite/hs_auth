@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/entities"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"net/http"
@@ -14,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/unicsmcr/hs_auth/environment"
-	mock_resources "github.com/unicsmcr/hs_auth/mocks/authorization/v2/resources"
+	mock_resources "github.com/unicsmcr/hs_auth/mocks/authorization/v2/common"
 	mock_utils "github.com/unicsmcr/hs_auth/mocks/utils"
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -58,11 +59,17 @@ func setupAuthorizerTests(t *testing.T, jwtSecret string) authorizerTestSetup {
 	}
 }
 
+func createTestURI(source string) common.UniformResourceIdentifier {
+	uri, _ := common.NewURIFromString(source)
+	return uri
+}
+
 func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	testID := primitive.NewObjectID()
 	var testTTL int64 = 100
 	testTimestamp := time.Now()
-	testAllowedResources := []UniformResourceIdentifier{{path: "test"}}
+	testURI := createTestURI("test")
+	testAllowedResources := []common.UniformResourceIdentifier{testURI}
 
 	tests := []struct {
 		name   string
@@ -126,7 +133,8 @@ func TestAuthorizer_CreateServiceToken_throws_unknown_error(t *testing.T) {
 	testID := primitive.NewObjectID()
 	var testTTL int64 = 100
 	testTimestamp := time.Now()
-	testAllowedResources := []UniformResourceIdentifier{{path: "test"}}
+	testURI := createTestURI("test")
+	testAllowedResources := []common.UniformResourceIdentifier{testURI}
 
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
@@ -193,12 +201,9 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token_is_valid(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
-	token := createToken(t, "testuser", []UniformResourceIdentifier{
-		{
-			path: "test",
-		},
-	}, int64(100), User, jwtSecret)
-	uris := []UniformResourceIdentifier{{path: "test"}}
+	testURI := createTestURI("test")
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
+	uris := []common.UniformResourceIdentifier{testURI}
 
 	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
 	assert.NoError(t, err)
@@ -217,17 +222,17 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 		{
 			name:      "when token is invalid",
 			token:     "invalid token",
-			wantedErr: ErrInvalidToken,
+			wantedErr: common.ErrInvalidToken,
 		},
 		{
 			name:      "when token type is invalid",
 			token:     createToken(t, "user id", nil, int64(0), "unknown type", jwtSecret),
-			wantedErr: ErrInvalidToken,
+			wantedErr: common.ErrInvalidToken,
 		},
 		{
 			name:      "when token is expired",
 			token:     createToken(t, "user id", nil, int64(-5), User, jwtSecret),
-			wantedErr: ErrInvalidToken,
+			wantedErr: common.ErrInvalidToken,
 		},
 	}
 
@@ -316,12 +321,8 @@ func TestAuthorizer_WithAuthMiddleware_should_call_handler_when_request_is_autho
 	defer setup.ctrl.Finish()
 	mockHandlerCalled := false
 	mockHandler := func(*gin.Context) { mockHandlerCalled = true }
-
-	token := createToken(t, "test_token", []UniformResourceIdentifier{
-		{
-			path: "resource",
-		},
-	}, int64(10000), Service, "")
+	testURI := createTestURI("resource")
+	token := createToken(t, "test_token", []common.UniformResourceIdentifier{testURI}, int64(10000), Service, "")
 	setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
 	setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 
@@ -342,17 +343,17 @@ func TestAuthorizer_GetUserIdFromToken__should_return_error(t *testing.T) {
 		{
 			name:    "when token is empty",
 			token:   "",
-			wantErr: ErrInvalidToken,
+			wantErr: common.ErrInvalidToken,
 		},
 		{
 			name:    "when token type is not user",
 			token:   createToken(t, "id", nil, int64(10000), Service, ""),
-			wantErr: ErrInvalidTokenType,
+			wantErr: common.ErrInvalidTokenType,
 		},
 		{
 			name:    "when user id is malformed",
 			token:   createToken(t, "invalid id", nil, int64(10000), User, ""),
-			wantErr: ErrInvalidToken,
+			wantErr: common.ErrInvalidToken,
 		},
 	}
 
@@ -387,7 +388,7 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_is_inv
 	tokenType, err := setup.authorizer.GetTokenTypeFromToken("invalid token")
 
 	assert.Zero(t, tokenType)
-	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
+	assert.Equal(t, common.ErrInvalidToken, errors.Cause(err))
 }
 
 func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_type_is_invalid(t *testing.T) {
@@ -398,7 +399,7 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_type_i
 	tokenType, err := setup.authorizer.GetTokenTypeFromToken(token)
 
 	assert.Zero(t, tokenType)
-	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
+	assert.Equal(t, common.ErrInvalidToken, errors.Cause(err))
 }
 
 func TestAuthorizer_GetTokenTypeFromToken__should_return_expected_token_type(t *testing.T) {
@@ -412,7 +413,7 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_expected_token_type(t *
 	assert.NoError(t, err)
 }
 
-func createToken(t *testing.T, id string, allowedResources []UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {
+func createToken(t *testing.T, id string, allowedResources []common.UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {
 	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        id,

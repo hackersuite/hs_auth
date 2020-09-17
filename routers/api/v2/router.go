@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ type APIV2Router interface {
 	Register(ctx *gin.Context)
 	GetUsers(ctx *gin.Context)
 	GetUser(ctx *gin.Context)
+	SetRole(ctx *gin.Context)
 	GetAuthorizedResources(ctx *gin.Context)
 	CreateServiceToken(ctx *gin.Context)
 	InvalidateServiceToken(ctx *gin.Context)
@@ -62,6 +64,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/:id", r.authorizer.WithAuthMiddleware(r, r.GetUser))
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
+	usersGroup.PUT("/:id/role", r.authorizer.WithAuthMiddleware(r, r.SetRole))
 
 	tokensGroup := routerGroup.Group("/tokens")
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
@@ -89,14 +92,14 @@ func (r *apiV2Router) HandleUnauthorized(ctx *gin.Context) {
 // TODO: finish implementation (https://github.com/unicsmcr/hs_auth/issues/83)
 func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
 	// TODO: extract URIs from request, requires string -> URI mapper
-	var requestedUris []v2.UniformResourceIdentifier
+	var requestedUris []common.UniformResourceIdentifier
 
 	token := r.GetAuthToken(ctx)
 
 	authorizedUris, err := r.authorizer.GetAuthorizedResources(token, requestedUris)
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
 		default:
