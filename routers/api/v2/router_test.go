@@ -21,7 +21,8 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
 	mockTokenService := mock_services.NewMockTokenService(ctrl)
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockEService := mock_services.NewMockEmailService(ctrl)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken).AnyTimes()
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockTokenService.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockAuthorizer.EXPECT().InvalidateServiceToken(gomock.Any(), gomock.Any()).Return(services.ErrInvalidID)
@@ -55,6 +56,10 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			method: http.MethodPut,
 		},
 		{
+			route:  "/users/123/password/resetEmail",
+			method: http.MethodGet,
+		},
+		{
 			route:  "/tokens/service",
 			method: http.MethodPost,
 		},
@@ -84,6 +89,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 				userService:  mockUService,
 				teamService:  mockTService,
 				tokenService: mockTokenService,
+				emailService: mockEService,
 			}
 			w := httptest.NewRecorder()
 			_, testServer := gin.CreateTestContext(w)
@@ -91,6 +97,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetPassword)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetPasswordResetEmail)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.InvalidateServiceToken)

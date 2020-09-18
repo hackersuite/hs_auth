@@ -233,6 +233,41 @@ func (r *apiV2Router) SetPassword(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 }
 
+// GET: /api/v2/users/(:id|me)/password/resetEmail
+// Response:
+// Headers:  Authorization -> token
+func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
+	user, err := r.getUserCtxAware(ctx, ctx.Param("id"))
+	if err != nil {
+		switch errors.Cause(err) {
+		case v2.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
+		case v2.ErrInvalidTokenType:
+			r.logger.Debug("invalid token type", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	err = r.emailService.SendPasswordResetEmail(*user)
+	if err != nil {
+		r.logger.Error("could not send password reset email", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+	}
+
+	ctx.Status(http.StatusOK)
+}
+
 // getUserCtxAware fetches user with the given id. If id is "me", getUserCtxAware tries to extract the user from the ctx
 func (r *apiV2Router) getUserCtxAware(ctx *gin.Context, userId string) (*entities.User, error) {
 	if userId == "me" {
