@@ -22,6 +22,7 @@ type APIV2Router interface {
 	Register(ctx *gin.Context)
 	GetUsers(ctx *gin.Context)
 	GetUser(ctx *gin.Context)
+	SetPassword(ctx *gin.Context)
 	GetAuthorizedResources(ctx *gin.Context)
 	CreateServiceToken(ctx *gin.Context)
 	InvalidateServiceToken(ctx *gin.Context)
@@ -62,6 +63,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/:id", r.authorizer.WithAuthMiddleware(r, r.GetUser))
 	usersGroup.POST("/", r.Register)
 	usersGroup.POST("/login", r.Login)
+	usersGroup.PUT("/:id/password", r.authorizer.WithAuthMiddleware(r, r.SetPassword))
 
 	tokensGroup := routerGroup.Group("/tokens")
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))

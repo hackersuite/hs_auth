@@ -79,7 +79,7 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 
 	if len(req.Name) == 0 || len(req.Email) == 0 || len(req.Password) == 0 {
 		r.logger.Debug("one of name, email or password not specified", zap.String("name", req.Name), zap.String("email", req.Email), zap.Int("password length", len(req.Password)))
-		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the user's name, email and passowrd")
+		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the user's name, email and password")
 		return
 	}
 
@@ -175,6 +175,62 @@ func (r *apiV2Router) GetUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, getUserRes{
 		User: *user,
 	})
+}
+
+// PUT: /api/v2/users/(:id|me)/password
+// x-www-form-urlencoded
+// Request:  password string
+// Response:
+// Headers:  Authorization -> token
+func (r *apiV2Router) SetPassword(ctx *gin.Context) {
+	var req struct {
+		Password string `form:"password"`
+	}
+	_ = ctx.Bind(&req)
+	if len(req.Password) == 0 {
+		r.logger.Debug("password not specified", zap.Int("password length", len(req.Password)))
+		models.SendAPIError(ctx, http.StatusBadRequest, "request must include the new password")
+		return
+	}
+
+	user, err := r.getUserCtxAware(ctx, ctx.Param("id"))
+	if err != nil {
+		switch errors.Cause(err) {
+		case v2.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
+		case v2.ErrInvalidTokenType:
+			r.logger.Debug("invalid token type", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	err = r.userService.ResetPasswordForUserWithIDAndEmail(ctx, user.ID.Hex(), user.Email, req.Password)
+	if err != nil {
+		switch errors.Cause(err) {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user does not exist")
+		default:
+			r.logger.Error("could not update user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+	}
+
+	ctx.Status(http.StatusOK)
 }
 
 // getUserCtxAware fetches user with the given id. If id is "me", getUserCtxAware tries to extract the user from the ctx
