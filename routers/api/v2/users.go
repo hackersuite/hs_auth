@@ -110,6 +110,7 @@ func (r *apiV2Router) GetUsers(ctx *gin.Context) {
 		err   error
 	)
 	if ctx.Query("team") != "" {
+		// TODO: https://github.com/unicsmcr/hs_auth/issues/68
 		users, err = r.getTeamMembersCtxAware(ctx, ctx.Query("team"))
 	} else {
 		users, err = r.userService.GetUsers(ctx)
@@ -175,6 +176,108 @@ func (r *apiV2Router) GetUser(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, getUserRes{
 		User: *user,
 	})
+}
+
+// PUT: /api/v2/users/:id/team
+// x-www-form-urlencoded
+// Request:  team primitive.ObjectId
+// Headers:  Authorization -> token
+func (r *apiV2Router) SetTeam(ctx *gin.Context) {
+	teamId := ctx.PostForm("team")
+	if len(teamId) == 0 {
+		r.logger.Debug("team id not provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "team id must be provided")
+		return
+	}
+
+	userId := ctx.Param("id")
+	if userId == "me" {
+		userIdObj, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
+		if err != nil {
+			switch errors.Cause(err) {
+			case v2.ErrInvalidToken:
+				r.logger.Debug("invalid token", zap.Error(err))
+				r.HandleUnauthorized(ctx)
+			case v2.ErrInvalidTokenType:
+				r.logger.Debug("invalid token type", zap.Error(err))
+				models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
+			default:
+				r.logger.Error("could not extract token type", zap.Error(err))
+				models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			}
+			return
+		}
+
+		userId = userIdObj.Hex()
+	}
+
+	err := r.teamService.AddUserWithIDToTeamWithID(ctx, userId, teamId)
+	if err != nil {
+		switch errors.Cause(err) {
+		case services.ErrInvalidID:
+			r.logger.Debug("user or team id is invalid", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "user or team id is invalid")
+		case services.ErrNotFound:
+			r.logger.Debug("user or team not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user or team with given id not found")
+		case services.ErrUserInTeam:
+			r.logger.Debug("user is already in team", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "user is already in a team")
+		default:
+			r.logger.Error("could not add user to team", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// DELETE: /api/v2/users/:id/team
+// x-www-form-urlencoded
+// Headers:  Authorization -> token
+func (r *apiV2Router) RemoveFromTeam(ctx *gin.Context) {
+	userId := ctx.Param("id")
+	if userId == "me" {
+		userIdObj, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
+		if err != nil {
+			switch errors.Cause(err) {
+			case v2.ErrInvalidToken:
+				r.logger.Debug("invalid token", zap.Error(err))
+				r.HandleUnauthorized(ctx)
+			case v2.ErrInvalidTokenType:
+				r.logger.Debug("invalid token type", zap.Error(err))
+				models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
+			default:
+				r.logger.Error("could not extract token type", zap.Error(err))
+				models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+			}
+			return
+		}
+
+		userId = userIdObj.Hex()
+	}
+
+	err := r.teamService.RemoveUserWithIDFromTheirTeam(ctx, userId)
+	if err != nil {
+		switch errors.Cause(err) {
+		case services.ErrInvalidID:
+			r.logger.Debug("user id is invalid", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "user id is invalid")
+		case services.ErrNotFound:
+			r.logger.Debug("user or team not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user or team with given id not found")
+		case services.ErrUserNotInTeam:
+			r.logger.Debug("user is not in a team", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "user is not in a team")
+		default:
+			r.logger.Error("could not add user to team", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }
 
 // getUserCtxAware fetches user with the given id. If id is "me", getUserCtxAware tries to extract the user from the ctx

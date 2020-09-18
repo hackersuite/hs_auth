@@ -5,10 +5,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"net/http"
 	"net/http/httptest"
@@ -23,6 +25,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockTokenService := mock_services.NewMockTokenService(ctrl)
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).Return(primitive.ObjectID{}, v2.ErrInvalidTokenType)
 	mockTokenService.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockAuthorizer.EXPECT().InvalidateServiceToken(gomock.Any(), gomock.Any()).Return(services.ErrInvalidID)
 
@@ -41,6 +44,14 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 		{
 			route:  "/users/123",
 			method: http.MethodGet,
+		},
+		{
+			route:  "/users/me/team",
+			method: http.MethodPut,
+		},
+		{
+			route:  "/users/me/team",
+			method: http.MethodDelete,
 		},
 		{
 			route:  "/users",
@@ -92,6 +103,8 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeams)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.RemoveFromTeam)
 
 			router.RegisterRoutes(&testServer.RouterGroup)
 

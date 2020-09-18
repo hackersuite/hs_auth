@@ -203,6 +203,7 @@ func (s *mongoTeamService) AddUserWithIDToTeamWithID(ctx context.Context, userID
 		return err
 	}
 
+	// TODO: missing error handling
 	user, err := s.userService.GetUserWithID(ctx, userID)
 	if user.Team != primitive.NilObjectID {
 		return services.ErrUserInTeam
@@ -250,6 +251,7 @@ func (s *mongoTeamService) RemoveUserWithIDFromTheirTeam(ctx context.Context, us
 		return nil
 	}
 
+	// TODO: https://github.com/unicsmcr/hs_auth/issues/61
 	if team.Creator == user.ID || len(teamMembers) == 0 {
 		err = s.DeleteTeamWithID(ctx, team.ID.Hex())
 		if err != nil {
