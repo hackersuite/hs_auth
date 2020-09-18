@@ -53,7 +53,7 @@ func setupUsersTest(t *testing.T) *usersTestSetup {
 
 	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{
 		AuthTokenLifetime: testAuthTokenLifetime,
-	}, mockAuthorizer, mockUService, mockTService, mockTimeProvider)
+	}, mockAuthorizer, mockUService, mockTService, nil, mockTimeProvider)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)
