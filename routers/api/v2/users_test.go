@@ -877,26 +877,6 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:     "should return 400 when user id is me and authorizer returns ErrInvalidID",
-			userId:   "me",
-			password: "test",
-			prep: func(setup *usersTestSetup) {
-				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, services.ErrInvalidID).Times(1)
-			},
-			wantResCode: http.StatusBadRequest,
-		},
-		{
-			name:     "should return 404 when user id is me and authorizer returns ErrNotFound",
-			userId:   "me",
-			password: "test",
-			prep: func(setup *usersTestSetup) {
-				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, services.ErrNotFound).Times(1)
-			},
-			wantResCode: http.StatusNotFound,
-		},
-		{
 			name:     "should return 500 when user id is me and authorizer returns unknown err",
 			userId:   "me",
 			password: "test",
@@ -911,10 +891,7 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 			userId:   testUserId.Hex(),
 			password: "test",
 			prep: func(setup *usersTestSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-					Return(setup.testUser, nil).Times(1)
-				setup.mockUService.EXPECT().
-					ResetPasswordForUserWithIDAndEmail(setup.testCtx, testUserId.Hex(), setup.testUser.Email, "test").
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(services.ErrInvalidID).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -924,10 +901,7 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 			userId:   testUserId.Hex(),
 			password: "test",
 			prep: func(setup *usersTestSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-					Return(setup.testUser, nil).Times(1)
-				setup.mockUService.EXPECT().
-					ResetPasswordForUserWithIDAndEmail(setup.testCtx, testUserId.Hex(), setup.testUser.Email, "test").
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(services.ErrNotFound).Times(1)
 			},
 			wantResCode: http.StatusNotFound,
@@ -937,10 +911,7 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 			userId:   testUserId.Hex(),
 			password: "test",
 			prep: func(setup *usersTestSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-					Return(setup.testUser, nil).Times(1)
-				setup.mockUService.EXPECT().
-					ResetPasswordForUserWithIDAndEmail(setup.testCtx, testUserId.Hex(), setup.testUser.Email, "test").
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(errors.New("random error")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
@@ -952,10 +923,7 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 			prep: func(setup *usersTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
 					Return(testUserId, nil).Times(1)
-				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-					Return(setup.testUser, nil).Times(1)
-				setup.mockUService.EXPECT().
-					ResetPasswordForUserWithIDAndEmail(setup.testCtx, testUserId.Hex(), setup.testUser.Email, "test").
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -965,10 +933,7 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 			userId:   testUserId.Hex(),
 			password: "test",
 			prep: func(setup *usersTestSetup) {
-				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-					Return(setup.testUser, nil).Times(1)
-				setup.mockUService.EXPECT().
-					ResetPasswordForUserWithIDAndEmail(setup.testCtx, testUserId.Hex(), setup.testUser.Email, "test").
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
