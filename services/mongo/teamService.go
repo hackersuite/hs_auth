@@ -245,19 +245,29 @@ func (s *mongoTeamService) RemoveUserWithIDFromTheirTeam(ctx context.Context, us
 		return err
 	}
 
-	teamMembers, err := s.userService.GetUsersWithTeam(ctx, team.ID.Hex())
-	if err != nil {
-		s.logger.Error("could not fetch team members for user's team", zap.String("team name", team.Name), zap.Error(err))
+	if team.Creator != user.ID {
 		return nil
 	}
 
-	// TODO: https://github.com/unicsmcr/hs_auth/issues/61
-	if team.Creator == user.ID || len(teamMembers) == 0 {
-		err = s.DeleteTeamWithID(ctx, team.ID.Hex())
-		if err != nil {
-			s.logger.Error("could not delete team after removing user from their team", zap.String("team name", team.Name), zap.Error(err))
-			return nil
-		}
+	// Removed team's creator from the team, need to assign new creator
+	teamMembers, err := s.userService.GetUsersWithTeam(ctx, team.ID.Hex())
+	if err != nil {
+		return err
+	}
+
+	if len(teamMembers) == 0 { // team is empty, should be deleted
+		return s.DeleteTeamWithID(ctx, team.ID.Hex())
+	}
+
+	_, err = s.teamRepository.UpdateOne(ctx, bson.M{
+		string(entities.TeamID): team.ID,
+	}, bson.M{
+		"$set": map[entities.TeamField]interface{}{
+			entities.TeamCreator: teamMembers[0].ID,
+		},
+	})
+	if err != nil {
+		return err
 	}
 
 	return nil

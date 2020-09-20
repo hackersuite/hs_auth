@@ -4,6 +4,9 @@ package mongo
 
 import (
 	"context"
+	"errors"
+	"github.com/gin-gonic/gin"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -21,16 +24,19 @@ import (
 
 var (
 	testTeam = entities.Team{
+		ID:      primitive.NewObjectID(),
 		Name:    "Team of Bobs",
 		Creator: primitive.NewObjectID(),
 	}
 )
 
 type teamTestSetup struct {
-	tService     *mongoTeamService
-	tRepo        *repositories.TeamRepository
-	mockUService *mock_services.MockUserService
-	cleanup      func()
+	ctrl       *gomock.Controller
+	tService   *mongoTeamService
+	tRepo      *repositories.TeamRepository
+	mocService *mock_services.MockUserService
+	cleanup    func()
+	testCtx    *gin.Context
 }
 
 func setupTeamTest(t *testing.T) *teamTestSetup {
@@ -57,13 +63,18 @@ func setupTeamTest(t *testing.T) *teamTestSetup {
 		userService:    mockUService,
 	}
 
+	w := httptest.NewRecorder()
+	testCtx, _ := gin.CreateTestContext(w)
+
 	return &teamTestSetup{
+		ctrl:         ctrl,
 		tService:     tService,
 		tRepo:        tRepo,
 		mockUService: mockUService,
 		cleanup: func() {
 			tRepo.Drop(context.Background())
 		},
+		testCtx: testCtx,
 	}
 }
 
@@ -415,12 +426,38 @@ func Test_AddUserWithIDToTeamWithID__should_return_err_when_user_is_already_in_a
 	assert.Error(t, err)
 }
 
+func Test_RemoveUserWithIDFromTheirTeam__should_remove_correct_user_from_team(t *testing.T) {
+	setup := setupTeamTest(t)
+	defer setup.cleanup()
+
+	testTeam2 := testTeam
+	testTeam2.ID = primitive.NewObjectID()
+
+	testUser2 := testUser
+	testUser2.Team = testTeam2.ID
+
+	_, err := setup.tRepo.InsertOne(context.Background(), testTeam2)
+	assert.NoError(t, err)
+
+	setup.mockUService.EXPECT().GetUserWithID(context.Background(), "testid").
+		Return(&testUser2, nil).Times(1)
+	setup.mockUService.EXPECT().UpdateUserWithID(context.Background(), "testid", services.UserUpdateParams{
+		entities.UserTeam: primitive.NilObjectID,
+	})
+	setup.mockUService.EXPECT().GetUsersWithTeam(context.Background(), testTeam2.ID.Hex()).
+		Return([]entities.User{{}}, nil).Times(1)
+
+	err = setup.tService.RemoveUserWithIDFromTheirTeam(context.Background(), "testid")
+	assert.NoError(t, err)
+}
+
 func Test_RemoveUserWithIDFromTheirTeam__should_remove_correct_user_from_team_and_delete_empty_team(t *testing.T) {
 	setup := setupTeamTest(t)
 	defer setup.cleanup()
 
 	testTeam2 := testTeam
 	testTeam2.ID = primitive.NewObjectID()
+	testTeam2.Creator = testUser.ID
 
 	testUser2 := testUser
 	testUser2.Team = testTeam2.ID
@@ -445,4 +482,99 @@ func Test_RemoveUserWithIDFromTheirTeam__should_remove_correct_user_from_team_an
 	assert.NoError(t, err)
 
 	assert.Nil(t, teams)
+}
+
+func Test_RemoveUserWithIDFromTheirTeam__should_remove_correct_user_from_team_and_assign_new_creator_for_team(t *testing.T) {
+	setup := setupTeamTest(t)
+	defer setup.cleanup()
+
+	testTeam2 := testTeam
+	testTeam2.ID = primitive.NewObjectID()
+	testTeam2.Creator = testUser.ID
+
+	testUser2 := testUser
+	testUser2.Team = testTeam2.ID
+
+	_, err := setup.tRepo.InsertMany(context.Background(), []interface{}{testTeam2})
+	assert.NoError(t, err)
+
+	setup.mockUService.EXPECT().GetUserWithID(context.Background(), "testid").
+		Return(&testUser2, nil).Times(1)
+	setup.mockUService.EXPECT().UpdateUserWithID(context.Background(), "testid", services.UserUpdateParams{
+		entities.UserTeam: primitive.NilObjectID,
+	})
+	setup.mockUService.EXPECT().GetUsersWithTeam(context.Background(), testTeam2.ID.Hex()).
+		Return([]entities.User{{ID: testUser.ID}}, nil).Times(1)
+
+	err = setup.tService.RemoveUserWithIDFromTheirTeam(context.Background(), "testid")
+	assert.NoError(t, err)
+
+	cur, err := setup.tRepo.Find(context.Background(), bson.M{})
+	assert.NoError(t, err)
+
+	teams, err := decodeTeamsResult(context.Background(), cur)
+	assert.NoError(t, err)
+
+	assert.Len(t, teams, 1)
+	assert.Equal(t, testUser.ID, teams[0].Creator)
+}
+
+func Test_RemoveUserWithIDFromTheirTeam__should_return_error(t *testing.T) {
+	tests := []struct {
+		name string
+		prep func(setup *teamTestSetup)
+	}{
+		{
+			name: "when user is not in a team",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUser.ID.Hex()).
+					Return(&entities.User{}, nil).Times(1)
+			},
+		},
+		{
+			name: "when user's team does not exist",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUser.ID.Hex()).
+					Return(&entities.User{Team: testTeam.ID}, nil).Times(1)
+			},
+		},
+		{
+			name: "when UpdateUserWithID returns error",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUser.ID.Hex()).
+					Return(&entities.User{ID: testUser.ID, Team: testTeam.ID}, nil).Times(1)
+				setup.tRepo.InsertOne(setup.testCtx, entities.Team{ID: testTeam.ID,
+					Creator: testUser.ID})
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUser.ID.Hex(),
+					services.UserUpdateParams{entities.UserTeam: primitive.NilObjectID}).
+					Return(errors.New("service err")).Times(1)
+			},
+		},
+		{
+			name: "when GetUsersWithTeam returns error",
+			prep: func(setup *teamTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUser.ID.Hex()).
+					Return(&entities.User{ID: testUser.ID, Team: testTeam.ID}, nil).Times(1)
+				setup.tRepo.InsertOne(setup.testCtx, entities.Team{ID: testTeam.ID,
+					Creator: testUser.ID})
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUser.ID.Hex(),
+					services.UserUpdateParams{entities.UserTeam: primitive.NilObjectID}).
+					Return(nil).Times(1)
+				setup.mockUService.EXPECT().GetUsersWithTeam(setup.testCtx, testTeam.ID.Hex()).
+					Return(nil, errors.New("service err")).Times(1)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTeamTest(t)
+			defer setup.cleanup()
+			defer setup.ctrl.Finish()
+
+			tt.prep(setup)
+
+			assert.Error(t, setup.tService.RemoveUserWithIDFromTheirTeam(setup.testCtx, testUser.ID.Hex()))
+		})
+	}
 }
