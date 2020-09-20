@@ -31,12 +31,12 @@ var (
 )
 
 type teamTestSetup struct {
-	ctrl       *gomock.Controller
-	tService   *mongoTeamService
-	tRepo      *repositories.TeamRepository
-	mocService *mock_services.MockUserService
-	cleanup    func()
-	testCtx    *gin.Context
+	ctrl         *gomock.Controller
+	tService     *mongoTeamService
+	tRepo        *repositories.TeamRepository
+	mockUService *mock_services.MockUserService
+	cleanup      func()
+	testCtx      *gin.Context
 }
 
 func setupTeamTest(t *testing.T) *teamTestSetup {
