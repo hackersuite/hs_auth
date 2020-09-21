@@ -266,11 +266,7 @@ func (s *mongoTeamService) RemoveUserWithIDFromTheirTeam(ctx context.Context, us
 			entities.TeamCreator: teamMembers[0].ID,
 		},
 	})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (s *mongoTeamService) RemoveUserWithJWTFromTheirTeam(ctx context.Context, jwt string) error {
