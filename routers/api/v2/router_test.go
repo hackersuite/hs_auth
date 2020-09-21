@@ -2,6 +2,11 @@ package v2
 
 import (
 	"fmt"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -9,10 +14,8 @@ import (
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestApiV2Router_RegisterRoutes(t *testing.T) {
@@ -21,8 +24,10 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
 	mockTokenService := mock_services.NewMockTokenService(ctrl)
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockEService := mock_services.NewMockEmailService(ctrl)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken).AnyTimes()
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).Return(primitive.ObjectID{}, common.ErrInvalidTokenType)
 	mockTokenService.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockAuthorizer.EXPECT().InvalidateServiceToken(gomock.Any(), gomock.Any()).Return(services.ErrInvalidID)
 
@@ -47,12 +52,28 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			method: http.MethodPut,
 		},
 		{
+			route:  "/users/me/team",
+			method: http.MethodPut,
+		},
+		{
+			route:  "/users/me/team",
+			method: http.MethodDelete,
+		},
+		{
 			route:  "/users",
 			method: http.MethodPost,
 		},
 		{
 			route:  "/users/login",
 			method: http.MethodPost,
+		},
+		{
+			route:  "/users/123/password",
+			method: http.MethodPut,
+		},
+		{
+			route:  "/users/123/password/resetEmail",
+			method: http.MethodGet,
 		},
 		{
 			route:  "/tokens/service",
@@ -84,6 +105,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 				userService:  mockUService,
 				teamService:  mockTService,
 				tokenService: mockTokenService,
+				emailService: mockEService,
 			}
 			w := httptest.NewRecorder()
 			_, testServer := gin.CreateTestContext(w)
@@ -91,12 +113,16 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetRole)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetPassword)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetPasswordResetEmail)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.InvalidateServiceToken)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeams)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.RemoveFromTeam)
 
 			router.RegisterRoutes(&testServer.RouterGroup)
 

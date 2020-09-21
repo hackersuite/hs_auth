@@ -28,7 +28,7 @@ type sendgridEmailService struct {
 	*sendgrid.Client
 	logger      *zap.Logger
 	cfg         *config.AppConfig
-	env 		*environment.Env
+	env         *environment.Env
 	userService services.UserService
 
 	passwordResetEmailTemplate *template.Template
@@ -56,7 +56,7 @@ func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, env *env
 		Client:                     client,
 		logger:                     logger,
 		cfg:                        cfg,
-		env: 						env,
+		env:                        env,
 		userService:                userService,
 		passwordResetEmailTemplate: passwordResetEmailTemplate,
 		emailVerifyEmailTemplate:   emailVerifyEmailTemplate,
@@ -130,6 +130,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmailForUserWithEmail(ctx co
 	return s.SendEmailVerificationEmail(*user)
 }
 func (s *sendgridEmailService) SendPasswordResetEmail(user entities.User) error {
+	// TODO: Update implementation to use auth v2
 	emailToken, err := auth.NewJWT(user, time.Now().Unix(), s.cfg.AuthTokenLifetime, auth.Email, []byte(s.env.Get(environment.JWTSecret)))
 	if err != nil {
 		return err
