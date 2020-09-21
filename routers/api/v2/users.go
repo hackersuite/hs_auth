@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"github.com/unicsmcr/hs_auth/utils/auth"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -317,8 +318,15 @@ func (r *apiV2Router) SetPassword(ctx *gin.Context) {
 		userId = userIdObj.Hex()
 	}
 
-	err := r.userService.UpdateUserWithID(ctx, userId, services.UserUpdateParams{
-		entities.UserPassword: req.Password,
+	pwdHash, err := auth.GetHashForPassword(req.Password)
+	if err != nil {
+		r.logger.Error("failed to hash password", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, userId, services.UserUpdateParams{
+		entities.UserPassword: pwdHash,
 	})
 	if err != nil {
 		switch errors.Cause(err) {
