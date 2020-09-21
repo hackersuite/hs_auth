@@ -110,8 +110,12 @@ func (r *apiV2Router) GetUsers(ctx *gin.Context) {
 		err   error
 	)
 	if ctx.Query("team") != "" {
-		// TODO: https://github.com/unicsmcr/hs_auth/issues/68
 		users, err = r.getTeamMembersCtxAware(ctx, ctx.Query("team"))
+		if err == nil && len(users) == 0 {
+			r.logger.Debug("team not found", zap.String("team id", ctx.Query("team")))
+			models.SendAPIError(ctx, http.StatusNotFound, "team not found")
+			return
+		}
 	} else {
 		users, err = r.userService.GetUsers(ctx)
 	}
