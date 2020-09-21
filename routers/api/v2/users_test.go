@@ -362,6 +362,15 @@ func TestApiV2Router_GetUsers(t *testing.T) {
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
+			name:   "should return 404 when team id is specified and user service returns an empty slice",
+			teamId: testTeamId.Hex(),
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUsersWithTeam(setup.testCtx, testTeamId.Hex()).
+					Return(nil, nil).Times(1)
+			},
+			wantResCode: http.StatusNotFound,
+		},
+		{
 			name:   "should return 200 and expected result when team id is me",
 			teamId: "me",
 			prep: func(setup *usersTestSetup) {
