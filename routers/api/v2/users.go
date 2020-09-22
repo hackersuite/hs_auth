@@ -1,11 +1,11 @@
 package v2
 
 import (
-	v1 "github.com/unicsmcr/hs_auth/utils/auth/common"
+	"encoding/json"
+	"github.com/unicsmcr/hs_auth/config/role"
+	"github.com/unicsmcr/hs_auth/utils/auth"
 	"net/http"
 	"strconv"
-
-	"github.com/unicsmcr/hs_auth/utils/auth"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -396,16 +396,15 @@ func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
 func (r *apiV2Router) SetRole(ctx *gin.Context) {
 	var err error
 
-	role := ctx.PostForm("role")
-	if len(role) == 0 {
+	roleReq := ctx.PostForm("role")
+	if len(roleReq) == 0 {
 		r.logger.Debug("role not provided")
 		models.SendAPIError(ctx, http.StatusBadRequest, "user role must be provided")
 		return
 	}
 
-	// TODO: Replace auth level conversion once V1 is removed
-	var authLevel v1.AuthLevel
-	err = authLevel.UnmarshalJSON([]byte(strconv.Quote(role)))
+	var userRole role.UserRole
+	err = json.Unmarshal([]byte(strconv.Quote(roleReq)), &userRole)
 	if err != nil {
 		r.logger.Debug("invalid role", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusBadRequest, "role does not exist")
@@ -413,7 +412,7 @@ func (r *apiV2Router) SetRole(ctx *gin.Context) {
 	}
 
 	err = r.userService.UpdateUserWithID(ctx, ctx.Param("id"), services.UserUpdateParams{
-		entities.UserAuthLevel: authLevel,
+		entities.UserRole: userRole,
 	})
 	if err != nil {
 		switch err {

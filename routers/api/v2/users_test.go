@@ -33,11 +33,11 @@ var (
 	testUserId     = primitive.NewObjectID()
 	testTeamId     = primitive.NewObjectID()
 	testRoleConfig = role.UserRoleConfig{
-		"unverified": nil,
-		"applicant":  nil,
-		"attendee":   nil,
-		"volunteer":  nil,
-		"organiser":  nil,
+		role.Unverified: nil,
+		role.Applicant:  nil,
+		role.Attendee:   nil,
+		role.Volunteer:  nil,
+		role.Organiser:  nil,
 	}
 )
 
