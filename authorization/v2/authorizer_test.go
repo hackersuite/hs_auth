@@ -212,6 +212,50 @@ func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token
 	assert.Equal(t, uris, returnedUris)
 }
 
+func TestAuthorizer_GetAuthorizedResources_should_remove_uris_with_invalid_metadata(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	defer setup.ctrl.Finish()
+	token := createToken(t, "testuser", []UniformResourceIdentifier{
+		{
+			path: "test",
+		},
+	}, int64(100), User, jwtSecret)
+
+	var testTime int64 = 1000
+	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
+	invalidMetadataUri, err := NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
+	assert.NoError(t, err)
+
+	uris := []UniformResourceIdentifier{{path: "test"}, invalidMetadataUri}
+
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []UniformResourceIdentifier{{path: "test"}}, returnedUris)
+}
+
+func TestAuthorizer_GetAuthorizedResources_should_ignore_uris_in_token_with_invalid_metadata(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	defer setup.ctrl.Finish()
+
+	var testTime int64 = 1000
+	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
+	invalidMetadataUri, err := NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
+	assert.NoError(t, err)
+
+	token := createToken(t, "testuser", []UniformResourceIdentifier{invalidMetadataUri}, int64(100), User, jwtSecret)
+
+	testUri, err := NewURIFromString("hs:hs_auth")
+	uris := []UniformResourceIdentifier{testUri}
+
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
+	assert.NoError(t, err)
+
+	assert.Len(t, returnedUris, 0)
+}
+
 func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 	jwtSecret := "jwtSecret"
 	malformedMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=notadate", before))
