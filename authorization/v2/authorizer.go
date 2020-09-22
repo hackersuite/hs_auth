@@ -111,6 +111,16 @@ func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []common.U
 		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
 	}
 
+	claims.AllowedResources, err = a.filterUrisWithInvalidMetadata(claims.AllowedResources)
+	if err != nil {
+		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
+	}
+
+	urisToCheck, err = a.filterUrisWithInvalidMetadata(urisToCheck)
+	if err != nil {
+		return nil, errors.Wrap(common.ErrInvalidURI, err.Error())
+	}
+
 	// filtering for resources the token has access to
 	var allowedResources []common.UniformResourceIdentifier
 	for _, resource := range claims.AllowedResources {
@@ -179,6 +189,32 @@ func (a *authorizer) GetTokenTypeFromToken(token string) (TokenType, error) {
 	}
 
 	return claims.TokenType, nil
+}
+
+func (a *authorizer) filterUrisWithInvalidMetadata(uris []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {
+	var validUris []common.UniformResourceIdentifier
+
+	for _, uri := range uris {
+		uriValid := true
+		for identifier, metadata := range uri.GetMetadata() {
+			metadataValid, err := a.validateMetadata(metadataIdentifier(identifier), metadata)
+			if err != nil {
+				return nil, errors.Wrap(err, fmt.Sprintf("could not validate %s metadata with value %s",
+					identifier, metadata))
+			}
+
+			if !metadataValid {
+				uriValid = false
+				break
+			}
+		}
+
+		if uriValid {
+			validUris = append(validUris, uri)
+		}
+	}
+
+	return validUris, nil
 }
 
 func getTokenClaims(token string, jwtSecret string) (tokenClaims, error) {
