@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
 	"go.uber.org/zap"
@@ -37,7 +37,7 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 	}
 
 	uriList := strings.Split(req.AllowedURIs, ",")
-	parsedURIs := make([]v2.UniformResourceIdentifier, len(uriList))
+	parsedURIs := make([]common.UniformResourceIdentifier, len(uriList))
 	for i, uriString := range uriList {
 		err := json.Unmarshal([]byte(uriString), &parsedURIs[i])
 		if err != nil {
@@ -51,10 +51,10 @@ func (r *apiV2Router) CreateServiceToken(ctx *gin.Context) {
 	userID, err := r.authorizer.GetUserIdFromToken(userToken)
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
-		case v2.ErrInvalidTokenType:
+		case common.ErrInvalidTokenType:
 			r.logger.Debug("invalid token type", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 		default:

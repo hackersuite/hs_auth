@@ -1,6 +1,7 @@
 package config
 
 import (
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/environment"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.uber.org/config"
@@ -11,6 +12,7 @@ var (
 	baseConfigFile = "./config/base.yaml"
 	devConfigFile  = "./config/development.yaml"
 	prodConfigFile = "./config/production.yaml"
+	roleConfigFile = "./config/role/role.yaml"
 )
 
 // EmailConfig stores the configuration to be used by the email service
@@ -31,6 +33,7 @@ type AppConfig struct {
 	AuthTokenLifetime  int64                `yaml:"auth_token_lifetime"`
 	AppURL             string               `yaml:"app_url"`
 	Email              EmailConfig          `yaml:"email"`
+	UserRole           role.UserRoleConfig  `yaml:"role"`
 	DataPolicyURL      string               `yaml:"data_policy_url"`
 	SoftMaxTeamMembers uint                 `yaml:"soft_max_team_members"`
 }
@@ -39,7 +42,7 @@ type AppConfig struct {
 func NewAppConfig(env *environment.Env) (*AppConfig, error) {
 	var configProvider *config.YAML
 	var err error
-	configFiles := []config.YAMLOption{config.File(baseConfigFile)}
+	configFiles := []config.YAMLOption{config.File(roleConfigFile), config.File(baseConfigFile)}
 	if env.Get(environment.Environment) == "prod" {
 		configFiles = append(configFiles, config.File(prodConfigFile))
 	} else if env.Get(environment.Environment) == "dev" {

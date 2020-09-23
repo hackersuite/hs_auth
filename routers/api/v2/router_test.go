@@ -2,19 +2,20 @@ package v2
 
 import (
 	"fmt"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestApiV2Router_RegisterRoutes(t *testing.T) {
@@ -26,7 +27,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockEService := mock_services.NewMockEmailService(ctrl)
 	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken).AnyTimes()
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
-	mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).Return(primitive.ObjectID{}, v2.ErrInvalidTokenType)
+	mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).Return(primitive.ObjectID{}, common.ErrInvalidTokenType)
 	mockTokenService.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
 	mockAuthorizer.EXPECT().InvalidateServiceToken(gomock.Any(), gomock.Any()).Return(services.ErrInvalidID)
 
@@ -45,6 +46,10 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 		{
 			route:  "/users/123",
 			method: http.MethodGet,
+		},
+		{
+			route:  "/users/123/role",
+			method: http.MethodPut,
 		},
 		{
 			route:  "/users/me/team",
@@ -107,6 +112,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetRole)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetPassword)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetPasswordResetEmail)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)

@@ -1,4 +1,4 @@
-package v2
+package common
 
 import "errors"
 
@@ -11,4 +11,6 @@ var (
 	ErrInvalidTokenType = errors.New("invalid token type for requested operation")
 	// ErrPersistToken is returned when the token could not be persisted
 	ErrPersistToken = errors.New("token could not be persisted")
+	// ErrUnknownRole is returned when the provided role is invalid
+	ErrUnknownRole = errors.New("unknown role")
 )
