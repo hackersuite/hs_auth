@@ -3,7 +3,6 @@ package testutils
 import (
 	"context"
 	"fmt"
-	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +17,7 @@ const dbDatabase = "hs_auth"
 
 // ConnectToIntegrationTestDB waits for the integrations tests DB to become available
 // and returns a connection to the DB
-func ConnectToIntegrationTestDB(t *testing.T) *mongo.Database {
+func ConnectToIntegrationTestDB(t assert.TestingT) *mongo.Database {
 	client, err := mongo.NewClient(options.Client().ApplyURI(fmt.Sprintf("mongodb://%s:%s@%s/%s", dbUser, dbPassword, dbAddress, dbDatabase)))
 	assert.NoError(t, err)
 
