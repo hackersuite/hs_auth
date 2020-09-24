@@ -22,12 +22,12 @@ env:
 
 jobs:
   include:
-    - stage: "Tests"
+    - name: "Test"
       script:
         - make ci
       after_success:
           - bash <(curl -s https://codecov.io/bash)
-    - stage: "Benchmark"
+    - name: "Benchmark"
       script:
         - cob -bench-cmd make -bench-args bench
 
