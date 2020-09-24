@@ -216,23 +216,21 @@ func TestAuthorizer_GetAuthorizedResources_should_remove_uris_with_invalid_metad
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
 	defer setup.ctrl.Finish()
-	token := createToken(t, "testuser", []UniformResourceIdentifier{
-		{
-			path: "test",
-		},
-	}, int64(100), User, jwtSecret)
+	validUri, err := common.NewURIFromString("test")
+	assert.NoError(t, err)
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{validUri}, int64(100), User, jwtSecret)
 
 	var testTime int64 = 1000
 	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
-	invalidMetadataUri, err := NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
+	invalidMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
 	assert.NoError(t, err)
 
-	uris := []UniformResourceIdentifier{{path: "test"}, invalidMetadataUri}
+	uris := []common.UniformResourceIdentifier{validUri, invalidMetadataUri}
 
 	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
 	assert.NoError(t, err)
 
-	assert.Equal(t, []UniformResourceIdentifier{{path: "test"}}, returnedUris)
+	assert.Equal(t, []common.UniformResourceIdentifier{validUri}, returnedUris)
 }
 
 func TestAuthorizer_GetAuthorizedResources_should_ignore_uris_in_token_with_invalid_metadata(t *testing.T) {
@@ -242,13 +240,13 @@ func TestAuthorizer_GetAuthorizedResources_should_ignore_uris_in_token_with_inva
 
 	var testTime int64 = 1000
 	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
-	invalidMetadataUri, err := NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
+	invalidMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
 	assert.NoError(t, err)
 
-	token := createToken(t, "testuser", []UniformResourceIdentifier{invalidMetadataUri}, int64(100), User, jwtSecret)
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{invalidMetadataUri}, int64(100), User, jwtSecret)
 
-	testUri, err := NewURIFromString("hs:hs_auth")
-	uris := []UniformResourceIdentifier{testUri}
+	testUri, err := common.NewURIFromString("hs:hs_auth")
+	uris := []common.UniformResourceIdentifier{testUri}
 
 	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
 	assert.NoError(t, err)
