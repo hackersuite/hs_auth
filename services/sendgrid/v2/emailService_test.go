@@ -3,7 +3,6 @@ package v2
 import (
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -45,7 +44,7 @@ func Test_NewSendgridEmailService__should_return_error_when_template_path_is_inc
 	passwordResetEmailTemplatePath = "invalid path"
 	emailVerifyEmailTemplatePath = _testEmailTemplate
 
-	service, err := NewSendgridEmailServiceV2(nil, nil, nil, nil, nil, nil)
+	service, err := NewSendgridEmailServiceV2(nil, nil, nil, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, service)
 
@@ -53,7 +52,7 @@ func Test_NewSendgridEmailService__should_return_error_when_template_path_is_inc
 	emailVerifyEmailTemplatePath = "invalid path"
 	passwordResetEmailTemplatePath = _testEmailTemplate
 
-	service, err = NewSendgridEmailServiceV2(nil, nil, nil, nil, nil, nil)
+	service, err = NewSendgridEmailServiceV2(nil, nil, nil, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, service)
 }
@@ -68,7 +67,7 @@ func Test_SendEmail__should_send_correct_message_to_sendgrid(t *testing.T) {
 		})
 	defer server.Close()
 
-	service, err := NewSendgridEmailServiceV2(zap.NewNop(), nil, nil, client, nil, nil)
+	service, err := NewSendgridEmailServiceV2(nil, nil, client, nil, nil)
 	assert.NoError(t, err)
 
 	err = service.SendEmail("test email", "test email body", "test email body",
@@ -87,7 +86,7 @@ func Test_SendEmail__should_return_error_when_sendgrid_rejects_request(t *testin
 		})
 	defer server.Close()
 
-	service, err := NewSendgridEmailServiceV2(zap.NewNop(), nil, nil, client, nil, nil)
+	service, err := NewSendgridEmailServiceV2(nil, nil, client, nil, nil)
 	assert.NoError(t, err)
 
 	err = service.SendEmail("test email", "test email body", "test email body",
