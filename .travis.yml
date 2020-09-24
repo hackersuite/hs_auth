@@ -5,6 +5,7 @@ language: go
 go:
   - 1.13.x
 
+# Only clone the two most recent commits (used for performance tests)
 git:
   depth: 2
 
@@ -24,6 +25,8 @@ jobs:
     - stage: "Tests"
       script:
         - make ci
+      after_success:
+          - bash <(curl -s https://codecov.io/bash)
     - stage: "Benchmark"
       script:
         - cob -bench-cmd make -bench-args bench
