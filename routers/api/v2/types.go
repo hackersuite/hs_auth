@@ -1,7 +1,7 @@
 package v2
 
 import (
-	"github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/entities"
 )
 
@@ -22,7 +22,7 @@ type getUserRes struct {
 }
 
 type getAuthorizedResourcesRes struct {
-	AuthorizedUris []v2.UniformResourceIdentifier `json:"authorizedUris"`
+	AuthorizedUris []common.UniformResourceIdentifier `json:"authorizedUris"`
 }
 
 type getTeamsRes struct {

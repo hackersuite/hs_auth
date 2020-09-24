@@ -1,19 +1,32 @@
-package v2
+package common
 
 import (
 	"bytes"
-	"github.com/gin-gonic/gin"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	mock_resources "github.com/unicsmcr/hs_auth/mocks/authorization/v2/resources"
-	"github.com/unicsmcr/hs_auth/testutils"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
+	mock_resources "github.com/unicsmcr/hs_auth/mocks/authorization/v2/common"
+	"github.com/unicsmcr/hs_auth/testutils"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 )
 
 func testHandler(*gin.Context) {}
+func testUnmarshalYAMLValid(a interface{}) error {
+	sl := reflect.ValueOf(a).Elem()
+	sl.Set(reflect.Append(sl, reflect.ValueOf("hs:hs_auth")))
+	return nil
+}
+func testUnmarshalYAMLInvalid(interface{}) error {
+	return errors.New("random error")
+}
 
 func TestNewUriFromRequest(t *testing.T) {
 	w := httptest.NewRecorder()
@@ -216,6 +229,55 @@ func Test_UnmarshalJSON__should_return_correct_URI(t *testing.T) {
 	assert.Equal(t, identifier, expectedURI)
 }
 
+func Test_UnmarshalYAML__should_unmarshal_with_valid_uri(t *testing.T) {
+	uriSequence := &UniformResourceIdentifiers{}
+	err := uriSequence.UnmarshalYAML(testUnmarshalYAMLValid)
+	assert.NoError(t, err)
+
+	expectedURI, _ := NewURIFromString("hs:hs_auth")
+	assert.Equal(t, expectedURI, (*uriSequence)[0])
+}
+
+func Test_UnmarshalYAML__should_return_err_with_invalid_uri(t *testing.T) {
+	uriSequence := &UniformResourceIdentifiers{}
+	err := uriSequence.UnmarshalYAML(testUnmarshalYAMLInvalid)
+	assert.Error(t, err)
+}
+
+func Test_MarshalBSONValue_should_marshal_with_valid_uri(t *testing.T) {
+	expectedURI := "hs:test"
+	var allURIs = UniformResourceIdentifiers{
+		{
+			path: expectedURI,
+		},
+	}
+
+	bsonType, data, err := allURIs.MarshalBSONValue()
+	actualResult, _, _ := bsoncore.ReadString(data)
+	assert.NoError(t, err)
+	assert.Equal(t, expectedURI, actualResult)
+	assert.Equal(t, bsontype.String, bsonType)
+}
+
+func Test_UnmarshalBSONValue_should_unmarshal_with_valid_uri(t *testing.T) {
+	testURI := "hs:test"
+	uriBytes := bsoncore.AppendString(nil, testURI)
+	var allURIs = UniformResourceIdentifiers{}
+
+	err := allURIs.UnmarshalBSONValue(bsontype.String, uriBytes)
+	assert.NoError(t, err)
+	assert.Equal(t, testURI, allURIs[0].path)
+}
+
+func Test_UnmarshalBSONValue_should_return_error_with_invalid_uri(t *testing.T) {
+	testURI := "#hs:test??####"
+	uriBytes := bsoncore.AppendString(nil, testURI)
+	var allURIs = UniformResourceIdentifiers{}
+
+	err := allURIs.UnmarshalBSONValue(bsontype.String, uriBytes)
+	assert.Error(t, err)
+}
+
 func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -327,7 +389,7 @@ func Test_isSubsetOf__should_return_false_when_source_doesnt_match_target_argume
 	assert.Equal(t, valid, false)
 }
 
-func Test_isSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {
+func Test_IsSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
@@ -342,21 +404,21 @@ func Test_isSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *t
 		},
 	}
 
-	valid, _ := testSource.isSubsetOfAtLeastOne(testTargets)
+	valid, _ := testSource.IsSubsetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, true)
 }
 
-func Test_isSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T) {
+func Test_IsSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
 	}
 
-	valid, _ := testSource.isSubsetOfAtLeastOne(nil)
+	valid, _ := testSource.IsSubsetOfAtLeastOne(nil)
 	assert.Equal(t, valid, false)
 }
 
-func Test_isSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *testing.T) {
+func Test_IsSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path: "hs:hs_auth1",
 	}
@@ -366,23 +428,14 @@ func Test_isSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *te
 		},
 	}
 
-	valid, _ := testSource.isSubsetOfAtLeastOne(testTargets)
+	valid, _ := testSource.IsSubsetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, false)
 }
 
-// TODO: Uncomment once metadata validation is added
-//func Test_isSubsetOfAtLeastOne__should_return_false_when_metadata_doesnt_match(t *testing.T) {
-//	testSource := UniformResourceIdentifier{
-//		path:     "hs:hs_auth1",
-//		metadata: map[string]string{"after": "82387236"},
-//	}
-//	testTargets := []UniformResourceIdentifier{
-//		{
-//			path:     "hs:hs_auth1",
-//			metadata: map[string]string{"after": "82380236"},
-//		},
-//	}
-//
-//	valid := testSource.isSubsetOfAtLeastOne(testTargets)
-//	assert.Equal(t, valid, false)
-//}
+func TestUniformResourceIdentifier_GetMetadata(t *testing.T) {
+	testUri := UniformResourceIdentifier{
+		metadata: map[string]string{"testKey": "testValue"},
+	}
+
+	assert.Equal(t, map[string]string{"testKey": "testValue"}, testUri.GetMetadata())
+}

@@ -2,6 +2,11 @@ package v2
 
 import (
 	"fmt"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -9,10 +14,8 @@ import (
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
-	"net/http"
-	"net/http/httptest"
-	"testing"
 )
 
 func TestApiV2Router_RegisterRoutes(t *testing.T) {
@@ -20,8 +23,13 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
-	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockTokenService := mock_services.NewMockTokenService(ctrl)
+	mockEService := mock_services.NewMockEmailService(ctrl)
+	mockUService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken).AnyTimes()
 	mockTService.EXPECT().GetTeamWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).Return(primitive.ObjectID{}, common.ErrInvalidTokenType)
+	mockTokenService.EXPECT().CreateServiceToken(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidToken)
+	mockAuthorizer.EXPECT().InvalidateServiceToken(gomock.Any(), gomock.Any()).Return(services.ErrInvalidID)
 
 	tests := []struct {
 		route  string
@@ -40,6 +48,18 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			method: http.MethodGet,
 		},
 		{
+			route:  "/users/123/role",
+			method: http.MethodPut,
+		},
+		{
+			route:  "/users/me/team",
+			method: http.MethodPut,
+		},
+		{
+			route:  "/users/me/team",
+			method: http.MethodDelete,
+		},
+		{
 			route:  "/users",
 			method: http.MethodPost,
 		},
@@ -47,7 +67,22 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			route:  "/users/login",
 			method: http.MethodPost,
 		},
-		// TODO: add missing test cases for token routes
+		{
+			route:  "/users/123/password",
+			method: http.MethodPut,
+		},
+		{
+			route:  "/users/123/password/resetEmail",
+			method: http.MethodGet,
+		},
+		{
+			route:  "/tokens/service",
+			method: http.MethodPost,
+		},
+		{
+			route:  "/tokens/service/testMe",
+			method: http.MethodDelete,
+		},
 		{
 			route:  "/teams",
 			method: http.MethodGet,
@@ -65,21 +100,29 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%s:%s", tt.method, tt.route), func(t *testing.T) {
 			router := &apiV2Router{
-				logger:      zap.NewNop(),
-				authorizer:  mockAuthorizer,
-				userService: mockUService,
-				teamService: mockTService,
+				logger:       zap.NewNop(),
+				authorizer:   mockAuthorizer,
+				userService:  mockUService,
+				teamService:  mockTService,
+				tokenService: mockTokenService,
+				emailService: mockEService,
 			}
 			w := httptest.NewRecorder()
 			_, testServer := gin.CreateTestContext(w)
 
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetRole)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetPassword)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetPasswordResetEmail)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateServiceToken)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.InvalidateServiceToken)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeams)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.RemoveFromTeam)
 
 			router.RegisterRoutes(&testServer.RouterGroup)
 

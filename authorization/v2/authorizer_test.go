@@ -1,6 +1,10 @@
 package v2
 
 import (
+	"fmt"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
+	"github.com/unicsmcr/hs_auth/entities"
+	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -12,7 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/unicsmcr/hs_auth/environment"
-	mock_resources "github.com/unicsmcr/hs_auth/mocks/authorization/v2/resources"
+	mock_resources "github.com/unicsmcr/hs_auth/mocks/authorization/v2/common"
 	mock_utils "github.com/unicsmcr/hs_auth/mocks/utils"
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -23,6 +27,7 @@ type authorizerTestSetup struct {
 	authorizer         Authorizer
 	mockTimeProvider   *mock_utils.MockTimeProvider
 	mockRouterResource *mock_resources.MockRouterResource
+	mockTokenService   *mock_services.MockTokenService
 	testCtx            *gin.Context
 	ctrl               *gomock.Controller
 }
@@ -39,36 +44,38 @@ func setupAuthorizerTests(t *testing.T, jwtSecret string) authorizerTestSetup {
 	ctrl := gomock.NewController(t)
 	mockTimeProvider := mock_utils.NewMockTimeProvider(ctrl)
 	mockRouterResource := mock_resources.NewMockRouterResource(ctrl)
+	mockTokenService := mock_services.NewMockTokenService(ctrl)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)
 	testutils.AddRequestWithFormParamsToCtx(testCtx, http.MethodGet, nil)
 
 	return authorizerTestSetup{
-		authorizer:         NewAuthorizer(mockTimeProvider, env, zap.NewNop()),
+		authorizer:         NewAuthorizer(mockTimeProvider, env, zap.NewNop(), mockTokenService),
 		mockTimeProvider:   mockTimeProvider,
 		mockRouterResource: mockRouterResource,
+		mockTokenService:   mockTokenService,
 		testCtx:            testCtx,
 		ctrl:               ctrl,
 	}
 }
 
+func createTestURI(source string) common.UniformResourceIdentifier {
+	uri, _ := common.NewURIFromString(source)
+	return uri
+}
+
 func TestAuthorizer_CreateServiceToken(t *testing.T) {
-	testOwner := "test_service"
+	testID := primitive.NewObjectID()
 	var testTTL int64 = 100
 	testTimestamp := time.Now()
-	testAllowedResources := []UniformResourceIdentifier{{path: "test"}}
+	testURI := createTestURI("test")
+	testAllowedResources := []common.UniformResourceIdentifier{testURI}
 
 	tests := []struct {
 		name   string
 		checks func(claims tokenClaims)
 	}{
-		{
-			name: "should use correct Id",
-			checks: func(claims tokenClaims) {
-				assert.Equal(t, testOwner, claims.Id)
-			},
-		},
 		{
 			name: "should use correct IssuedAt",
 			checks: func(claims tokenClaims) {
@@ -98,8 +105,10 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
 	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
+	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), testID.Hex(), gomock.Any()).Return(&entities.ServiceToken{}, nil).Times(1)
+	setup.mockTokenService.EXPECT().GenerateServiceTokenID().Return(testID).Times(1)
 
-	token, err := setup.authorizer.CreateServiceToken(testOwner, testAllowedResources, testTimestamp.Unix()+testTTL)
+	token, err := setup.authorizer.CreateServiceToken(setup.testCtx, testID, testAllowedResources, testTimestamp.Unix()+testTTL)
 	assert.NoError(t, err)
 
 	claims := extractTokenClaims(t, token, jwtSecret)
@@ -109,6 +118,34 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 			tt.checks(claims)
 		})
 	}
+}
+
+func TestAuthorizer_InvalidateServiceToken(t *testing.T) {
+	testID := primitive.NewObjectID()
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	setup.mockTokenService.EXPECT().DeleteServiceToken(setup.testCtx, testID.Hex()).Return(nil).Times(1)
+
+	err := setup.authorizer.InvalidateServiceToken(setup.testCtx, testID.Hex())
+	assert.NoError(t, err)
+}
+
+func TestAuthorizer_CreateServiceToken_throws_unknown_error(t *testing.T) {
+	testID := primitive.NewObjectID()
+	var testTTL int64 = 100
+	testTimestamp := time.Now()
+	testURI := createTestURI("test")
+	testAllowedResources := []common.UniformResourceIdentifier{testURI}
+
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	setup.mockTimeProvider.EXPECT().Now().Return(testTimestamp).Times(1)
+	setup.mockTokenService.EXPECT().CreateServiceToken(setup.testCtx, testID.Hex(), testID.Hex(), gomock.Any()).
+		Return(nil, errors.New("random error")).Times(1)
+	setup.mockTokenService.EXPECT().GenerateServiceTokenID().Return(testID).Times(1)
+
+	_, err := setup.authorizer.CreateServiceToken(setup.testCtx, testID, testAllowedResources, testTimestamp.Unix()+testTTL)
+	assert.Error(t, err)
 }
 
 func TestAuthorizer_CreateUserToken(t *testing.T) {
@@ -165,12 +202,9 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token_is_valid(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
-	token := createToken(t, "testuser", []UniformResourceIdentifier{
-		{
-			path: "test",
-		},
-	}, int64(100), User, jwtSecret)
-	uris := []UniformResourceIdentifier{{path: "test"}}
+	testURI := createTestURI("test")
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
+	uris := []common.UniformResourceIdentifier{testURI}
 
 	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
 	assert.NoError(t, err)
@@ -178,28 +212,84 @@ func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token
 	assert.Equal(t, uris, returnedUris)
 }
 
+func TestAuthorizer_GetAuthorizedResources_should_remove_uris_with_invalid_metadata(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	defer setup.ctrl.Finish()
+	validUri, err := common.NewURIFromString("test")
+	assert.NoError(t, err)
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{validUri}, int64(100), User, jwtSecret)
+
+	var testTime int64 = 1000
+	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
+	invalidMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
+	assert.NoError(t, err)
+
+	uris := []common.UniformResourceIdentifier{validUri, invalidMetadataUri}
+
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
+	assert.NoError(t, err)
+
+	assert.Equal(t, []common.UniformResourceIdentifier{validUri}, returnedUris)
+}
+
+func TestAuthorizer_GetAuthorizedResources_should_ignore_uris_in_token_with_invalid_metadata(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	defer setup.ctrl.Finish()
+
+	var testTime int64 = 1000
+	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
+	invalidMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
+	assert.NoError(t, err)
+
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{invalidMetadataUri}, int64(100), User, jwtSecret)
+
+	testUri, err := common.NewURIFromString("hs:hs_auth")
+	uris := []common.UniformResourceIdentifier{testUri}
+
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
+	assert.NoError(t, err)
+
+	assert.Len(t, returnedUris, 0)
+}
+
 func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 	jwtSecret := "jwtSecret"
+	malformedMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=notadate", before))
+	assert.NoError(t, err)
 
 	tests := []struct {
 		name      string
 		token     string
+		givenUris []common.UniformResourceIdentifier
 		wantedErr error
 	}{
 		{
 			name:      "when token is invalid",
 			token:     "invalid token",
-			wantedErr: ErrInvalidToken,
+			wantedErr: common.ErrInvalidToken,
 		},
 		{
 			name:      "when token type is invalid",
 			token:     createToken(t, "user id", nil, int64(0), "unknown type", jwtSecret),
-			wantedErr: ErrInvalidToken,
+			wantedErr: common.ErrInvalidToken,
 		},
 		{
 			name:      "when token is expired",
 			token:     createToken(t, "user id", nil, int64(-5), User, jwtSecret),
-			wantedErr: ErrInvalidToken,
+			wantedErr: common.ErrInvalidToken,
+		},
+		{
+			name:      "when given URIs contain URI with malformed metadata",
+			token:     createToken(t, "user id", nil, int64(0), User, jwtSecret),
+			givenUris: []common.UniformResourceIdentifier{malformedMetadataUri},
+			wantedErr: common.ErrInvalidURI,
+		},
+		{
+			name:      "when URIs in token contain URI with malformed metadata",
+			token:     createToken(t, "user id", []common.UniformResourceIdentifier{malformedMetadataUri}, int64(0), User, jwtSecret),
+			wantedErr: common.ErrInvalidToken,
 		},
 	}
 
@@ -207,7 +297,7 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uris, err := setup.authorizer.GetAuthorizedResources(tt.token, nil)
+			uris, err := setup.authorizer.GetAuthorizedResources(tt.token, tt.givenUris)
 			assert.Nil(t, uris)
 			assert.Equal(t, tt.wantedErr, errors.Cause(err))
 		})
@@ -288,12 +378,8 @@ func TestAuthorizer_WithAuthMiddleware_should_call_handler_when_request_is_autho
 	defer setup.ctrl.Finish()
 	mockHandlerCalled := false
 	mockHandler := func(*gin.Context) { mockHandlerCalled = true }
-
-	token := createToken(t, "test_token", []UniformResourceIdentifier{
-		{
-			path: "resource",
-		},
-	}, int64(10000), Service, "")
+	testURI := createTestURI("resource")
+	token := createToken(t, "test_token", []common.UniformResourceIdentifier{testURI}, int64(10000), Service, "")
 	setup.mockRouterResource.EXPECT().GetAuthToken(gomock.Any()).Return(token).Times(1)
 	setup.mockRouterResource.EXPECT().GetResourcePath().Return("resource").Times(1)
 
@@ -314,17 +400,17 @@ func TestAuthorizer_GetUserIdFromToken__should_return_error(t *testing.T) {
 		{
 			name:    "when token is empty",
 			token:   "",
-			wantErr: ErrInvalidToken,
+			wantErr: common.ErrInvalidToken,
 		},
 		{
 			name:    "when token type is not user",
 			token:   createToken(t, "id", nil, int64(10000), Service, ""),
-			wantErr: ErrInvalidTokenType,
+			wantErr: common.ErrInvalidTokenType,
 		},
 		{
 			name:    "when user id is malformed",
 			token:   createToken(t, "invalid id", nil, int64(10000), User, ""),
-			wantErr: ErrInvalidToken,
+			wantErr: common.ErrInvalidToken,
 		},
 	}
 
@@ -359,7 +445,7 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_is_inv
 	tokenType, err := setup.authorizer.GetTokenTypeFromToken("invalid token")
 
 	assert.Zero(t, tokenType)
-	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
+	assert.Equal(t, common.ErrInvalidToken, errors.Cause(err))
 }
 
 func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_type_is_invalid(t *testing.T) {
@@ -370,7 +456,7 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_error_when_token_type_i
 	tokenType, err := setup.authorizer.GetTokenTypeFromToken(token)
 
 	assert.Zero(t, tokenType)
-	assert.Equal(t, ErrInvalidToken, errors.Cause(err))
+	assert.Equal(t, common.ErrInvalidToken, errors.Cause(err))
 }
 
 func TestAuthorizer_GetTokenTypeFromToken__should_return_expected_token_type(t *testing.T) {
@@ -384,7 +470,7 @@ func TestAuthorizer_GetTokenTypeFromToken__should_return_expected_token_type(t *
 	assert.NoError(t, err)
 }
 
-func createToken(t *testing.T, id string, allowedResources []UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {
+func createToken(t *testing.T, id string, allowedResources []common.UniformResourceIdentifier, timeToLive int64, tokenType TokenType, jwtSecret string) string {
 	token := jwt.NewWithClaims(jwtSigningMethod, tokenClaims{
 		StandardClaims: jwt.StandardClaims{
 			Id:        id,
@@ -409,4 +495,33 @@ func extractTokenClaims(t *testing.T, token string, jwtSecret string) tokenClaim
 	assert.NoError(t, err)
 
 	return claims
+}
+
+func TestAuthorizer_filterUrisWithInvalidMetadata__should_return_error_when_metadata_key_value_pair_is_invalid(t *testing.T) {
+	setup := setupMetadataTests(t)
+	defer setup.ctrl.Finish()
+
+	uri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=notadate", before))
+	assert.NoError(t, err)
+
+	_, err = setup.authorizer.filterUrisWithInvalidMetadata([]common.UniformResourceIdentifier{uri})
+	assert.Error(t, err)
+}
+
+func TestAuthorizer_filterUrisWithInvalidMetadata__should_remove_uris_with_invalid_metadata(t *testing.T) {
+	setup := setupMetadataTests(t)
+	defer setup.ctrl.Finish()
+
+	var testTime int64 = 1000
+	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
+
+	uri1, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
+	assert.NoError(t, err)
+	uri2, err := common.NewURIFromString("hs:hs_auth")
+	assert.NoError(t, err)
+
+	filteredUris, err := setup.authorizer.filterUrisWithInvalidMetadata([]common.UniformResourceIdentifier{uri1, uri2})
+	assert.NoError(t, err)
+
+	assert.Equal(t, []common.UniformResourceIdentifier{uri2}, filteredUris)
 }
