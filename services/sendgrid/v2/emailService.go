@@ -1,22 +1,19 @@
-package sendgrid
+package v2
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"github.com/pkg/errors"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
+	authV2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
-	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.uber.org/zap"
 	"html/template"
 	"net/http"
-	"time"
 )
 
 var (
@@ -30,18 +27,14 @@ type sendgridEmailService struct {
 	cfg         *config.AppConfig
 	env         *environment.Env
 	userService services.UserService
+	authorizer  authV2.Authorizer
 
 	passwordResetEmailTemplate *template.Template
 	emailVerifyEmailTemplate   *template.Template
 }
 
-type emailTemplateDataModel struct {
-	EventName  string
-	Link       string
-	SenderName string
-}
-
-func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, client *sendgrid.Client, userService services.UserService) (services.EmailService, error) {
+func NewSendgridEmailServiceV2(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env,
+	client *sendgrid.Client, userService services.UserService, authorizer authV2.Authorizer) (services.EmailServiceV2, error) {
 	passwordResetEmailTemplate, err := utils.LoadTemplate("password reset", passwordResetEmailTemplatePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load password reset template")
@@ -60,6 +53,7 @@ func NewSendgridEmailService(logger *zap.Logger, cfg *config.AppConfig, env *env
 		userService:                userService,
 		passwordResetEmailTemplate: passwordResetEmailTemplate,
 		emailVerifyEmailTemplate:   emailVerifyEmailTemplate,
+		authorizer:                 authorizer,
 	}, nil
 }
 
@@ -94,72 +88,15 @@ func (s *sendgridEmailService) SendEmail(subject, htmlBody, plainTextBody, sende
 		zap.String("sender", senderEmail))
 	return nil
 }
-func (s *sendgridEmailService) SendEmailVerificationEmail(user entities.User) error {
-	emailToken, err := auth.NewJWT(user, time.Now().Unix(), s.cfg.AuthTokenLifetime, auth.Email, []byte(s.env.Get(environment.JWTSecret)))
-	if err != nil {
-		return err
-	}
-
-	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s", s.cfg.AppURL, emailToken)
-
-	var contentBuff bytes.Buffer
-	err = s.emailVerifyEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
-		EventName:  s.cfg.Name,
-		Link:       verificationURL,
-		SenderName: s.cfg.Email.NoreplyEmailName,
-	})
-	if err != nil {
-		return errors.Wrap(err, "could not construct email")
-	}
-
-	return s.SendEmail(
-		s.cfg.Email.EmailVerficationEmailSubj,
-		contentBuff.String(),
-		contentBuff.String(),
-		s.cfg.Email.NoreplyEmailName,
-		s.cfg.Email.NoreplyEmailAddr,
-		user.Name,
-		user.Email)
+func (s *sendgridEmailService) SendEmailVerificationEmail(user entities.User, emailVerificationResourcePath string) error {
+	panic("not implemented")
 }
-func (s *sendgridEmailService) SendEmailVerificationEmailForUserWithEmail(ctx context.Context, email string) error {
-	user, err := s.userService.GetUserWithEmail(ctx, email)
-	if err != nil {
-		return err
-	}
-
-	return s.SendEmailVerificationEmail(*user)
+func (s *sendgridEmailService) SendEmailVerificationEmailForUserWithEmail(ctx context.Context, email string, emailVerificationResourcePath string) error {
+	panic("not implemented")
 }
-func (s *sendgridEmailService) SendPasswordResetEmail(user entities.User) error {
-	emailToken, err := auth.NewJWT(user, time.Now().Unix(), s.cfg.AuthTokenLifetime, auth.Email, []byte(s.env.Get(environment.JWTSecret)))
-	if err != nil {
-		return err
-	}
-
-	resetURL := fmt.Sprintf("http://%s/resetpwd?email=%s&token=%s", s.cfg.AppURL, user.Email, emailToken)
-
-	var contentBuff bytes.Buffer
-	err = s.passwordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
-		Link:       resetURL,
-		SenderName: s.cfg.Email.NoreplyEmailName,
-	})
-	if err != nil {
-		return errors.Wrap(err, "could not construct email")
-	}
-
-	return s.SendEmail(
-		s.cfg.Email.PasswordResetEmailSubj,
-		contentBuff.String(),
-		contentBuff.String(),
-		s.cfg.Email.NoreplyEmailName,
-		s.cfg.Email.NoreplyEmailAddr,
-		user.Name,
-		user.Email)
+func (s *sendgridEmailService) SendPasswordResetEmail(user entities.User, passwordResetResourcePath string) error {
+	panic("not implemented")
 }
-func (s *sendgridEmailService) SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string) error {
-	user, err := s.userService.GetUserWithEmail(ctx, email)
-	if err != nil {
-		return err
-	}
-
-	return s.SendPasswordResetEmail(*user)
+func (s *sendgridEmailService) SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string, passwordResetResourcePath string) error {
+	panic("not implemented")
 }
