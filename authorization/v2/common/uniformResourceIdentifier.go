@@ -163,7 +163,6 @@ func getHandlerName(handler gin.HandlerFunc) string {
 }
 
 func getRequestArguments(ctx *gin.Context) map[string]string {
-	// TODO: tidy this up once string -> URI -> string mapping is done
 	args := make(map[string]string)
 
 	// path
@@ -192,7 +191,7 @@ func unmarshallURIList(source string) (map[string]string, error) {
 	for index, keyValuePair := range keyValuePairs {
 		split := strings.Split(keyValuePair, "=")
 		if len(split) != 2 {
-			return nil, errors.New("malformed key value pair at index " + string(index))
+			return nil, errors.New(fmt.Sprintf("malformed key value pair at index %d", index))
 		}
 		uriListMapping[split[0]] = split[1]
 	}
@@ -247,7 +246,6 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 		}
 	}
 
-	// TODO: Add URI metadata validation. See https://github.com/unicsmcr/hs_auth/pull/91#discussion_r471787861
 	return true
 }
 
@@ -259,4 +257,8 @@ func (uri UniformResourceIdentifier) IsSubsetOfAtLeastOne(targets []UniformResou
 		}
 	}
 	return false
+}
+
+func (uri UniformResourceIdentifier) GetMetadata() map[string]string {
+	return uri.metadata
 }
