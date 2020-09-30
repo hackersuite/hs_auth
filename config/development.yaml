@@ -6,4 +6,4 @@ use_secure_cookies: false
 base_auth_level: 1
 auth:
   default_role: "applicant"
-  email_verification_required: true
+  email_verification_required: false
