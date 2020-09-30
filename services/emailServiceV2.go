@@ -13,5 +13,4 @@ type EmailServiceV2 interface {
 	SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources []common.UniformResourceIdentifier) error
 
 	SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources []common.UniformResourceIdentifier) error
-	SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string, passwordResetResources []common.UniformResourceIdentifier) error
 }

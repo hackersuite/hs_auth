@@ -114,6 +114,3 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources []common.UniformResourceIdentifier) error {
 	panic("not implemented")
 }
-func (s *sendgridEmailService) SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string, passwordResetResources []common.UniformResourceIdentifier) error {
-	panic("not implemented")
-}
