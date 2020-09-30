@@ -419,7 +419,7 @@ func Test_Register(t *testing.T) {
 			password:        "testtest",
 			email:           "bob@test.com",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest").
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest", gomock.Any()).
 					Return(nil, services.ErrEmailTaken).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -431,7 +431,7 @@ func Test_Register(t *testing.T) {
 			password:        "testtest",
 			email:           "bob@test.com",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest").
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest", gomock.Any()).
 					Return(nil, errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
@@ -443,7 +443,7 @@ func Test_Register(t *testing.T) {
 			password:        "testtest",
 			email:           "bob@test.com",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest").
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest", gomock.Any()).
 					Return(&entities.User{}, nil).Times(1)
 				setup.mockEService.EXPECT().SendEmailVerificationEmail(entities.User{}).
 					Return(errors.New("service err")).Times(1)
@@ -682,7 +682,7 @@ func Test_VerifyEmail(t *testing.T) {
 			jwt:  "test_token",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
-					Return(&entities.User{AuthLevel:common.AuthLevel(-111)}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.AuthLevel(-111)}, nil).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -691,7 +691,7 @@ func Test_VerifyEmail(t *testing.T) {
 			jwt:  "test_token",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
-					Return(&entities.User{AuthLevel:common.Unverified + 1}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.Unverified + 1}, nil).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
@@ -700,7 +700,7 @@ func Test_VerifyEmail(t *testing.T) {
 			jwt:  "test_token",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
-					Return(&entities.User{AuthLevel:common.Unverified}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.Unverified}, nil).Times(1)
 				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), primitive.NilObjectID.Hex(), services.UserUpdateParams{
 					entities.UserAuthLevel: common.Applicant,
 				}).Return(errors.New("service err")).Times(1)
@@ -712,7 +712,7 @@ func Test_VerifyEmail(t *testing.T) {
 			jwt:  "test_token",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test_token").
-					Return(&entities.User{AuthLevel:common.Unverified}, nil).Times(1)
+					Return(&entities.User{AuthLevel: common.Unverified}, nil).Times(1)
 				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), primitive.NilObjectID.Hex(), services.UserUpdateParams{
 					entities.UserAuthLevel: common.Applicant,
 				}).Return(nil).Times(1)
@@ -974,36 +974,36 @@ func Test_UpdateUser(t *testing.T) {
 		wantResCode    int
 	}{
 		{
-			name: "should return 400 when no userID is provided",
+			name:        "should return 400 when no userID is provided",
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name: "should return 400 when paramsToUpdate is not map[entities.UserField]string",
-			wantResCode: http.StatusBadRequest,
-			userID: "test id",
+			name:           "should return 400 when paramsToUpdate is not map[entities.UserField]string",
+			wantResCode:    http.StatusBadRequest,
+			userID:         "test id",
 			paramsToUpdate: "{\"auth_level\":3}",
 		},
 		{
-			name: "should return 400 when paramsToUpdate cannot be built to services.UserUpdateParams",
-			wantResCode: http.StatusBadRequest,
-			userID: "test id",
+			name:           "should return 400 when paramsToUpdate cannot be built to services.UserUpdateParams",
+			wantResCode:    http.StatusBadRequest,
+			userID:         "test id",
 			paramsToUpdate: "{\"auth_level\":\"not a number\"}",
 		},
 		{
-			name: "should return 400 when paramsToUpdate include password",
-			wantResCode: http.StatusBadRequest,
-			userID: "test id",
+			name:           "should return 400 when paramsToUpdate include password",
+			wantResCode:    http.StatusBadRequest,
+			userID:         "test id",
 			paramsToUpdate: "{\"password\":\"not a number\"}",
 		},
 		{
-			name: "should return 400 when paramsToUpdate include _id",
-			wantResCode: http.StatusBadRequest,
-			userID: "test id",
+			name:           "should return 400 when paramsToUpdate include _id",
+			wantResCode:    http.StatusBadRequest,
+			userID:         "test id",
 			paramsToUpdate: "{\"_id\":\"not a number\"}",
 		},
 		{
-			name: "should return 400 when user service returns ErrInvalidID",
-			userID: "test id",
+			name:           "should return 400 when user service returns ErrInvalidID",
+			userID:         "test id",
 			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", gomock.Any()).
@@ -1012,8 +1012,8 @@ func Test_UpdateUser(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name: "should return 400 when user service returns ErrInvalidID",
-			userID: "test id",
+			name:           "should return 400 when user service returns ErrInvalidID",
+			userID:         "test id",
 			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", gomock.Any()).
@@ -1022,8 +1022,8 @@ func Test_UpdateUser(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name: "should return 500 when user service returns unknown error",
-			userID: "test id",
+			name:           "should return 500 when user service returns unknown error",
+			userID:         "test id",
 			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", gomock.Any()).
@@ -1032,8 +1032,8 @@ func Test_UpdateUser(t *testing.T) {
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name: "should return 200 when updating user succeeds",
-			userID: "test id",
+			name:           "should return 200 when updating user succeeds",
+			userID:         "test id",
 			paramsToUpdate: "{\"name\":\"Rob the Tester\"}",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(gomock.Any(), "test id", services.UserUpdateParams{

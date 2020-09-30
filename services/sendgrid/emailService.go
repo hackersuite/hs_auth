@@ -113,7 +113,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(user entities.User) er
 	}
 
 	return s.SendEmail(
-		s.cfg.Email.EmailVerficationEmailSubj,
+		s.cfg.Email.EmailVerificationEmailSubj,
 		contentBuff.String(),
 		contentBuff.String(),
 		s.cfg.Email.NoreplyEmailName,

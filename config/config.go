@@ -17,11 +17,21 @@ var (
 
 // EmailConfig stores the configuration to be used by the email service
 type EmailConfig struct {
-	HelpEmailAddr             string `yaml:"help_email_addr"`
-	NoreplyEmailAddr          string `yaml:"noreply_email_addr"`
-	NoreplyEmailName          string `yaml:"noreply_email_name"`
-	EmailVerficationEmailSubj string `yaml:"email_verification_email_subj"`
-	PasswordResetEmailSubj    string `yaml:"password_reset_email_subj"`
+	HelpEmailAddr              string `yaml:"help_email_addr"`
+	NoreplyEmailAddr           string `yaml:"noreply_email_addr"`
+	NoreplyEmailName           string `yaml:"noreply_email_name"`
+	EmailVerificationEmailSubj string `yaml:"email_verification_email_subj"`
+	PasswordResetEmailSubj     string `yaml:"password_reset_email_subj"`
+	TokenLifetime              int64  `yaml:"token_lifetime"`
+}
+
+// AuthConfig stores the configuration to be used by the auth system V2
+type AuthConfig struct {
+	UserTokenLifetime         int64         `yaml:"user_token_lifetime""`
+	DefaultRole               role.UserRole `yaml:"default_role"`
+	EmailVerificationRequired bool          `yaml:"email_verification_required"`
+	// The role that gets assigned to the user after they verify their email
+	DefaultEmailVerifiedRole role.UserRole `yaml:"default_email_verified_role"`
 }
 
 // AppConfig is a struct to store non-private configuration for the project
@@ -36,6 +46,7 @@ type AppConfig struct {
 	UserRole           role.UserRoleConfig  `yaml:"role"`
 	DataPolicyURL      string               `yaml:"data_policy_url"`
 	SoftMaxTeamMembers uint                 `yaml:"soft_max_team_members"`
+	Auth               AuthConfig           `yaml:"auth"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment

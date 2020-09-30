@@ -1,11 +1,14 @@
 package v2
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"github.com/pkg/errors"
 	"github.com/sendgrid/sendgrid-go"
 	"github.com/sendgrid/sendgrid-go/helpers/mail"
 	authV2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
@@ -20,19 +23,27 @@ var (
 	emailVerifyEmailTemplatePath   = "templates/emails/emailVerify_email.gohtml"
 )
 
+type emailTemplateDataModel struct {
+	EventName  string
+	Link       string
+	SenderName string
+}
+
 type sendgridEmailService struct {
 	*sendgrid.Client
-	cfg         *config.AppConfig
-	env         *environment.Env
-	userService services.UserService
-	authorizer  authV2.Authorizer
+	cfg          *config.AppConfig
+	env          *environment.Env
+	userService  services.UserService
+	authorizer   authV2.Authorizer
+	timeProvider utils.TimeProvider
 
 	passwordResetEmailTemplate *template.Template
 	emailVerifyEmailTemplate   *template.Template
 }
 
 func NewSendgridEmailServiceV2(cfg *config.AppConfig, env *environment.Env,
-	client *sendgrid.Client, userService services.UserService, authorizer authV2.Authorizer) (services.EmailServiceV2, error) {
+	client *sendgrid.Client, userService services.UserService, authorizer authV2.Authorizer,
+	timeProvider utils.TimeProvider) (services.EmailServiceV2, error) {
 	passwordResetEmailTemplate, err := utils.LoadTemplate("password reset", passwordResetEmailTemplatePath)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not load password reset template")
@@ -51,6 +62,7 @@ func NewSendgridEmailServiceV2(cfg *config.AppConfig, env *environment.Env,
 		passwordResetEmailTemplate: passwordResetEmailTemplate,
 		emailVerifyEmailTemplate:   emailVerifyEmailTemplate,
 		authorizer:                 authorizer,
+		timeProvider:               timeProvider,
 	}, nil
 }
 
@@ -70,15 +82,38 @@ func (s *sendgridEmailService) SendEmail(subject, htmlBody, plainTextBody, sende
 
 	return nil
 }
-func (s *sendgridEmailService) SendEmailVerificationEmail(user entities.User, emailVerificationResourcePath string) error {
+func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources []common.UniformResourceIdentifier) error {
+	emailToken, err := s.authorizer.CreateServiceToken(ctx, user.ID,
+		emailVerificationResources, s.timeProvider.Now().Unix()+s.cfg.Email.TokenLifetime)
+	if err != nil {
+		return errors.Wrap(err, "could not create auth token for email")
+	}
+
+	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s", s.cfg.AppURL, emailToken)
+
+	var contentBuff bytes.Buffer
+	err = s.emailVerifyEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
+		EventName:  s.cfg.Name,
+		Link:       verificationURL,
+		SenderName: s.cfg.Email.NoreplyEmailName,
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not construct email")
+	}
+
+	return s.SendEmail(
+		s.cfg.Email.EmailVerificationEmailSubj,
+		contentBuff.String(),
+		contentBuff.String(),
+		s.cfg.Email.NoreplyEmailName,
+		s.cfg.Email.NoreplyEmailAddr,
+		user.Name,
+		user.Email)
+}
+
+func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources []common.UniformResourceIdentifier) error {
 	panic("not implemented")
 }
-func (s *sendgridEmailService) SendEmailVerificationEmailForUserWithEmail(ctx context.Context, email string, emailVerificationResourcePath string) error {
-	panic("not implemented")
-}
-func (s *sendgridEmailService) SendPasswordResetEmail(user entities.User, passwordResetResourcePath string) error {
-	panic("not implemented")
-}
-func (s *sendgridEmailService) SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string, passwordResetResourcePath string) error {
+func (s *sendgridEmailService) SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string, passwordResetResources []common.UniformResourceIdentifier) error {
 	panic("not implemented")
 }

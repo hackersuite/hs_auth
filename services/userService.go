@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"strconv"
 
@@ -37,7 +38,7 @@ type UserUpdateParams map[entities.UserField]interface{}
 
 // UserService is the service for interactions with a remote users repository
 type UserService interface {
-	CreateUser(ctx context.Context, name, email, password string) (*entities.User, error)
+	CreateUser(ctx context.Context, name, email, password string, role role.UserRole) (*entities.User, error)
 
 	GetUsers(ctx context.Context) ([]entities.User, error)
 	GetUsersWithTeam(ctx context.Context, teamID string) ([]entities.User, error)

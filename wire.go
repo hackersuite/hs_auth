@@ -14,6 +14,7 @@ import (
 	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services/mongo"
 	"github.com/unicsmcr/hs_auth/services/sendgrid"
+	sendgrid_v2 "github.com/unicsmcr/hs_auth/services/sendgrid/v2"
 	"github.com/unicsmcr/hs_auth/utils"
 )
 
@@ -28,6 +29,7 @@ func InitializeServer() (Server, error) {
 		mongo.NewMongoTeamService,
 		mongo.NewMongoUserService,
 		sendgrid.NewSendgridEmailService,
+		sendgrid_v2.NewSendgridEmailServiceV2,
 		repositories.NewUserRepository,
 		repositories.NewTeamRepository,
 		repositories.NewTokenRepository,

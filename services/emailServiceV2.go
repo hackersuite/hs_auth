@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/entities"
 )
 
@@ -9,9 +10,8 @@ import (
 type EmailServiceV2 interface {
 	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
 
-	SendEmailVerificationEmail(user entities.User, emailVerificationResourcePath string) error
-	SendEmailVerificationEmailForUserWithEmail(ctx context.Context, email string, emailVerificationResourcePath string) error
+	SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources []common.UniformResourceIdentifier) error
 
-	SendPasswordResetEmail(user entities.User, passwordResetResourcePath string) error
-	SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string, passwordResetResourcePath string) error
+	SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources []common.UniformResourceIdentifier) error
+	SendPasswordResetEmailForUserWithEmail(ctx context.Context, email string, passwordResetResources []common.UniformResourceIdentifier) error
 }
