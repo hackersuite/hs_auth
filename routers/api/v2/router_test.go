@@ -76,9 +76,14 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 		{
 			route:  "/users/123/password/resetEmail",
 			method: http.MethodGet,
-		}, {
+		},
+		{
 			route:  "/users/123/email/verify",
 			method: http.MethodPut,
+		},
+		{
+			route:  "/users/123/email/verify",
+			method: http.MethodGet,
 		},
 		{
 			route:  "/tokens/service",
@@ -130,6 +135,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.RemoveFromTeam)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.VerifyEmail)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.ResendEmailVerification)
 
 			router.RegisterRoutes(&testServer.RouterGroup)
 

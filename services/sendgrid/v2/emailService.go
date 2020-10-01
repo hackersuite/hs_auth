@@ -82,7 +82,7 @@ func (s *sendgridEmailService) SendEmail(subject, htmlBody, plainTextBody, sende
 
 	return nil
 }
-func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources []common.UniformResourceIdentifier) error {
+func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources common.UniformResourceIdentifiers) error {
 	emailToken, err := s.authorizer.CreateServiceToken(ctx, user.ID,
 		emailVerificationResources, s.timeProvider.Now().Unix()+s.cfg.Email.TokenLifetime)
 	if err != nil {
@@ -111,6 +111,6 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 		user.Email)
 }
 
-func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources []common.UniformResourceIdentifier) error {
+func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources common.UniformResourceIdentifiers) error {
 	panic("not implemented")
 }

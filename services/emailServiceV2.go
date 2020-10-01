@@ -10,7 +10,7 @@ import (
 type EmailServiceV2 interface {
 	SendEmail(subject, htmlBody, plainTextBody, senderName, senderEmail, recipientName, recipientEmail string) error
 
-	SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources []common.UniformResourceIdentifier) error
+	SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources common.UniformResourceIdentifiers) error
 
-	SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources []common.UniformResourceIdentifier) error
+	SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources common.UniformResourceIdentifiers) error
 }

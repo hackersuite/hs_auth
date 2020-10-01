@@ -105,12 +105,11 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 
 	if r.cfg.Auth.EmailVerificationRequired {
-		apiUri, err := common.NewURIFromString(fmt.Sprintf("%s:VerifyEmail?path_id=%s", r.GetResourcePath(), user.ID.Hex()))
+		verificationURIs, err := r.makeEmailVerificationURIs(*user)
 		if err != nil {
-			r.logger.Warn("could not create URI for API email verification resource", zap.Error(err))
+			r.logger.Warn("could not create URIs for email verification", zap.Error(err))
 		} else {
-			// TODO: add resource for frontend email verification (https://github.com/unicsmcr/hs_auth/issues/106)
-			err = r.emailService.SendEmailVerificationEmail(ctx, *user, []common.UniformResourceIdentifier{apiUri})
+			err = r.emailService.SendEmailVerificationEmail(ctx, *user, verificationURIs)
 			if err != nil {
 				r.logger.Warn("could not send email verification email", zap.Error(err))
 			}
@@ -474,6 +473,48 @@ func (r *apiV2Router) VerifyEmail(ctx *gin.Context) {
 	}
 }
 
+// GET: /api/v2/users/(:id|me)/email/verify
+// Headers:  Authorization -> token
+func (r *apiV2Router) ResendEmailVerification(ctx *gin.Context) {
+	user, err := r.getUserCtxAware(ctx, ctx.Param("id"))
+	if err != nil {
+		switch errors.Cause(err) {
+		case common.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
+		case common.ErrInvalidTokenType:
+			r.logger.Debug("invalid token type", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	verificationURIs, err := r.makeEmailVerificationURIs(*user)
+	if err != nil {
+		r.logger.Error("could create email verification URIs", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err = r.emailService.SendEmailVerificationEmail(ctx, *user, verificationURIs)
+	if err != nil {
+		r.logger.Error("could send email verification email", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
 // getUserCtxAware fetches user with the given id. If id is "me", getUserCtxAware tries to extract the user from the ctx
 func (r *apiV2Router) getUserCtxAware(ctx *gin.Context, userId string) (*entities.User, error) {
 	if userId == "me" {
@@ -519,4 +560,14 @@ func (r *apiV2Router) getTeamMembersCtxAware(ctx *gin.Context, teamId string) ([
 	}
 
 	return members, nil
+}
+
+func (r *apiV2Router) makeEmailVerificationURIs(user entities.User) (common.UniformResourceIdentifiers, error) {
+	apiUri, err := common.NewURIFromString(fmt.Sprintf("%s:VerifyEmail?path_id=%s", r.GetResourcePath(), user.ID.Hex()))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create URI for API email verification resource")
+	}
+
+	// TODO: add resource for frontend email verification (https://github.com/unicsmcr/hs_auth/issues/106)
+	return []common.UniformResourceIdentifier{apiUri}, err
 }
