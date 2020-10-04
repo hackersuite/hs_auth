@@ -120,14 +120,22 @@ func TestAuthorizer_CreateServiceToken(t *testing.T) {
 	}
 }
 
-func TestAuthorizer_InvalidateServiceToken(t *testing.T) {
-	testID := primitive.NewObjectID()
+func TestAuthorizer_InvalidateServiceToken__should_delete_correct_token(t *testing.T) {
 	jwtSecret := "test_secret"
+	token := createToken(t, "test_id", nil, 1000, Service, jwtSecret)
 	setup := setupAuthorizerTests(t, jwtSecret)
-	setup.mockTokenService.EXPECT().DeleteServiceToken(setup.testCtx, testID.Hex()).Return(nil).Times(1)
+	defer setup.ctrl.Finish()
+	setup.mockTokenService.EXPECT().DeleteServiceToken(setup.testCtx, "test_id").Return(nil).Times(1)
 
-	err := setup.authorizer.InvalidateServiceToken(setup.testCtx, testID.Hex())
+	err := setup.authorizer.InvalidateServiceToken(setup.testCtx, token)
 	assert.NoError(t, err)
+}
+
+func TestAuthorizer_InvalidateServiceToken__should_return_error_when_token_is_invalid(t *testing.T) {
+	setup := setupAuthorizerTests(t, "")
+
+	err := setup.authorizer.InvalidateServiceToken(setup.testCtx, "invalid token")
+	assert.Error(t, err)
 }
 
 func TestAuthorizer_CreateServiceToken_throws_unknown_error(t *testing.T) {

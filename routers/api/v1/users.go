@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"github.com/unicsmcr/hs_auth/config/role"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"net/http"
 	"time"
@@ -247,7 +248,7 @@ func (r *apiV1Router) Register(ctx *gin.Context) {
 		return
 	}
 
-	user, err := r.userService.CreateUser(ctx, name, email, password)
+	user, err := r.userService.CreateUser(ctx, name, email, password, role.Applicant)
 	if err == services.ErrEmailTaken {
 		r.logger.Debug("email taken", zap.String("email", email))
 		models.SendAPIError(ctx, http.StatusBadRequest, "user with given email already exists")

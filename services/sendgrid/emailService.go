@@ -113,7 +113,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(user entities.User) er
 	}
 
 	return s.SendEmail(
-		s.cfg.Email.EmailVerficationEmailSubj,
+		s.cfg.Email.EmailVerificationEmailSubj,
 		contentBuff.String(),
 		contentBuff.String(),
 		s.cfg.Email.NoreplyEmailName,
@@ -130,7 +130,6 @@ func (s *sendgridEmailService) SendEmailVerificationEmailForUserWithEmail(ctx co
 	return s.SendEmailVerificationEmail(*user)
 }
 func (s *sendgridEmailService) SendPasswordResetEmail(user entities.User) error {
-	// TODO: Update implementation to use auth v2
 	emailToken, err := auth.NewJWT(user, time.Now().Unix(), s.cfg.AuthTokenLifetime, auth.Email, []byte(s.env.Get(environment.JWTSecret)))
 	if err != nil {
 		return err

@@ -27,6 +27,8 @@ type APIV2Router interface {
 	SetRole(ctx *gin.Context)
 	SetPassword(ctx *gin.Context)
 	GetPasswordResetEmail(ctx *gin.Context)
+	ResendEmailVerification(ctx *gin.Context)
+	VerifyEmail(ctx *gin.Context)
 	GetAuthorizedResources(ctx *gin.Context)
 	CreateServiceToken(ctx *gin.Context)
 	InvalidateServiceToken(ctx *gin.Context)
@@ -45,13 +47,13 @@ type apiV2Router struct {
 	userService  services.UserService
 	tokenService services.TokenService
 	teamService  services.TeamService
-	emailService services.EmailService
+	emailService services.EmailServiceV2
 	timeProvider utils.TimeProvider
 }
 
 func NewAPIV2Router(logger *zap.Logger, cfg *config.AppConfig, authorizer v2.Authorizer,
 	userService services.UserService, teamService services.TeamService, tokenService services.TokenService,
-	emailService services.EmailService, timeProvider utils.TimeProvider) APIV2Router {
+	emailService services.EmailServiceV2, timeProvider utils.TimeProvider) APIV2Router {
 	return &apiV2Router{
 		logger:       logger,
 		cfg:          cfg,
@@ -77,6 +79,8 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.PUT("/:id/role", r.authorizer.WithAuthMiddleware(r, r.SetRole))
 	usersGroup.PUT("/:id/password", r.authorizer.WithAuthMiddleware(r, r.SetPassword))
 	usersGroup.GET("/:id/password/resetEmail", r.authorizer.WithAuthMiddleware(r, r.GetPasswordResetEmail))
+	usersGroup.PUT("/:id/email/verify", r.authorizer.WithAuthMiddleware(r, r.VerifyEmail))
+	usersGroup.GET("/:id/email/verify", r.authorizer.WithAuthMiddleware(r, r.ResendEmailVerification))
 
 	tokensGroup := routerGroup.Group("/tokens")
 	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))

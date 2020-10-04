@@ -4,6 +4,7 @@ package mongo
 
 import (
 	"context"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"strings"
 	"testing"
 	"time"
@@ -182,7 +183,7 @@ func Test_CreateUser__should_return_ErrEmailTaken_when_email_is_taken(t *testing
 	_, err := uRepo.InsertOne(context.Background(), testUser)
 	assert.NoError(t, err)
 
-	user, err := uService.CreateUser(context.Background(), testUser.Name, testUser.Email, testUser.Password)
+	user, err := uService.CreateUser(context.Background(), testUser.Name, testUser.Email, testUser.Password, role.Applicant)
 
 	assert.Equal(t, services.ErrEmailTaken, err)
 	assert.Nil(t, user)
@@ -197,7 +198,7 @@ func Test_CreateUser__should_create_correct_user(t *testing.T) {
 	testUser2.Email = "TesT2@emaiL.CoM"
 	testUser2FormattedEmail := "test2@email.com"
 
-	user, err := uService.CreateUser(context.Background(), testUser2.Name, testUser2.Email, testUser2.Password)
+	user, err := uService.CreateUser(context.Background(), testUser2.Name, testUser2.Email, testUser2.Password, role.Applicant)
 	assert.NoError(t, err)
 
 	assert.Equal(t, testUser2.Name, user.Name)
@@ -207,6 +208,7 @@ func Test_CreateUser__should_create_correct_user(t *testing.T) {
 		string(entities.UserEmail):     testUser2FormattedEmail,
 		string(entities.UserName):      testUser2.Name,
 		string(entities.UserAuthLevel): testBaseAuthLevel,
+		string(entities.UserRole):      role.Applicant,
 	})
 
 	assert.NoError(t, res.Err())
