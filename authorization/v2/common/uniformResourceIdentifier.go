@@ -1,10 +1,11 @@
-package v2
+package common
 
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	"github.com/unicsmcr/hs_auth/authorization/v2/resources"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 	"net/url"
 	"reflect"
 	"regexp"
@@ -19,8 +20,10 @@ type UniformResourceIdentifier struct {
 	metadata  map[string]string
 }
 
+type UniformResourceIdentifiers []UniformResourceIdentifier
+
 // NewUriFromRequest creates a UniformResourceIdentifier from a gin request to the given resource and handler
-func NewUriFromRequest(resource resources.Resource, handler gin.HandlerFunc, ctx *gin.Context) UniformResourceIdentifier {
+func NewUriFromRequest(resource Resource, handler gin.HandlerFunc, ctx *gin.Context) UniformResourceIdentifier {
 	return UniformResourceIdentifier{
 		path:      fmt.Sprintf("%s:%s", resource.GetResourcePath(), getHandlerName(handler)),
 		arguments: getRequestArguments(ctx),
@@ -101,6 +104,58 @@ func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
 	return err
 }
 
+// Implements the ValueMarshaler interface of the mongo pkg.
+func (uris UniformResourceIdentifiers) MarshalBSONValue() (bsontype.Type, []byte, error) {
+	marshalledURIs := make([]string, len(uris))
+	for i, uri := range uris {
+		// Ignore the error since we are guaranteed to get a valid string
+		marshalledURI, _ := uri.MarshalJSON()
+
+		// MarshalJSON en-quotes the marshalled URI, so we unquote it here
+		marshalledURIs[i] = string(marshalledURI[1 : len(marshalledURI)-1])
+	}
+
+	allURIs := strings.Join(marshalledURIs, ",")
+	return bsontype.String, bsoncore.AppendString(nil, allURIs), nil
+}
+
+// Implements the ValueUnmarshaler interface of the mongo pkg.
+func (uris *UniformResourceIdentifiers) UnmarshalBSONValue(_ bsontype.Type, bytes []byte) error {
+	urisCombined, _, _ := bsoncore.ReadString(bytes)
+	allURIStrings := strings.Split(urisCombined, ",")
+
+	unmarshalledURIs := make(UniformResourceIdentifiers, len(allURIStrings))
+	for i, uriString := range allURIStrings {
+		parsedURI, err := NewURIFromString(uriString)
+		if err != nil {
+			return err
+		}
+		unmarshalledURIs[i] = parsedURI
+	}
+
+	*uris = unmarshalledURIs
+	return nil
+}
+
+// Implements the Unmarshal interface of the yaml pkg.
+func (uris *UniformResourceIdentifiers) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	yamlURISequence := make([]string, 0)
+	err := unmarshal(&yamlURISequence)
+	if err != nil {
+		return err
+	}
+
+	*uris = make([]UniformResourceIdentifier, len(yamlURISequence))
+	for i, uri := range yamlURISequence {
+		parsedURI, err := NewURIFromString(uri)
+		if err == nil {
+			(*uris)[i] = parsedURI
+		}
+	}
+
+	return nil
+}
+
 func getHandlerName(handler gin.HandlerFunc) string {
 	parts := strings.Split(runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name(), ".")
 	funcName := parts[len(parts)-1]
@@ -108,7 +163,6 @@ func getHandlerName(handler gin.HandlerFunc) string {
 }
 
 func getRequestArguments(ctx *gin.Context) map[string]string {
-	// TODO: tidy this up once string -> URI -> string mapping is done
 	args := make(map[string]string)
 
 	// path
@@ -137,7 +191,7 @@ func unmarshallURIList(source string) (map[string]string, error) {
 	for index, keyValuePair := range keyValuePairs {
 		split := strings.Split(keyValuePair, "=")
 		if len(split) != 2 {
-			return nil, errors.New("malformed key value pair at index " + string(index))
+			return nil, errors.New(fmt.Sprintf("malformed key value pair at index %d", index))
 		}
 		uriListMapping[split[0]] = split[1]
 	}
@@ -192,16 +246,19 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 		}
 	}
 
-	// TODO: Add URI metadata validation. See https://github.com/unicsmcr/hs_auth/pull/91#discussion_r471787861
 	return true
 }
 
 // isSubsetOfAtLeastOne checks if the URI is a subset of at least one of the given URIs
-func (uri UniformResourceIdentifier) isSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
+func (uri UniformResourceIdentifier) IsSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
 	for i := 0; i < len(targets); i++ {
 		if uri.isSubsetOf(targets[i]) {
 			return true
 		}
 	}
 	return false
+}
+
+func (uri UniformResourceIdentifier) GetMetadata() map[string]string {
+	return uri.metadata
 }

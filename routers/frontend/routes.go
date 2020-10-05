@@ -2,6 +2,7 @@ package frontend
 
 import (
 	"encoding/json"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"net/http"
 	"time"
@@ -221,7 +222,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		return
 	}
 
-	user, err := r.userService.CreateUser(ctx, name, email, password)
+	user, err := r.userService.CreateUser(ctx, name, email, password, role.Unverified)
 	if err != nil {
 		switch err {
 		case services.ErrEmailTaken:
@@ -472,7 +473,7 @@ func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
 		r.logger.Error("could not update user", zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Err: "Something went wrong",})
+			Err: "Something went wrong"})
 		return
 	}
 
@@ -667,17 +668,17 @@ func (r *frontendRouter) VerifyEmailResend(ctx *gin.Context) {
 			r.logger.Debug("invalid token")
 			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Err: "Invalid token",})
+				Err: "Invalid token"})
 		case services.ErrNotFound:
 			r.logger.Debug("user not found")
 			ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Err: "Could not find user",})
+				Err: "Could not find user"})
 		default:
 			r.logger.Error("could not find user with jwt", zap.Error(err))
 			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Err: "Something went wrong",})
+				Err: "Something went wrong"})
 		}
 		return
 	}
@@ -687,7 +688,7 @@ func (r *frontendRouter) VerifyEmailResend(ctx *gin.Context) {
 		r.logger.Error("could not send email verification email", zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Err: "Something went wrong",})
+			Err: "Something went wrong"})
 		return
 	}
 

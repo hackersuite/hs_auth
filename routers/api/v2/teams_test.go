@@ -6,6 +6,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/entities"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
@@ -136,7 +137,7 @@ func TestApiV2Router_GetTeam(t *testing.T) {
 			teamId: "me",
 			prep: func(setup *teamsTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidToken).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -145,7 +146,7 @@ func TestApiV2Router_GetTeam(t *testing.T) {
 			teamId: "me",
 			prep: func(setup *teamsTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidTokenType).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidTokenType).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
@@ -262,7 +263,7 @@ func TestApiV2Router_CreateTeam(t *testing.T) {
 			teamName: "Bobs_the_Testers",
 			prep: func(setup *teamsTestSetup) {
 				setup.mockAuthorizer.EXPECT().GetTokenTypeFromToken(testAuthToken).
-					Return(v2.TokenType(""), v2.ErrInvalidToken).Times(1)
+					Return(v2.TokenType(""), common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -315,7 +316,7 @@ func TestApiV2Router_CreateTeam(t *testing.T) {
 				setup.mockAuthorizer.EXPECT().GetTokenTypeFromToken(testAuthToken).
 					Return(v2.User, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidToken).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
 		},
@@ -326,7 +327,7 @@ func TestApiV2Router_CreateTeam(t *testing.T) {
 				setup.mockAuthorizer.EXPECT().GetTokenTypeFromToken(testAuthToken).
 					Return(v2.User, nil).Times(1)
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-					Return(primitive.ObjectID{}, v2.ErrInvalidTokenType).Times(1)
+					Return(primitive.ObjectID{}, common.ErrInvalidTokenType).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},

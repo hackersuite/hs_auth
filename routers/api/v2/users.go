@@ -1,12 +1,16 @@
 package v2
 
 import (
+	"encoding/json"
+	"fmt"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
-	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
@@ -25,7 +29,7 @@ func (r *apiV2Router) Login(ctx *gin.Context) {
 		Email    string `form:"email"`
 		Password string `form:"password"`
 	}
-	ctx.Bind(&req)
+	_ = ctx.Bind(&req)
 
 	if len(req.Email) == 0 {
 		r.logger.Debug("email was not provided")
@@ -52,7 +56,7 @@ func (r *apiV2Router) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := r.authorizer.CreateUserToken(user.ID, r.cfg.AuthTokenLifetime+r.timeProvider.Now().Unix())
+	token, err := r.authorizer.CreateUserToken(user.ID, r.cfg.Auth.UserTokenLifetime+r.timeProvider.Now().Unix())
 	if err != nil {
 		r.logger.Error("could not create JWT", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
@@ -77,7 +81,7 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 		Email    string `form:"email"`
 		Password string `form:"password"`
 	}
-	ctx.Bind(&req)
+	_ = ctx.Bind(&req)
 
 	if len(req.Name) == 0 || len(req.Email) == 0 || len(req.Password) == 0 {
 		r.logger.Debug("one of name, email or password not specified", zap.String("name", req.Name), zap.String("email", req.Email), zap.Int("password length", len(req.Password)))
@@ -85,7 +89,7 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 		return
 	}
 
-	_, err := r.userService.CreateUser(ctx, req.Name, req.Email, req.Password)
+	user, err := r.userService.CreateUser(ctx, req.Name, req.Email, req.Password, r.cfg.Auth.DefaultRole)
 	if err != nil {
 		switch errors.Cause(err) {
 		case services.ErrEmailTaken:
@@ -98,9 +102,19 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: add email verification (https://github.com/unicsmcr/hs_auth/issues/87)
-
 	ctx.Status(http.StatusOK)
+
+	if r.cfg.Auth.EmailVerificationRequired {
+		verificationURIs, err := r.makeEmailVerificationURIs(*user)
+		if err != nil {
+			r.logger.Warn("could not create URIs for email verification", zap.Error(err))
+		} else {
+			err = r.emailService.SendEmailVerificationEmail(ctx, *user, verificationURIs)
+			if err != nil {
+				r.logger.Warn("could not send email verification email", zap.Error(err))
+			}
+		}
+	}
 }
 
 // GET: /api/v2/users
@@ -124,10 +138,10 @@ func (r *apiV2Router) GetUsers(ctx *gin.Context) {
 
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
-		case v2.ErrInvalidTokenType:
+		case common.ErrInvalidTokenType:
 			r.logger.Debug("invalid token type", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 		case services.ErrInvalidID:
@@ -160,10 +174,10 @@ func (r *apiV2Router) GetUser(ctx *gin.Context) {
 	user, err = r.getUserCtxAware(ctx, ctx.Param("id"))
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
-		case v2.ErrInvalidTokenType:
+		case common.ErrInvalidTokenType:
 			r.logger.Debug("invalid token type", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 		case services.ErrInvalidID:
@@ -201,10 +215,10 @@ func (r *apiV2Router) SetTeam(ctx *gin.Context) {
 		userIdObj, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 		if err != nil {
 			switch errors.Cause(err) {
-			case v2.ErrInvalidToken:
+			case common.ErrInvalidToken:
 				r.logger.Debug("invalid token", zap.Error(err))
 				r.HandleUnauthorized(ctx)
-			case v2.ErrInvalidTokenType:
+			case common.ErrInvalidTokenType:
 				r.logger.Debug("invalid token type", zap.Error(err))
 				models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 			default:
@@ -248,10 +262,10 @@ func (r *apiV2Router) RemoveFromTeam(ctx *gin.Context) {
 		userIdObj, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 		if err != nil {
 			switch errors.Cause(err) {
-			case v2.ErrInvalidToken:
+			case common.ErrInvalidToken:
 				r.logger.Debug("invalid token", zap.Error(err))
 				r.HandleUnauthorized(ctx)
-			case v2.ErrInvalidTokenType:
+			case common.ErrInvalidTokenType:
 				r.logger.Debug("invalid token type", zap.Error(err))
 				models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 			default:
@@ -307,10 +321,10 @@ func (r *apiV2Router) SetPassword(ctx *gin.Context) {
 		userIdObj, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 		if err != nil {
 			switch errors.Cause(err) {
-			case v2.ErrInvalidToken:
+			case common.ErrInvalidToken:
 				r.logger.Debug("invalid token", zap.Error(err))
 				r.HandleUnauthorized(ctx)
-			case v2.ErrInvalidTokenType:
+			case common.ErrInvalidTokenType:
 				r.logger.Debug("invalid token type", zap.Error(err))
 				models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 			default:
@@ -354,13 +368,13 @@ func (r *apiV2Router) SetPassword(ctx *gin.Context) {
 // Response:
 // Headers:  Authorization -> token
 func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
-	user, err := r.getUserCtxAware(ctx, ctx.Param("id"))
+	_, err := r.getUserCtxAware(ctx, ctx.Param("id"))
 	if err != nil {
 		switch errors.Cause(err) {
-		case v2.ErrInvalidToken:
+		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
-		case v2.ErrInvalidTokenType:
+		case common.ErrInvalidTokenType:
 			r.logger.Debug("invalid token type", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
 		case services.ErrInvalidID:
@@ -377,13 +391,128 @@ func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
 	}
 
 	// TODO: Update email service to use Auth V2 (see https://github.com/unicsmcr/hs_auth/issues/107)
-	err = r.emailService.SendPasswordResetEmail(*user)
-	if err != nil {
-		r.logger.Error("could not send password reset email", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-	}
+	//err = r.emailService.SendPasswordResetEmail(*user)
+	//if err != nil {
+	//	r.logger.Error("could not send password reset email", zap.Error(err))
+	//	models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+	//}
 
 	ctx.Status(http.StatusOK)
+}
+
+// PUT: /api/v2/users/:id/role
+// x-www-form-urlencoded
+// Request:  role string
+// Headers:  Authorization -> token
+func (r *apiV2Router) SetRole(ctx *gin.Context) {
+	var err error
+
+	roleReq := ctx.PostForm("role")
+	if len(roleReq) == 0 {
+		r.logger.Debug("role not provided")
+		models.SendAPIError(ctx, http.StatusBadRequest, "user role must be provided")
+		return
+	}
+
+	var userRole role.UserRole
+	err = json.Unmarshal([]byte(strconv.Quote(roleReq)), &userRole)
+	if err != nil {
+		r.logger.Debug("invalid role", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "role does not exist")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, ctx.Param("id"), services.UserUpdateParams{
+		entities.UserRole: userRole,
+	})
+	if err != nil {
+		switch err {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id")
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id provided")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found")
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not update user with id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem when updating the user")
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// PUT: /api/v2/users/(:id|me)/email/verify
+// x-www-form-urlencoded
+// Headers:  Authorization -> token
+func (r *apiV2Router) VerifyEmail(ctx *gin.Context) {
+	err := r.userService.UpdateUserWithID(ctx, ctx.Param("id"), services.UserUpdateParams{
+		entities.UserRole: r.cfg.Auth.DefaultEmailVerifiedRole,
+	})
+	if err != nil {
+		switch err {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id")
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id provided")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found")
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not update user with id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+
+	err = r.authorizer.InvalidateServiceToken(ctx, r.GetAuthToken(ctx))
+	if err != nil {
+		r.logger.Warn("could not invalidate token after email verification", zap.Error(err))
+	}
+}
+
+// GET: /api/v2/users/(:id|me)/email/verify
+// Headers:  Authorization -> token
+func (r *apiV2Router) ResendEmailVerification(ctx *gin.Context) {
+	user, err := r.getUserCtxAware(ctx, ctx.Param("id"))
+	if err != nil {
+		switch errors.Cause(err) {
+		case common.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
+		case common.ErrInvalidTokenType:
+			r.logger.Debug("invalid token type", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "provided token is of invalid type for the requested operation")
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not fetch user", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	verificationURIs, err := r.makeEmailVerificationURIs(*user)
+	if err != nil {
+		r.logger.Error("could create email verification URIs", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err = r.emailService.SendEmailVerificationEmail(ctx, *user, verificationURIs)
+	if err != nil {
+		r.logger.Error("could send email verification email", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
 }
 
 // getUserCtxAware fetches user with the given id. If id is "me", getUserCtxAware tries to extract the user from the ctx
@@ -431,4 +560,14 @@ func (r *apiV2Router) getTeamMembersCtxAware(ctx *gin.Context, teamId string) ([
 	}
 
 	return members, nil
+}
+
+func (r *apiV2Router) makeEmailVerificationURIs(user entities.User) (common.UniformResourceIdentifiers, error) {
+	apiUri, err := common.NewURIFromString(fmt.Sprintf("%s:VerifyEmail?path_id=%s", r.GetResourcePath(), user.ID.Hex()))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create URI for API email verification resource")
+	}
+
+	// TODO: add resource for frontend email verification (https://github.com/unicsmcr/hs_auth/issues/106)
+	return []common.UniformResourceIdentifier{apiUri}, err
 }

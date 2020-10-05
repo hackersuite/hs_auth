@@ -14,6 +14,7 @@ func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_prod(t 
 	restoreVars := testutils.SetEnvVars(map[string]string{environment.Environment: "prod"})
 	defer restoreVars()
 
+	roleConfigFile = "role/role.yaml"
 	baseConfigFile = "base.yaml"
 	prodConfigFile = "production.yaml"
 
@@ -36,6 +37,7 @@ func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_dev(t *
 	restoreVars := testutils.SetEnvVars(map[string]string{environment.Environment: "dev"})
 	defer restoreVars()
 
+	roleConfigFile = "role/role.yaml"
 	baseConfigFile = "base.yaml"
 	devConfigFile = "development.yaml"
 
