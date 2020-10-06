@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/services/mongo"
@@ -115,6 +116,8 @@ func setupUsersTest(t *testing.T) *usersTestSetup {
 }
 
 func setupUserBenchmark(b *testing.B) *usersBenchmarkSetup {
+	// Prevents gin from spamming the console output
+	// Required for 'cob' benchmark result parser to work correctly
 	gin.SetMode(gin.ReleaseMode)
 
 	db := testutils.ConnectToIntegrationTestDB(b)
