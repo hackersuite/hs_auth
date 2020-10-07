@@ -9,6 +9,8 @@ import (
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/services/mongo"
 	"github.com/unicsmcr/hs_auth/utils"
+	mongod "go.mongodb.org/mongo-driver/mongo"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -130,6 +132,12 @@ func setupUserBenchmark(b *testing.B) *usersBenchmarkSetup {
 	if err != nil {
 		panic(err)
 	}
+
+	err = addBenchmarkDataToDB(db)
+	if err != nil {
+		panic(err)
+	}
+
 	resetEnv := testutils.SetEnvVars(map[string]string{
 		environment.JWTSecret: "supersecret",
 	})
@@ -173,6 +181,59 @@ func setupUserBenchmark(b *testing.B) *usersBenchmarkSetup {
 			_ = tokenRepository.Drop(context.Background())
 		},
 	}
+}
+
+func addBenchmarkDataToDB(db *mongod.Database) error {
+	userCol := db.Collection("users")
+	teamCol := db.Collection("teams")
+	usersToAdd := 500
+
+	testUsers := make([]interface{}, usersToAdd)
+	var testTeams []interface{}
+
+	currentTestTeamCount := 0
+	currentTestTeamID := primitive.NewObjectID()
+
+	for i := 0; i < usersToAdd; i++ {
+		nextUserID := primitive.NewObjectID()
+
+		if currentTestTeamCount == 4 {
+			currentTestTeamCount = 0
+			currentTestTeamID = primitive.NewObjectID()
+
+			testTeams = append(testTeams, entities.Team{
+				ID:      currentTestTeamID,
+				Name:    fmt.Sprintf("TestTeam%d", i),
+				Creator: nextUserID,
+			})
+		}
+
+		userTeam := primitive.ObjectID{}
+		if currentTestTeamCount == 0 || rand.Float64() > 0.4 {
+			userTeam = currentTestTeamID
+			currentTestTeamCount++
+		}
+
+		testUsers[i] = entities.User{
+			ID:       nextUserID,
+			Name:     fmt.Sprintf("BenchmarkDBUser_%d", i),
+			Email:    fmt.Sprintf("tester%d@email.com", i),
+			Password: "pass",
+			Team:     userTeam,
+		}
+	}
+
+	_, err := userCol.InsertMany(context.Background(), testUsers)
+	if err != nil {
+		return err
+	}
+
+	_, err = teamCol.InsertMany(context.Background(), testTeams)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func TestApiV2Router_Login(t *testing.T) {
