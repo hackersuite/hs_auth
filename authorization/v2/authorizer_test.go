@@ -5,6 +5,9 @@ import (
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/entities"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	"github.com/unicsmcr/hs_auth/repositories"
+	"github.com/unicsmcr/hs_auth/services/mongo"
+	"github.com/unicsmcr/hs_auth/utils"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -23,11 +26,24 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	testAuthTokenLifetime = 10000000
+)
+
 type authorizerTestSetup struct {
 	authorizer         Authorizer
 	mockTimeProvider   *mock_utils.MockTimeProvider
 	mockRouterResource *mock_resources.MockRouterResource
 	mockTokenService   *mock_services.MockTokenService
+	testCtx            *gin.Context
+	ctrl               *gomock.Controller
+}
+
+type authorizerBenchmarkSetup struct {
+	authorizer         Authorizer
+	timeProvider       utils.TimeProvider
+	mockRouterResource *mock_resources.MockRouterResource
+	tRepo              *repositories.TokenRepository
 	testCtx            *gin.Context
 	ctrl               *gomock.Controller
 }
@@ -55,6 +71,43 @@ func setupAuthorizerTests(t *testing.T, jwtSecret string) authorizerTestSetup {
 		mockTimeProvider:   mockTimeProvider,
 		mockRouterResource: mockRouterResource,
 		mockTokenService:   mockTokenService,
+		testCtx:            testCtx,
+		ctrl:               ctrl,
+	}
+}
+
+func setupAuthorizerBenchmarks(b *testing.B, jwtSecret string) authorizerBenchmarkSetup {
+	// Prevents gin from spamming the console output
+	// Required for 'cob' benchmark result parser to work correctly
+	gin.SetMode(gin.ReleaseMode)
+
+	db := testutils.ConnectToIntegrationTestDB(b)
+
+	restore := testutils.SetEnvVars(map[string]string{
+		environment.JWTSecret: jwtSecret,
+	})
+	env := environment.NewEnv(zap.NewNop())
+	restore()
+
+	ctrl := gomock.NewController(b)
+	timeProvider := utils.NewTimeProvider()
+	mockRouterResource := mock_resources.NewMockRouterResource(ctrl)
+
+	tokenRepository, err := repositories.NewTokenRepository(db)
+	if err != nil {
+		panic(err)
+	}
+	tokenService := mongo.NewMongoTokenService(zap.NewNop(), env, tokenRepository)
+
+	w := httptest.NewRecorder()
+	testCtx, _ := gin.CreateTestContext(w)
+	testutils.AddRequestWithFormParamsToCtx(testCtx, http.MethodGet, nil)
+
+	return authorizerBenchmarkSetup{
+		authorizer:         NewAuthorizer(timeProvider, env, zap.NewNop(), tokenService),
+		timeProvider:       timeProvider,
+		mockRouterResource: mockRouterResource,
+		tRepo:              tokenRepository,
 		testCtx:            testCtx,
 		ctrl:               ctrl,
 	}
@@ -532,4 +585,24 @@ func TestAuthorizer_filterUrisWithInvalidMetadata__should_remove_uris_with_inval
 	assert.NoError(t, err)
 
 	assert.Equal(t, []common.UniformResourceIdentifier{uri2}, filteredUris)
+}
+
+func BenchmarkAuthorizer_GetAuthorizedResources_ServiceToken(b *testing.B) {
+	b.StopTimer()
+
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerBenchmarks(b, jwtSecret)
+	defer setup.ctrl.Finish()
+
+	testToken, _ := setup.authorizer.CreateServiceToken(setup.testCtx, testUserId,
+		[]common.UniformResourceIdentifier{
+			createTestURI("hs:hs_auth"),
+			createTestURI("hs:hs_application"),
+		}, testAuthTokenLifetime+setup.timeProvider.Now().Unix())
+
+	b.StartTimer()
+
+	for n := 0; n < b.N; n++ {
+		_, _ = setup.authorizer.GetAuthorizedResources(testToken, []common.UniformResourceIdentifier{createTestURI("hs:hs_application")})
+	}
 }
