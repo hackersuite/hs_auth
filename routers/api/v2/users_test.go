@@ -10,7 +10,6 @@ import (
 	"github.com/unicsmcr/hs_auth/services/mongo"
 	"github.com/unicsmcr/hs_auth/utils"
 	mongod "go.mongodb.org/mongo-driver/mongo"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -209,7 +208,7 @@ func addBenchmarkDataToDB(db *mongod.Database) error {
 		}
 
 		userTeam := primitive.ObjectID{}
-		if currentTestTeamCount == 0 || rand.Float64() > 0.4 {
+		if currentTestTeamCount == 0 || len(testTeams) < usersToAdd/10 {
 			userTeam = currentTestTeamID
 			currentTestTeamCount++
 		}
