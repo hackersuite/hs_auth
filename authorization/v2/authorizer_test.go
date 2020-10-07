@@ -606,3 +606,20 @@ func BenchmarkAuthorizer_GetAuthorizedResources_ServiceToken(b *testing.B) {
 		_, _ = setup.authorizer.GetAuthorizedResources(testToken, []common.UniformResourceIdentifier{createTestURI("hs:hs_application")})
 	}
 }
+
+// TODO: Uncomment once authorizer updated to check permissions of user token. See https://github.com/unicsmcr/hs_auth/issues/114
+//func BenchmarkAuthorizer_GetAuthorizedResources_UserToken(b *testing.B) {
+//	b.StopTimer()
+//
+//	jwtSecret := "test_secret"
+//	setup := setupAuthorizerBenchmarks(b, jwtSecret)
+//	defer setup.ctrl.Finish()
+//
+//	testToken, _ := setup.authorizer.CreateUserToken(testUserId, testAuthTokenLifetime+setup.timeProvider.Now().Unix())
+//
+//	b.StartTimer()
+//
+//	for n := 0; n < b.N; n++ {
+//		_, _ = setup.authorizer.GetAuthorizedResources(testToken, []common.UniformResourceIdentifier{createTestURI("hs:hs_application")})
+//	}
+//}
