@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -102,6 +103,40 @@ func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
 	}
 
 	return err
+}
+
+func (uris *UniformResourceIdentifiers) MarshalJSON() ([]byte, error) {
+	var uriStringBuilder strings.Builder
+
+	for i, uri := range *uris {
+		uriString, _ := json.Marshal(uri)
+		uriStringBuilder.Write(uriString)
+
+		if i < len(*uris)-1 {
+			uriStringBuilder.WriteRune(',')
+		}
+	}
+
+	return []byte(fmt.Sprintf("[%s]", uriStringBuilder.String())), nil
+}
+
+func (uris *UniformResourceIdentifiers) UnmarshalJSON(data []byte) error {
+	uriString := string(data)
+
+	// Remove the '[' and ']' from the string of URIs
+	allUris := uriString[1 : len(uriString)-1]
+
+	uriList := strings.Split(allUris, ",")
+	parsedURIs := make(UniformResourceIdentifiers, len(uriList))
+	for i, uriString := range uriList {
+		err := json.Unmarshal([]byte(uriString), &parsedURIs[i])
+		if err != nil {
+			return errors.Wrap(err, "failed to unmarshal URI JSON")
+		}
+	}
+
+	*uris = parsedURIs
+	return nil
 }
 
 // Implements the ValueMarshaler interface of the mongo pkg.

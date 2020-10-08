@@ -228,6 +228,91 @@ func Test_UnmarshalJSON__should_return_correct_URI(t *testing.T) {
 	assert.Equal(t, identifier, expectedURI)
 }
 
+func Test_UniformResourceIdentifiers_MarshalJSON__should_return_correct_string(t *testing.T) {
+	tests := []struct {
+		name           string
+		uris           UniformResourceIdentifiers
+		expectedResult string
+	}{
+		{
+			name: "with only path",
+			uris: UniformResourceIdentifiers{{
+				path: "hs:hs_auth:api:v2:provide_access_to_uri",
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri\"]",
+		},
+		{
+			name: "with only path and multiple uris",
+			uris: UniformResourceIdentifiers{
+				{
+					path: "hs:hs_auth:api:v2:provide_access_to_uri",
+				},
+				{
+					path: "hs:hs_auth:api:v2:users",
+				}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri\",\"hs:hs_auth:api:v2:users\"]",
+		},
+		{
+			name: "with path and arguments",
+			uris: UniformResourceIdentifiers{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A\"]",
+		},
+		{
+			name: "with path and metadata",
+			uris: UniformResourceIdentifiers{{
+				path:     "hs:hs_auth:api:v2:provide_access_to_uri",
+				metadata: map[string]string{"test_arg": "test1"},
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri#test_arg%3Dtest1\"]",
+		},
+		{
+			name: "with path, arguments and metadata",
+			uris: UniformResourceIdentifiers{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"test_arg": "test1"},
+				metadata:  map[string]string{"until": "21392103"},
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\"]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.uris.MarshalJSON()
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expectedResult, string(result))
+		})
+	}
+}
+
+func Test_UniformResourceIdentifiers_UnmarshalJSON__should_return_correct_uri(t *testing.T) {
+	testURIString := "[\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\"]"
+
+	expectedURIs := UniformResourceIdentifiers{{
+		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+		arguments: map[string]string{"test_arg": "test1"},
+		metadata:  map[string]string{"until": "21392103"},
+	}}
+
+	identifier := UniformResourceIdentifiers{}
+	err := identifier.UnmarshalJSON([]byte(testURIString))
+	assert.NoError(t, err)
+
+	assert.Equal(t, identifier, expectedURIs)
+}
+
+func Test_UniformResourceIdentifiers_UnmarshalJSON__should_return_error_with_invalid_uri(t *testing.T) {
+	testURIString := "[\"hs:hs_auth:api:v2:user?test_arg%3Dtest1##until%3D21392103\"]"
+
+	identifier := UniformResourceIdentifiers{}
+	err := identifier.UnmarshalJSON([]byte(testURIString))
+	assert.Error(t, err)
+}
+
 func Test_UnmarshalYAML__should_unmarshal_with_valid_uri(t *testing.T) {
 	uriSequence := &UniformResourceIdentifiers{}
 	err := uriSequence.UnmarshalYAML(testUnmarshalYAMLValid)

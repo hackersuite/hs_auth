@@ -3,19 +3,18 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/unicsmcr/hs_auth/config/role"
-	"github.com/unicsmcr/hs_auth/utils/auth"
-	"net/http"
-	"strconv"
-
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"net/http"
+	"strconv"
 )
 
 // POST: /api/v2/users/login
@@ -424,6 +423,53 @@ func (r *apiV2Router) SetRole(ctx *gin.Context) {
 
 	err = r.userService.UpdateUserWithID(ctx, ctx.Param("id"), services.UserUpdateParams{
 		entities.UserRole: userRole,
+	})
+	if err != nil {
+		switch err {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id")
+			models.SendAPIError(ctx, http.StatusBadRequest, "invalid user id provided")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found")
+			models.SendAPIError(ctx, http.StatusNotFound, "user not found")
+		default:
+			r.logger.Error("could not update user with id", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem when updating the user")
+		}
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// PUT: /api/v2/users/:id/permissions
+// x-www-form-urlencoded
+// Request:  permissions string
+// Headers:  Authorization -> token
+func (r *apiV2Router) SetSpecialPermissions(ctx *gin.Context) {
+	var (
+		err error
+		req struct {
+			Permissions string `form:"permissions"`
+		}
+	)
+	_ = ctx.Bind(&req)
+	if len(req.Permissions) == 0 {
+		r.logger.Debug("could not parse special user permissions request", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse permissions in request")
+		return
+	}
+
+	var parsedURIs common.UniformResourceIdentifiers
+	err = json.Unmarshal([]byte(req.Permissions), &parsedURIs)
+	if err != nil {
+		r.logger.Debug("provided URI could not be parsed", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "invalid URI string in permissions")
+		return
+	}
+
+	err = r.userService.UpdateUserWithID(ctx, ctx.Param("id"), services.UserUpdateParams{
+		entities.UserSpecialPermissions: parsedURIs,
 	})
 	if err != nil {
 		switch err {
