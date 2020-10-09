@@ -94,10 +94,13 @@ func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 }
 
 func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
-	uriString := string(data)
-	unquotedURI := uriString[1 : len(uriString)-1]
+	var uriString string
+	err := json.Unmarshal(data, &uriString)
+	if err != nil {
+		return err
+	}
 
-	parsedURI, err := NewURIFromString(unquotedURI)
+	parsedURI, err := NewURIFromString(uriString)
 	if err == nil {
 		*uri = parsedURI
 	}
@@ -121,17 +124,21 @@ func (uris *UniformResourceIdentifiers) MarshalJSON() ([]byte, error) {
 }
 
 func (uris *UniformResourceIdentifiers) UnmarshalJSON(data []byte) error {
-	uriString := string(data)
+	var uriList []interface{}
+	err := json.Unmarshal(data, &uriList)
+	if err != nil {
+		return err
+	}
 
-	// Remove the '[' and ']' from the string of URIs
-	allUris := uriString[1 : len(uriString)-1]
+	if len(uriList) == 0 {
+		return nil
+	}
 
-	uriList := strings.Split(allUris, ",")
 	parsedURIs := make(UniformResourceIdentifiers, len(uriList))
 	for i, uriString := range uriList {
-		err := json.Unmarshal([]byte(uriString), &parsedURIs[i])
+		parsedURIs[i], err = NewURIFromString(uriString.(string))
 		if err != nil {
-			return errors.Wrap(err, "failed to unmarshal URI JSON")
+			return errors.Wrap(err, "failed to unmarshal uri")
 		}
 	}
 
