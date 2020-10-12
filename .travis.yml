@@ -5,25 +5,31 @@ language: go
 go:
   - 1.13.x
 
-# Only clone the most recent commit.
+# Only clone the two most recent commits (used for performance tests)
 git:
-  depth: 1
+  depth: 2
 
 before_install:
+  - curl -sfL https://raw.githubusercontent.com/knqyf263/cob/master/install.sh | sudo sh -s -- -b /usr/local/bin
   - curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
   - cp app.env.example app.env
   - cp mongo.env.example mongo.env
   - cp mongo_express.env.example mongo_express.env
-  - go get github.com/golang/mock/mockgen
+  - GO111MODULE=off go get github.com/golang/mock/mockgen
 
 env:
   - GO111MODULE=on
 
-script:
-  - make ci
-
-after_success:
-  - bash <(curl -s https://codecov.io/bash)
+jobs:
+  include:
+    - name: "Test"
+      script:
+        - make ci
+      after_success:
+          - bash <(curl -s https://codecov.io/bash)
+    - name: "Benchmark"
+      script:
+        - cob -bench-cmd make -bench-args bench
 
 notifications:
   email: false
