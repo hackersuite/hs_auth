@@ -112,8 +112,6 @@ func (a *authorizer) InvalidateServiceToken(ctx context.Context, token string) e
 }
 
 func (a *authorizer) GetAuthorizedResources(ctx context.Context, token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {
-	var err error
-
 	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
 	if err != nil {
 		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
@@ -131,7 +129,7 @@ func (a *authorizer) GetAuthorizedResources(ctx context.Context, token string, u
 			return nil, err
 		}
 
-		rolePermissions, err := a.cfg.UserRole.GetRolePermissions(string(user.Role))
+		rolePermissions, err := a.cfg.UserRole.GetRolePermissions(user.Role)
 		if err != nil {
 			return nil, err
 		}

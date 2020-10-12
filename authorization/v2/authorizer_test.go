@@ -357,7 +357,7 @@ func TestAuthorizer_GetAuthorizedResources_should_merge_user_and_role_permission
 	token := createToken(t, testUserId.Hex(), []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
 	uris := []common.UniformResourceIdentifier{testURI}
 
-	testPermissions, _ := setup.testCfg.UserRole.GetRolePermissions(string(role.Unverified))
+	testPermissions, _ := setup.testCfg.UserRole.GetRolePermissions(role.Unverified)
 	setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
 		Return(&entities.User{ID: testUserId, SpecialPermissions: uris, Role: role.Unverified}, nil).Times(1)
 
