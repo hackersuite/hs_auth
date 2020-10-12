@@ -1190,43 +1190,43 @@ func TestApiV2Router_GetPasswordResetEmail(t *testing.T) {
 			wantResCode: http.StatusInternalServerError,
 		},
 		// TODO: uncomment tests when password reset is integrated with email service v2
-		//{
-		//	name:   "should return 500 when user id is me and mail_service_returns_error",
-		//	userId: "me",
-		//	prep: func(setup *usersTestSetup) {
-		//		setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-		//			Return(testUserId, nil).Times(1)
-		//		setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-		//			Return(setup.testUser, nil).Times(1)
-		//		setup.mockEService.EXPECT().SendPasswordResetEmail(*setup.testUser).
-		//			Return(errors.New("random error")).Times(1)
-		//	},
-		//	wantResCode: http.StatusInternalServerError,
-		//},
-		//{
-		//	name:   "should return 200 when user id is me",
-		//	userId: "me",
-		//	prep: func(setup *usersTestSetup) {
-		//		setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
-		//			Return(testUserId, nil).Times(1)
-		//		setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-		//			Return(setup.testUser, nil).Times(1)
-		//		setup.mockEService.EXPECT().SendPasswordResetEmail(*setup.testUser).
-		//			Return(nil).Times(1)
-		//	},
-		//	wantResCode: http.StatusOK,
-		//},
-		//{
-		//	name:   "should return 200 when user id is specified",
-		//	userId: testUserId.Hex(),
-		//	prep: func(setup *usersTestSetup) {
-		//		setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
-		//			Return(setup.testUser, nil).Times(1)
-		//		setup.mockEService.EXPECT().SendPasswordResetEmail(*setup.testUser).
-		//			Return(nil).Times(1)
-		//	},
-		//	wantResCode: http.StatusOK,
-		//},
+		{
+			name:   "should return 500 when user id is me and email service returns error",
+			userId: "me",
+			prep: func(setup *usersTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockEService.EXPECT().SendPasswordResetEmail(setup.testCtx, *setup.testUser, gomock.Any()).
+					Return(errors.New("random error")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:   "should return 200 when user id is me",
+			userId: "me",
+			prep: func(setup *usersTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockEService.EXPECT().SendPasswordResetEmail(setup.testCtx, *setup.testUser, gomock.Any()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
+			name:   "should return 200 when user id is specified",
+			userId: testUserId.Hex(),
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(setup.testUser, nil).Times(1)
+				setup.mockEService.EXPECT().SendPasswordResetEmail(setup.testCtx, *setup.testUser, gomock.Any()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
 	}
 
 	for _, tt := range tests {

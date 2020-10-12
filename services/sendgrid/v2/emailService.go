@@ -112,5 +112,29 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 }
 
 func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources common.UniformResourceIdentifiers) error {
-	panic("not implemented")
+	emailToken, err := s.authorizer.CreateServiceToken(ctx, user.ID,
+		passwordResetResources, s.timeProvider.Now().Unix()+s.cfg.Email.TokenLifetime)
+	if err != nil {
+		return errors.Wrap(err, "could not create auth token for email")
+	}
+
+	resetURL := fmt.Sprintf("http://%s/resetpwd?token=%s", s.cfg.AppURL, emailToken)
+
+	var contentBuff bytes.Buffer
+	err = s.passwordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
+		Link:       resetURL,
+		SenderName: s.cfg.Email.NoreplyEmailName,
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not construct email")
+	}
+
+	return s.SendEmail(
+		s.cfg.Email.PasswordResetEmailSubj,
+		contentBuff.String(),
+		contentBuff.String(),
+		s.cfg.Email.NoreplyEmailName,
+		s.cfg.Email.NoreplyEmailAddr,
+		user.Name,
+		user.Email)
 }
