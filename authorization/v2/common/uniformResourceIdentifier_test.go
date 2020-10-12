@@ -284,6 +284,25 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 		target UniformResourceIdentifier
 	}{
 		{
+			name: "only path of same lengths",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUser",
+			},
+			target: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUser",
+			},
+		},
+		{
+			name: "path of same lengths and arguments",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUser",
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+		},
+		{
 			name: "only path",
 			source: UniformResourceIdentifier{
 				path: "hs:hs_auth:api:v2",
@@ -322,7 +341,7 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 		t.Run(tt.name, func(t *testing.T) {
 			valid := tt.source.isSubsetOf(tt.target)
 
-			assert.Equal(t, valid, true)
+			assert.Equal(t, true, valid)
 		})
 	}
 }
@@ -352,7 +371,18 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 			},
 		},
 		{
-			name: "path and arguments",
+			name: "path of same lengths and different argument values",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "123"},
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+		},
+		{
+			name: "path and arguments with regex",
 			source: UniformResourceIdentifier{
 				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
 				arguments: map[string]string{"allowed_uri": "hs:hs_application:checkin:*"},
@@ -369,7 +399,7 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 		t.Run(tt.name, func(t *testing.T) {
 			valid := tt.source.isSubsetOf(tt.target)
 
-			assert.Equal(t, valid, false)
+			assert.Equal(t, false, valid)
 		})
 	}
 }
