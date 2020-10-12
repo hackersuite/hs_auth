@@ -112,7 +112,7 @@ func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
 
 	token := r.GetAuthToken(ctx)
 
-	authorizedUris, err := r.authorizer.GetAuthorizedResources(token, requestedUris)
+	authorizedUris, err := r.authorizer.GetAuthorizedResources(ctx, token, requestedUris)
 	if err != nil {
 		switch errors.Cause(err) {
 		case common.ErrInvalidToken:

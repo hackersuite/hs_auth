@@ -27,4 +27,4 @@ role:
     - "hs:hs_hub"
     - "hs:hs_applications:review"
   organiser:
-    - "hs"
+    - "hs?path_id=.*"

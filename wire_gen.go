@@ -58,7 +58,7 @@ func InitializeServer() (Server, error) {
 		return Server{}, err
 	}
 	tokenService := mongo.NewMongoTokenService(logger, env, tokenRepository)
-	authorizer := v2.NewAuthorizer(timeProvider, env, logger, tokenService)
+	authorizer := v2.NewAuthorizer(timeProvider, appConfig, env, logger, tokenService, userService)
 	emailServiceV2, err := v2_2.NewSendgridEmailServiceV2(appConfig, env, client, userService, authorizer, timeProvider)
 	if err != nil {
 		return Server{}, err

@@ -3,6 +3,8 @@ package v2
 import (
 	"fmt"
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
+	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"net/http"
@@ -28,7 +30,9 @@ type authorizerTestSetup struct {
 	mockTimeProvider   *mock_utils.MockTimeProvider
 	mockRouterResource *mock_resources.MockRouterResource
 	mockTokenService   *mock_services.MockTokenService
+	mockUserService    *mock_services.MockUserService
 	testCtx            *gin.Context
+	testCfg            *config.AppConfig
 	ctrl               *gomock.Controller
 }
 
@@ -45,17 +49,31 @@ func setupAuthorizerTests(t *testing.T, jwtSecret string) authorizerTestSetup {
 	mockTimeProvider := mock_utils.NewMockTimeProvider(ctrl)
 	mockRouterResource := mock_resources.NewMockRouterResource(ctrl)
 	mockTokenService := mock_services.NewMockTokenService(ctrl)
+	mockUserService := mock_services.NewMockUserService(ctrl)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)
 	testutils.AddRequestWithFormParamsToCtx(testCtx, http.MethodGet, nil)
 
+	testURI, _ := common.NewURIFromString("test_role_uri")
+	appCfg := &config.AppConfig{
+		UserRole: map[role.UserRole]common.UniformResourceIdentifiers{
+			role.Unverified: {testURI},
+			role.Applicant:  {},
+			role.Attendee:   {},
+			role.Volunteer:  {},
+			role.Organiser:  {},
+		},
+	}
+
 	return authorizerTestSetup{
-		authorizer:         NewAuthorizer(mockTimeProvider, env, zap.NewNop(), mockTokenService),
+		authorizer:         NewAuthorizer(mockTimeProvider, appCfg, env, zap.NewNop(), mockTokenService, mockUserService),
 		mockTimeProvider:   mockTimeProvider,
 		mockRouterResource: mockRouterResource,
 		mockTokenService:   mockTokenService,
+		mockUserService:    mockUserService,
 		testCtx:            testCtx,
+		testCfg:            appCfg,
 		ctrl:               ctrl,
 	}
 }
@@ -207,17 +225,77 @@ func TestAuthorizer_CreateUserToken(t *testing.T) {
 	}
 }
 
-func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_token_is_valid(t *testing.T) {
+func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_service_token_is_valid(t *testing.T) {
 	jwtSecret := "test_secret"
 	setup := setupAuthorizerTests(t, jwtSecret)
 	testURI := createTestURI("test")
-	token := createToken(t, "testuser", []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{testURI}, int64(100), Service, jwtSecret)
 	uris := []common.UniformResourceIdentifier{testURI}
 
-	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, token, uris)
 	assert.NoError(t, err)
 
 	assert.Equal(t, uris, returnedUris)
+}
+
+func TestAuthorizer_GetAuthorizedResources_should_return_correct_uris_when_user_token_is_valid(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	testURI := createTestURI("test")
+	token := createToken(t, testUserId.Hex(), []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
+	uris := []common.UniformResourceIdentifier{testURI}
+
+	setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+		Return(&entities.User{ID: testUserId, SpecialPermissions: uris, Role: role.Unverified}, nil).Times(1)
+
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, token, uris)
+	assert.NoError(t, err)
+
+	assert.Equal(t, uris, returnedUris)
+}
+
+func TestAuthorizer_GetAuthorizedResources_should_return_error_when_user_not_found(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	testURI := createTestURI("test")
+	token := createToken(t, testUserId.Hex(), []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
+	uris := []common.UniformResourceIdentifier{testURI}
+
+	setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+		Return(nil, errors.New("random error")).Times(1)
+
+	_, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, token, uris)
+	assert.Error(t, err)
+}
+
+func TestAuthorizer_GetAuthorizedResources_should_return_error_when_user_role_not_found(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	testURI := createTestURI("test")
+	token := createToken(t, testUserId.Hex(), []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
+	uris := []common.UniformResourceIdentifier{testURI}
+
+	setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+		Return(&entities.User{ID: testUserId, SpecialPermissions: uris, Role: "unknown"}, nil).Times(1)
+
+	_, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, token, uris)
+	assert.Error(t, err)
+}
+
+func TestAuthorizer_GetAuthorizedResources_should_merge_user_and_role_permissions(t *testing.T) {
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerTests(t, jwtSecret)
+	testURI := createTestURI("test")
+	token := createToken(t, testUserId.Hex(), []common.UniformResourceIdentifier{testURI}, int64(100), User, jwtSecret)
+	uris := []common.UniformResourceIdentifier{testURI}
+
+	testPermissions, _ := setup.testCfg.UserRole.GetRolePermissions(string(role.Unverified))
+	setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+		Return(&entities.User{ID: testUserId, SpecialPermissions: uris, Role: role.Unverified}, nil).Times(1)
+
+	matchedURIs, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, token, testPermissions)
+	assert.NoError(t, err)
+	assert.Equal(t, testPermissions, common.UniformResourceIdentifiers(matchedURIs))
 }
 
 func TestAuthorizer_GetAuthorizedResources_should_remove_uris_with_invalid_metadata(t *testing.T) {
@@ -226,7 +304,7 @@ func TestAuthorizer_GetAuthorizedResources_should_remove_uris_with_invalid_metad
 	defer setup.ctrl.Finish()
 	validUri, err := common.NewURIFromString("test")
 	assert.NoError(t, err)
-	token := createToken(t, "testuser", []common.UniformResourceIdentifier{validUri}, int64(100), User, jwtSecret)
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{validUri}, int64(100), Service, jwtSecret)
 
 	var testTime int64 = 1000
 	setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(testTime, 0)).Times(1)
@@ -235,7 +313,7 @@ func TestAuthorizer_GetAuthorizedResources_should_remove_uris_with_invalid_metad
 
 	uris := []common.UniformResourceIdentifier{validUri, invalidMetadataUri}
 
-	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, token, uris)
 	assert.NoError(t, err)
 
 	assert.Equal(t, []common.UniformResourceIdentifier{validUri}, returnedUris)
@@ -251,18 +329,18 @@ func TestAuthorizer_GetAuthorizedResources_should_ignore_uris_in_token_with_inva
 	invalidMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=%d", before, testTime+1))
 	assert.NoError(t, err)
 
-	token := createToken(t, "testuser", []common.UniformResourceIdentifier{invalidMetadataUri}, int64(100), User, jwtSecret)
+	token := createToken(t, "testuser", []common.UniformResourceIdentifier{invalidMetadataUri}, int64(100), Service, jwtSecret)
 
 	testUri, err := common.NewURIFromString("hs:hs_auth")
 	uris := []common.UniformResourceIdentifier{testUri}
 
-	returnedUris, err := setup.authorizer.GetAuthorizedResources(token, uris)
+	returnedUris, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, token, uris)
 	assert.NoError(t, err)
 
 	assert.Len(t, returnedUris, 0)
 }
 
-func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
+func TestAuthorizer_GetAuthorizedResources_should_return_err_with_invalid_token(t *testing.T) {
 	jwtSecret := "jwtSecret"
 	malformedMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=notadate", before))
 	assert.NoError(t, err)
@@ -285,18 +363,18 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 		},
 		{
 			name:      "when token is expired",
-			token:     createToken(t, "user id", nil, int64(-5), User, jwtSecret),
+			token:     createToken(t, "user id", nil, int64(-5), Service, jwtSecret),
 			wantedErr: common.ErrInvalidToken,
 		},
 		{
 			name:      "when given URIs contain URI with malformed metadata",
-			token:     createToken(t, "user id", nil, int64(0), User, jwtSecret),
+			token:     createToken(t, "user id", nil, int64(0), Service, jwtSecret),
 			givenUris: []common.UniformResourceIdentifier{malformedMetadataUri},
 			wantedErr: common.ErrInvalidURI,
 		},
 		{
 			name:      "when URIs in token contain URI with malformed metadata",
-			token:     createToken(t, "user id", []common.UniformResourceIdentifier{malformedMetadataUri}, int64(0), User, jwtSecret),
+			token:     createToken(t, "user id", []common.UniformResourceIdentifier{malformedMetadataUri}, int64(0), Service, jwtSecret),
 			wantedErr: common.ErrInvalidToken,
 		},
 	}
@@ -305,7 +383,7 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uris, err := setup.authorizer.GetAuthorizedResources(tt.token, tt.givenUris)
+			uris, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, tt.token, tt.givenUris)
 			assert.Nil(t, uris)
 			assert.Equal(t, tt.wantedErr, errors.Cause(err))
 		})
