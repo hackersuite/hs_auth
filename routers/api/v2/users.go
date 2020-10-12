@@ -582,7 +582,7 @@ func (r *apiV2Router) makeEmailVerificationURIs(user entities.User) (common.Unif
 func (r *apiV2Router) makePasswordResetURIs(user entities.User) (common.UniformResourceIdentifiers, error) {
 	apiUri, err := common.NewURIFromString(fmt.Sprintf("%s:SetPassword?path_id=%s", r.GetResourcePath(), user.ID.Hex()))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not create URI for API email verification resource")
+		return nil, errors.Wrap(err, "could not create URI for API password reset resource")
 	}
 
 	// TODO: add resource for frontend password reset (https://github.com/unicsmcr/hs_auth/issues/106)
