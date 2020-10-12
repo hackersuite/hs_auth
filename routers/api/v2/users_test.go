@@ -148,12 +148,13 @@ func setupUserBenchmark(b *testing.B) *usersBenchmarkSetup {
 		AuthTokenLifetime: testAuthTokenLifetime,
 	}, userRepository)
 
+	testCfg := &config.AppConfig{
+		AuthTokenLifetime: testAuthTokenLifetime,
+	}
 	ctrl := gomock.NewController(b)
 	timeProvider := utils.NewTimeProvider()
-	authorizer := v2.NewAuthorizer(timeProvider, env, zap.NewNop(), tokenService)
-	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{
-		AuthTokenLifetime: testAuthTokenLifetime,
-	}, authorizer, userService, nil, tokenService, nil, timeProvider)
+	authorizer := v2.NewAuthorizer(timeProvider, testCfg, env, zap.NewNop(), tokenService, userService)
+	router := NewAPIV2Router(zap.NewNop(), testCfg, authorizer, userService, nil, tokenService, nil, timeProvider)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)

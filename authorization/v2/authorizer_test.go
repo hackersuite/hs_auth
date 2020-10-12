@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"context"
 	"fmt"
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config"
@@ -48,6 +49,7 @@ type authorizerBenchmarkSetup struct {
 	timeProvider       utils.TimeProvider
 	mockRouterResource *mock_resources.MockRouterResource
 	tRepo              *repositories.TokenRepository
+	uRepo              *repositories.UserRepository
 	testCtx            *gin.Context
 	ctrl               *gomock.Controller
 }
@@ -117,15 +119,28 @@ func setupAuthorizerBenchmarks(b *testing.B, jwtSecret string) authorizerBenchma
 	}
 	tokenService := mongo.NewMongoTokenService(zap.NewNop(), env, tokenRepository)
 
+	userRepository, err := repositories.NewUserRepository(db)
+	if err != nil {
+		panic(err)
+	}
+	userService := mongo.NewMongoUserService(zap.NewNop(), env, nil, userRepository)
+
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)
 	testutils.AddRequestWithFormParamsToCtx(testCtx, http.MethodGet, nil)
 
+	testRoleURI, _ := common.NewURIFromString("hs")
+	appCfg := &config.AppConfig{
+		UserRole: map[role.UserRole]common.UniformResourceIdentifiers{
+			role.Organiser: {testRoleURI},
+		},
+	}
 	return authorizerBenchmarkSetup{
-		authorizer:         NewAuthorizer(timeProvider, env, zap.NewNop(), tokenService),
+		authorizer:         NewAuthorizer(timeProvider, appCfg, env, zap.NewNop(), tokenService, userService),
 		timeProvider:       timeProvider,
 		mockRouterResource: mockRouterResource,
 		tRepo:              tokenRepository,
+		uRepo:              userRepository,
 		testCtx:            testCtx,
 		ctrl:               ctrl,
 	}
@@ -681,23 +696,26 @@ func BenchmarkAuthorizer_GetAuthorizedResources_ServiceToken(b *testing.B) {
 	b.StartTimer()
 
 	for n := 0; n < b.N; n++ {
-		_, _ = setup.authorizer.GetAuthorizedResources(testToken, []common.UniformResourceIdentifier{createTestURI("hs:hs_application")})
+		_, _ = setup.authorizer.GetAuthorizedResources(setup.testCtx, testToken, []common.UniformResourceIdentifier{createTestURI("hs:hs_application")})
 	}
 }
 
-// TODO: Uncomment once authorizer updated to check permissions of user token. See https://github.com/unicsmcr/hs_auth/issues/114
-//func BenchmarkAuthorizer_GetAuthorizedResources_UserToken(b *testing.B) {
-//	b.StopTimer()
-//
-//	jwtSecret := "test_secret"
-//	setup := setupAuthorizerBenchmarks(b, jwtSecret)
-//	defer setup.ctrl.Finish()
-//
-//	testToken, _ := setup.authorizer.CreateUserToken(testUserId, testAuthTokenLifetime+setup.timeProvider.Now().Unix())
-//
-//	b.StartTimer()
-//
-//	for n := 0; n < b.N; n++ {
-//		_, _ = setup.authorizer.GetAuthorizedResources(testToken, []common.UniformResourceIdentifier{createTestURI("hs:hs_application")})
-//	}
-//}
+func BenchmarkAuthorizer_GetAuthorizedResources_UserToken(b *testing.B) {
+	b.StopTimer()
+
+	jwtSecret := "test_secret"
+	setup := setupAuthorizerBenchmarks(b, jwtSecret)
+	defer setup.ctrl.Finish()
+
+	testToken, _ := setup.authorizer.CreateUserToken(testUserId, testAuthTokenLifetime+setup.timeProvider.Now().Unix())
+	_, _ = setup.uRepo.InsertOne(context.Background(), &entities.User{
+		ID:   testUserId,
+		Role: "organiser",
+	})
+
+	b.StartTimer()
+
+	for n := 0; n < b.N; n++ {
+		_, _ = setup.authorizer.GetAuthorizedResources(setup.testCtx, testToken, []common.UniformResourceIdentifier{createTestURI("hs:hs_application")})
+	}
+}
