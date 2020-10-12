@@ -37,6 +37,10 @@ ci: vet mocks
 	docker-compose -f $(test_docker_compose_file) up -d
 	go test ./... -coverprofile=coverage.txt -covermode=atomic -tags integration
 
+bench: vet mocks
+	docker-compose -f $(test_docker_compose_file) up -d
+	go test ./... -run=xxx -bench=. benchtime 30s
+
 # builds the executable
 build:
 	go build -o bin/hs_auth main.go

@@ -1,8 +1,15 @@
 package v2
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/repositories"
+	"github.com/unicsmcr/hs_auth/services/mongo"
+	"github.com/unicsmcr/hs_auth/utils"
+	mongod "go.mongodb.org/mongo-driver/mongo"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -54,6 +61,18 @@ type usersTestSetup struct {
 	w                *httptest.ResponseRecorder
 }
 
+type usersBenchmarkSetup struct {
+	ctrl         *gomock.Controller
+	router       APIV2Router
+	timeProvider utils.TimeProvider
+	testUser     *entities.User
+	testCtx      *gin.Context
+	w            *httptest.ResponseRecorder
+	authorizer   v2.Authorizer
+	uRepo        *repositories.UserRepository
+	cleanup      func()
+}
+
 func setupUsersTest(t *testing.T) *usersTestSetup {
 	ctrl := gomock.NewController(t)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
@@ -95,6 +114,125 @@ func setupUsersTest(t *testing.T) *usersTestSetup {
 		testCtx:          testCtx,
 		w:                w,
 	}
+}
+
+func setupUserBenchmark(b *testing.B) *usersBenchmarkSetup {
+	// Prevents gin from spamming the console output
+	// Required for 'cob' benchmark result parser to work correctly
+	gin.SetMode(gin.ReleaseMode)
+
+	db := testutils.ConnectToIntegrationTestDB(b)
+
+	userRepository, err := repositories.NewUserRepository(db)
+	if err != nil {
+		panic(err)
+	}
+	tokenRepository, err := repositories.NewTokenRepository(db)
+	if err != nil {
+		panic(err)
+	}
+
+	err = addBenchmarkDataToDB(db)
+	if err != nil {
+		panic(err)
+	}
+
+	resetEnv := testutils.SetEnvVars(map[string]string{
+		environment.JWTSecret: "supersecret",
+	})
+	env := environment.NewEnv(zap.NewNop())
+	resetEnv()
+
+	tokenService := mongo.NewMongoTokenService(zap.NewNop(), env, tokenRepository)
+	userService := mongo.NewMongoUserService(zap.NewNop(), env, &config.AppConfig{
+		AuthTokenLifetime: testAuthTokenLifetime,
+	}, userRepository)
+
+	ctrl := gomock.NewController(b)
+	timeProvider := utils.NewTimeProvider()
+	authorizer := v2.NewAuthorizer(timeProvider, env, zap.NewNop(), tokenService)
+	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{
+		AuthTokenLifetime: testAuthTokenLifetime,
+	}, authorizer, userService, nil, tokenService, nil, timeProvider)
+
+	w := httptest.NewRecorder()
+	testCtx, _ := gin.CreateTestContext(w)
+
+	testUser := entities.User{
+		ID:       testUserId,
+		Name:     "Bob the Tester",
+		Email:    "test@email.com",
+		Password: "password123",
+		Team:     primitive.NewObjectID(),
+	}
+
+	return &usersBenchmarkSetup{
+		ctrl:         ctrl,
+		router:       router,
+		timeProvider: timeProvider,
+		testCtx:      testCtx,
+		testUser:     &testUser,
+		w:            w,
+		authorizer:   authorizer,
+		uRepo:        userRepository,
+		cleanup: func() {
+			_ = userRepository.Drop(context.Background())
+			_ = tokenRepository.Drop(context.Background())
+		},
+	}
+}
+
+func addBenchmarkDataToDB(db *mongod.Database) error {
+	userCol := db.Collection("users")
+	teamCol := db.Collection("teams")
+	usersToAdd := 500
+
+	testUsers := make([]interface{}, usersToAdd)
+	var testTeams []interface{}
+
+	currentTestTeamCount := 0
+	currentTestTeamID := primitive.NewObjectID()
+
+	for i := 0; i < usersToAdd; i++ {
+		nextUserID := primitive.NewObjectID()
+
+		if currentTestTeamCount == 4 {
+			currentTestTeamCount = 0
+			currentTestTeamID = primitive.NewObjectID()
+
+			testTeams = append(testTeams, entities.Team{
+				ID:      currentTestTeamID,
+				Name:    fmt.Sprintf("TestTeam%d", i),
+				Creator: nextUserID,
+			})
+		}
+
+		userTeam := primitive.ObjectID{}
+		if currentTestTeamCount == 0 || len(testTeams) < usersToAdd/10 {
+			userTeam = currentTestTeamID
+			currentTestTeamCount++
+		}
+
+		testUsers[i] = entities.User{
+			ID:       nextUserID,
+			Name:     fmt.Sprintf("BenchmarkDBUser_%d", i),
+			Email:    fmt.Sprintf("tester%d@email.com", i),
+			Password: "pass",
+			Team:     userTeam,
+		}
+	}
+
+	_, err := userCol.InsertMany(context.Background(), testUsers)
+	if err != nil {
+		return err
+	}
+
+	_, err = teamCol.InsertMany(context.Background(), testTeams)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func TestApiV2Router_Login(t *testing.T) {
@@ -1340,5 +1478,29 @@ func TestApiV2Router_ResendEmailVerification(t *testing.T) {
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})
+	}
+}
+
+func BenchmarkApiV2Router_GetUser(b *testing.B) {
+	b.StopTimer()
+
+	setup := setupUserBenchmark(b)
+	defer setup.cleanup()
+	defer setup.ctrl.Finish()
+
+	_, err := setup.uRepo.InsertOne(context.Background(), setup.testUser)
+	if err != nil {
+		panic(err)
+	}
+	testToken, _ := setup.authorizer.CreateUserToken(testUserId, testAuthTokenLifetime+setup.timeProvider.Now().Unix())
+
+	testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodGet, nil)
+	setup.testCtx.Request.Header.Set(authTokenHeader, testToken)
+	testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{"id": "me"})
+
+	b.StartTimer()
+
+	for n := 0; n < b.N; n++ {
+		setup.router.GetUser(setup.testCtx)
 	}
 }
