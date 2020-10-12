@@ -293,7 +293,18 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 			},
 		},
 		{
-			name: "path of same lengths and arguments",
+			name: "path of same lengths, and same arguments",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+		},
+		{
+			name: "path of same lengths, and arguments",
 			source: UniformResourceIdentifier{
 				path: "hs:hs_auth:api:v2:GetUser",
 			},

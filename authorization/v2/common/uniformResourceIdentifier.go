@@ -230,7 +230,7 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 	}
 
 	// The source uri is a superset of the target uri, we can return early in this case
-	if len(sourcePathComponents) == len(targetPathComponents) && uri.arguments == nil {
+	if len(sourcePathComponents) <= len(targetPathComponents) && uri.arguments == nil {
 		return true
 	}
 
