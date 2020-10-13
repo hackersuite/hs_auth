@@ -54,6 +54,10 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			method: http.MethodPut,
 		},
 		{
+			route:  "/users/123/permissions",
+			method: http.MethodPut,
+		},
+		{
 			route:  "/users/me/team",
 			method: http.MethodPut,
 		},
@@ -124,6 +128,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUsers)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetUser)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetRole)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetSpecialPermissions)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.SetPassword)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetPasswordResetEmail)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.GetAuthorizedResources)

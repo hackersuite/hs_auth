@@ -1,6 +1,7 @@
 package common
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
@@ -93,15 +94,56 @@ func (uri UniformResourceIdentifier) MarshalJSON() ([]byte, error) {
 }
 
 func (uri *UniformResourceIdentifier) UnmarshalJSON(data []byte) error {
-	uriString := string(data)
-	unquotedURI := uriString[1 : len(uriString)-1]
+	var uriString string
+	err := json.Unmarshal(data, &uriString)
+	if err != nil {
+		return err
+	}
 
-	parsedURI, err := NewURIFromString(unquotedURI)
+	parsedURI, err := NewURIFromString(uriString)
 	if err == nil {
 		*uri = parsedURI
 	}
 
 	return err
+}
+
+func (uris *UniformResourceIdentifiers) MarshalJSON() ([]byte, error) {
+	var uriStringBuilder strings.Builder
+
+	for i, uri := range *uris {
+		uriString, _ := json.Marshal(uri)
+		uriStringBuilder.Write(uriString)
+
+		if i < len(*uris)-1 {
+			uriStringBuilder.WriteRune(',')
+		}
+	}
+
+	return []byte(fmt.Sprintf("[%s]", uriStringBuilder.String())), nil
+}
+
+func (uris *UniformResourceIdentifiers) UnmarshalJSON(data []byte) error {
+	var uriList []interface{}
+	err := json.Unmarshal(data, &uriList)
+	if err != nil {
+		return err
+	}
+
+	if len(uriList) == 0 {
+		return nil
+	}
+
+	parsedURIs := make(UniformResourceIdentifiers, len(uriList))
+	for i, uriString := range uriList {
+		parsedURIs[i], err = NewURIFromString(uriString.(string))
+		if err != nil {
+			return errors.Wrap(err, "failed to unmarshal uri")
+		}
+	}
+
+	*uris = parsedURIs
+	return nil
 }
 
 // Implements the ValueMarshaler interface of the mongo pkg.
