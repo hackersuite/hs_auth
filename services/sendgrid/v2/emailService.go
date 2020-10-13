@@ -83,6 +83,7 @@ func (s *sendgridEmailService) SendEmail(subject, htmlBody, plainTextBody, sende
 	return nil
 }
 func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources common.UniformResourceIdentifiers) error {
+	// TODO: the emails should use tokens of type "email" (https://github.com/unicsmcr/hs_auth/issues/121)
 	emailToken, err := s.authorizer.CreateServiceToken(ctx, user.ID,
 		emailVerificationResources, s.timeProvider.Now().Unix()+s.cfg.Email.TokenLifetime)
 	if err != nil {
@@ -104,6 +105,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 	return s.SendEmail(
 		s.cfg.Email.EmailVerificationEmailSubj,
 		contentBuff.String(),
+		// TODO: plaintext should not be the same as HTML (https://github.com/unicsmcr/hs_auth/issues/120)
 		contentBuff.String(),
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
@@ -112,5 +114,31 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 }
 
 func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources common.UniformResourceIdentifiers) error {
-	panic("not implemented")
+	// TODO: the emails should use tokens of type "email" (https://github.com/unicsmcr/hs_auth/issues/1210
+	emailToken, err := s.authorizer.CreateServiceToken(ctx, user.ID,
+		passwordResetResources, s.timeProvider.Now().Unix()+s.cfg.Email.TokenLifetime)
+	if err != nil {
+		return errors.Wrap(err, "could not create auth token for email")
+	}
+
+	resetURL := fmt.Sprintf("http://%s/resetpwd?token=%s", s.cfg.AppURL, emailToken)
+
+	var contentBuff bytes.Buffer
+	err = s.passwordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
+		Link:       resetURL,
+		SenderName: s.cfg.Email.NoreplyEmailName,
+	})
+	if err != nil {
+		return errors.Wrap(err, "could not construct email")
+	}
+
+	return s.SendEmail(
+		s.cfg.Email.PasswordResetEmailSubj,
+		contentBuff.String(),
+		// TODO: plaintext should not be the same as HTML (https://github.com/unicsmcr/hs_auth/issues/120)
+		contentBuff.String(),
+		s.cfg.Email.NoreplyEmailName,
+		s.cfg.Email.NoreplyEmailAddr,
+		user.Name,
+		user.Email)
 }

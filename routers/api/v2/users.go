@@ -362,13 +362,19 @@ func (r *apiV2Router) SetPassword(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusOK)
+
+	err = r.authorizer.InvalidateServiceToken(ctx, r.GetAuthToken(ctx))
+	if err != nil &&
+		err != common.ErrInvalidTokenType { // ignoring error when operation was not called with a service token
+		r.logger.Warn("could not invalidate token after changing user's password", zap.Error(err))
+	}
 }
 
 // GET: /api/v2/users/(:id|me)/password/resetEmail
 // Response:
 // Headers:  Authorization -> token
 func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
-	_, err := r.getUserCtxAware(ctx, ctx.Param("id"))
+	user, err := r.getUserCtxAware(ctx, ctx.Param("id"))
 	if err != nil {
 		switch errors.Cause(err) {
 		case common.ErrInvalidToken:
@@ -390,12 +396,19 @@ func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: Update email service to use Auth V2 (see https://github.com/unicsmcr/hs_auth/issues/107)
-	//err = r.emailService.SendPasswordResetEmail(*user)
-	//if err != nil {
-	//	r.logger.Error("could not send password reset email", zap.Error(err))
-	//	models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-	//}
+	pwdResetURIs, err := r.makeEmailVerificationURIs(*user)
+	if err != nil {
+		r.logger.Error("could create password reset URIs", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
+
+	err = r.emailService.SendPasswordResetEmail(ctx, *user, pwdResetURIs)
+	if err != nil {
+		r.logger.Error("could send password reset email", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		return
+	}
 
 	ctx.Status(http.StatusOK)
 }
@@ -569,5 +582,15 @@ func (r *apiV2Router) makeEmailVerificationURIs(user entities.User) (common.Unif
 	}
 
 	// TODO: add resource for frontend email verification (https://github.com/unicsmcr/hs_auth/issues/106)
+	return []common.UniformResourceIdentifier{apiUri}, err
+}
+
+func (r *apiV2Router) makePasswordResetURIs(user entities.User) (common.UniformResourceIdentifiers, error) {
+	apiUri, err := common.NewURIFromString(fmt.Sprintf("%s:SetPassword?path_id=%s", r.GetResourcePath(), user.ID.Hex()))
+	if err != nil {
+		return nil, errors.Wrap(err, "could not create URI for API password reset resource")
+	}
+
+	// TODO: add resource for frontend password reset (https://github.com/unicsmcr/hs_auth/issues/106)
 	return []common.UniformResourceIdentifier{apiUri}, err
 }
