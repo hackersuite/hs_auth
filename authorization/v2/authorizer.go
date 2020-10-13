@@ -102,6 +102,10 @@ func (a *authorizer) InvalidateServiceToken(ctx context.Context, token string) e
 		return errors.Wrap(common.ErrInvalidToken, err.Error())
 	}
 
+	if claims.TokenType != Service {
+		return errors.Wrap(common.ErrInvalidTokenType, "only service tokens can be invalidated")
+	}
+
 	return a.tokenService.DeleteServiceToken(ctx, claims.Id)
 }
 

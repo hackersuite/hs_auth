@@ -1102,6 +1102,8 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 					Return(testUserId, nil).Times(1)
 				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(nil).Times(1)
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testAuthToken).
+					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -1112,6 +1114,20 @@ func TestApiV2Router_SetPassword(t *testing.T) {
 			prep: func(setup *usersTestSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(nil).Times(1)
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testAuthToken).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
+			name:     "should return 200 when invalidating service token fails",
+			userId:   testUserId.Hex(),
+			password: "test",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(nil).Times(1)
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, testAuthToken).
+					Return(common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},

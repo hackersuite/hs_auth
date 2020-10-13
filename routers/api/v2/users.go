@@ -362,6 +362,12 @@ func (r *apiV2Router) SetPassword(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusOK)
+
+	err = r.authorizer.InvalidateServiceToken(ctx, r.GetAuthToken(ctx))
+	if err != nil &&
+		err != common.ErrInvalidTokenType { // ignoring error when operation was not called with a service token
+		r.logger.Warn("could not invalidate token after changing user's password", zap.Error(err))
+	}
 }
 
 // GET: /api/v2/users/(:id|me)/password/resetEmail

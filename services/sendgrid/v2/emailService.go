@@ -83,6 +83,7 @@ func (s *sendgridEmailService) SendEmail(subject, htmlBody, plainTextBody, sende
 	return nil
 }
 func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, user entities.User, emailVerificationResources common.UniformResourceIdentifiers) error {
+	// TODO: the emails should use tokens of type "email" (https://github.com/unicsmcr/hs_auth/issues/121)
 	emailToken, err := s.authorizer.CreateServiceToken(ctx, user.ID,
 		emailVerificationResources, s.timeProvider.Now().Unix()+s.cfg.Email.TokenLifetime)
 	if err != nil {
@@ -113,6 +114,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 }
 
 func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user entities.User, passwordResetResources common.UniformResourceIdentifiers) error {
+	// TODO: the emails should use tokens of type "email" (https://github.com/unicsmcr/hs_auth/issues/1210
 	emailToken, err := s.authorizer.CreateServiceToken(ctx, user.ID,
 		passwordResetResources, s.timeProvider.Now().Unix()+s.cfg.Email.TokenLifetime)
 	if err != nil {

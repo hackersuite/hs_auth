@@ -191,6 +191,16 @@ func TestAuthorizer_InvalidateServiceToken__should_return_error_when_token_is_in
 	assert.Error(t, err)
 }
 
+func TestAuthorizer_InvalidateServiceToken__should_return_error_when_token_type_is_not_service(t *testing.T) {
+	jwtSecret := "test_secret"
+	token := createToken(t, "test_id", nil, 1000, User, jwtSecret)
+	setup := setupAuthorizerTests(t, jwtSecret)
+	defer setup.ctrl.Finish()
+
+	err := setup.authorizer.InvalidateServiceToken(setup.testCtx, token)
+	assert.Equal(t, common.ErrInvalidTokenType, errors.Cause(err))
+}
+
 func TestAuthorizer_CreateServiceToken_throws_unknown_error(t *testing.T) {
 	testID := primitive.NewObjectID()
 	var testTTL int64 = 100
