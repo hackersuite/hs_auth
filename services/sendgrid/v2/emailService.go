@@ -104,6 +104,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 	return s.SendEmail(
 		s.cfg.Email.EmailVerificationEmailSubj,
 		contentBuff.String(),
+		// TODO: plaintext should not be the same as HTML (https://github.com/unicsmcr/hs_auth/issues/120)
 		contentBuff.String(),
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
@@ -132,6 +133,7 @@ func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user 
 	return s.SendEmail(
 		s.cfg.Email.PasswordResetEmailSubj,
 		contentBuff.String(),
+		// TODO: plaintext should not be the same as HTML (https://github.com/unicsmcr/hs_auth/issues/120)
 		contentBuff.String(),
 		s.cfg.Email.NoreplyEmailName,
 		s.cfg.Email.NoreplyEmailAddr,
