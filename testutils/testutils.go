@@ -35,6 +35,13 @@ func AddRequestWithFormParamsToCtx(ctx *gin.Context, method string, params map[s
 	ctx.Request = req
 }
 
+// AddRequestWithJSONToCtx attaches a request with given method and json content to the context
+func AddRequestWithJSONToCtx(ctx *gin.Context, method string, marshalledJSON string) {
+	req := httptest.NewRequest(method, "/test", bytes.NewBufferString(marshalledJSON))
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+}
+
 // AddUrlParamsToCtx attaches a request with given method and url params to the context
 func AddUrlParamsToCtx(ctx *gin.Context, params map[string]string) {
 	p := gin.Params{}
@@ -170,7 +177,6 @@ func (m HandlerFuncMatcher) Matches(x interface{}) bool {
 func (m HandlerFuncMatcher) String() string {
 	return fmt.Sprintf("handler name equal to %s", m.handlerName)
 }
-
 
 func getHandlerName(handler gin.HandlerFunc) string {
 	return runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name()

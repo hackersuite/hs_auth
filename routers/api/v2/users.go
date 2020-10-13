@@ -450,26 +450,18 @@ func (r *apiV2Router) SetSpecialPermissions(ctx *gin.Context) {
 	var (
 		err error
 		req struct {
-			Permissions string `form:"permissions"`
+			Permissions common.UniformResourceIdentifiers `json:"permissions"`
 		}
 	)
-	_ = ctx.Bind(&req)
+	_ = ctx.BindJSON(&req)
 	if len(req.Permissions) == 0 {
 		r.logger.Debug("could not parse special user permissions request", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse permissions in request")
 		return
 	}
 
-	var parsedURIs common.UniformResourceIdentifiers
-	err = json.Unmarshal([]byte(req.Permissions), &parsedURIs)
-	if err != nil {
-		r.logger.Debug("provided URI could not be parsed", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusBadRequest, "invalid URI string in permissions")
-		return
-	}
-
 	err = r.userService.UpdateUserWithID(ctx, ctx.Param("id"), services.UserUpdateParams{
-		entities.UserSpecialPermissions: parsedURIs,
+		entities.UserSpecialPermissions: req.Permissions,
 	})
 	if err != nil {
 		switch err {

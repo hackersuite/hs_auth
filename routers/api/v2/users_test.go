@@ -1196,12 +1196,12 @@ func TestApiV2Router_SetSpecialPermissions(t *testing.T) {
 		},
 		{
 			name:        "should return 400 when provided special permissions are invalid",
-			permissions: "\"hs:hs_auth##query_id=#\"]",
+			permissions: "{\"permissions\":\"hs:hs_auth##query_id=#\"]",
 			wantResCode: http.StatusBadRequest,
 		},
 		{
 			name:        "should return 400 when user service returns ErrInvalidID",
-			permissions: "[\"hs:hs_auth\"]",
+			permissions: "{\"permissions\":[\"hs:hs_auth\"]}",
 			prep: func(setup *usersTestSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(services.ErrInvalidID).Times(1)
@@ -1210,7 +1210,7 @@ func TestApiV2Router_SetSpecialPermissions(t *testing.T) {
 		},
 		{
 			name:        "should return 404 when user service returns ErrNotFound",
-			permissions: "[\"hs:hs_auth\"]",
+			permissions: "{\"permissions\":[\"hs:hs_auth\"]}",
 			prep: func(setup *usersTestSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(services.ErrNotFound).Times(1)
@@ -1219,7 +1219,7 @@ func TestApiV2Router_SetSpecialPermissions(t *testing.T) {
 		},
 		{
 			name:        "should return 500 when user service returns unknown error",
-			permissions: "[\"hs:hs_auth\"]",
+			permissions: "{\"permissions\":[\"hs:hs_auth\"]}",
 			prep: func(setup *usersTestSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(errors.New("random error")).Times(1)
@@ -1227,8 +1227,17 @@ func TestApiV2Router_SetSpecialPermissions(t *testing.T) {
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
-			name:        "should return 2xx when valid permissions are provided",
-			permissions: "[\"hs:hs_auth\"]",
+			name:        "should return 2xx when valid permission is provided",
+			permissions: "{\"permissions\":[\"hs:hs_auth\"]}",
+			prep: func(setup *usersTestSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
+			name:        "should return 2xx when multiple valid permissions are provided",
+			permissions: "{\"permissions\":[\"hs:hs_auth\",\"hs:notify\"]}",
 			prep: func(setup *usersTestSetup) {
 				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(nil).Times(1)
@@ -1240,9 +1249,7 @@ func TestApiV2Router_SetSpecialPermissions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupUsersTest(t)
-			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPut, map[string]string{
-				"permissions": tt.permissions,
-			})
+			testutils.AddRequestWithJSONToCtx(setup.testCtx, http.MethodPut, tt.permissions)
 			setup.testCtx.Request.Header.Set(authTokenHeader, testAuthToken)
 			testutils.AddUrlParamsToCtx(setup.testCtx, map[string]string{"id": testUserId.Hex()})
 			defer setup.ctrl.Finish()
