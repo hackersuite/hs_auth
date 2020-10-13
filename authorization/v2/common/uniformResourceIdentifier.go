@@ -229,6 +229,11 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 		}
 	}
 
+	// The source uri is a superset of the target uri, we can return early in this case
+	if len(sourcePathComponents) <= len(targetPathComponents) && uri.arguments == nil {
+		return true
+	}
+
 	// Validate URI arguments
 	for key, targetValue := range target.arguments {
 		if sourceValue, ok := uri.arguments[key]; ok {
