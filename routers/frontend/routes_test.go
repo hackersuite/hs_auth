@@ -536,19 +536,30 @@ func Test_ForgotPassword(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:  "should return 200 when SendPasswordResetEmailForUserWithEmail returns ErrEmailTaken",
+			name:  "should return 200 when GetUserWithEmail returns ErrNotFound",
 			email: "bob@test.com",
 			prep: func(setup *testSetup) {
-				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "bob@test.com").
-					Return(services.ErrNotFound).Times(1)
+				setup.mockUService.EXPECT().GetUserWithEmail(setup.testCtx, "bob@test.com").
+					Return(nil, services.ErrNotFound).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
 		{
-			name:  "should return 500 when SendPasswordResetEmailForUserWithEmail returns unknown error",
+			name:  "should return 500 when GetUserWithEmail returns unknown error",
 			email: "bob@test.com",
 			prep: func(setup *testSetup) {
-				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "bob@test.com").
+				setup.mockUService.EXPECT().GetUserWithEmail(setup.testCtx, "bob@test.com").
+					Return(nil, errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:  "should return 500 when SendPasswordResetEmail returns unknown error",
+			email: "bob@test.com",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithEmail(setup.testCtx, "bob@test.com").
+					Return(&entities.User{}, nil).Times(1)
+				setup.mockEServiceV2.EXPECT().SendPasswordResetEmail(setup.testCtx, entities.User{}, gomock.Any()).
 					Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
@@ -557,7 +568,9 @@ func Test_ForgotPassword(t *testing.T) {
 			name:  "should return 200",
 			email: "bob@test.com",
 			prep: func(setup *testSetup) {
-				setup.mockEService.EXPECT().SendPasswordResetEmailForUserWithEmail(gomock.Any(), "bob@test.com").
+				setup.mockUService.EXPECT().GetUserWithEmail(setup.testCtx, "bob@test.com").
+					Return(&entities.User{}, nil).Times(1)
+				setup.mockEServiceV2.EXPECT().SendPasswordResetEmail(setup.testCtx, entities.User{}, gomock.Any()).
 					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -569,6 +582,7 @@ func Test_ForgotPassword(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
 				tt.prep(setup)
