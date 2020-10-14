@@ -54,7 +54,7 @@ func Test_NewSendgridEmailService__should_return_error_when_template_path_is_inc
 	passwordResetEmailTemplatePath = "invalid path"
 	emailVerifyEmailTemplatePath = _testEmailTemplate
 
-	service, err := NewSendgridEmailService(nil, nil, nil,nil, nil)
+	service, err := NewSendgridEmailService(nil, nil, nil, nil, nil)
 	assert.Error(t, err)
 	assert.Nil(t, service)
 
@@ -123,9 +123,9 @@ func Test_SendEmailVerificationEmail__should_not_return_error_when_sending_email
 
 	service, err := NewSendgridEmailService(zap.NewNop(), &config.AppConfig{
 		Email: config.EmailConfig{
-			NoreplyEmailAddr:          "bob@test.com",
-			NoreplyEmailName:          "Bob the Tester",
-			EmailVerficationEmailSubj: "test subject",
+			NoreplyEmailAddr:           "bob@test.com",
+			NoreplyEmailName:           "Bob the Tester",
+			EmailVerificationEmailSubj: "test subject",
 		},
 	}, env, client, nil)
 	assert.NoError(t, err)
@@ -188,9 +188,9 @@ func Test_SendPasswordResetEmail__should_not_return_error_when_sending_email_is_
 
 	service, err := NewSendgridEmailService(zap.NewNop(), &config.AppConfig{
 		Email: config.EmailConfig{
-			NoreplyEmailAddr:          "bob@test.com",
-			NoreplyEmailName:          "Bob the Tester",
-			EmailVerficationEmailSubj: "test subject",
+			NoreplyEmailAddr:           "bob@test.com",
+			NoreplyEmailName:           "Bob the Tester",
+			EmailVerificationEmailSubj: "test subject",
 		},
 	}, env, client, nil)
 	assert.NoError(t, err)

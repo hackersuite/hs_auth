@@ -214,19 +214,172 @@ func Test_MarshalJSON__should_return_correct_string(t *testing.T) {
 }
 
 func Test_UnmarshalJSON__should_return_correct_URI(t *testing.T) {
-	testURIString := "\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\""
-
-	expectedURI := UniformResourceIdentifier{
-		path:      "hs:hs_auth:api:v2:provide_access_to_uri",
-		arguments: map[string]string{"test_arg": "test1"},
-		metadata:  map[string]string{"until": "21392103"},
+	tests := []struct {
+		name           string
+		uriString      string
+		expectedResult UniformResourceIdentifier
+	}{
+		{
+			name:           "with no uri",
+			uriString:      "null",
+			expectedResult: UniformResourceIdentifier{},
+		},
+		{
+			name:      "with only path",
+			uriString: "\"hs:hs_auth:api:v2:provide_access_to_uri\"",
+			expectedResult: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:provide_access_to_uri",
+			},
+		},
+		{
+			name:      "with path and arguments",
+			uriString: "\"hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A\"",
+			expectedResult: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+			},
+		},
+		{
+			name:      "with path and metadata",
+			uriString: "\"hs:hs_auth:api:v2:provide_access_to_uri#test_arg%3Dtest1\"",
+			expectedResult: UniformResourceIdentifier{
+				path:     "hs:hs_auth:api:v2:provide_access_to_uri",
+				metadata: map[string]string{"test_arg": "test1"},
+			},
+		},
+		{
+			name:      "with path, arguments and metadata",
+			uriString: "\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\"",
+			expectedResult: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"test_arg": "test1"},
+				metadata:  map[string]string{"until": "21392103"},
+			},
+		},
 	}
 
-	identifier := UniformResourceIdentifier{}
-	err := identifier.UnmarshalJSON([]byte(testURIString))
-	assert.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			identifier := UniformResourceIdentifier{}
+			err := identifier.UnmarshalJSON([]byte(tt.uriString))
+			assert.NoError(t, err)
 
-	assert.Equal(t, identifier, expectedURI)
+			assert.Equal(t, tt.expectedResult, identifier)
+		})
+	}
+}
+
+func Test_UniformResourceIdentifiers_MarshalJSON__should_return_correct_string(t *testing.T) {
+	tests := []struct {
+		name           string
+		uris           UniformResourceIdentifiers
+		expectedResult string
+	}{
+		{
+			name: "with only path",
+			uris: UniformResourceIdentifiers{{
+				path: "hs:hs_auth:api:v2:provide_access_to_uri",
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri\"]",
+		},
+		{
+			name: "with only path and multiple uris",
+			uris: UniformResourceIdentifiers{
+				{
+					path: "hs:hs_auth:api:v2:provide_access_to_uri",
+				},
+				{
+					path: "hs:hs_auth:api:v2:users",
+				}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri\",\"hs:hs_auth:api:v2:users\"]",
+		},
+		{
+			name: "with path and arguments",
+			uris: UniformResourceIdentifiers{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri?allowed_uri%3Dhs%3Ahs_application%3A%2A\"]",
+		},
+		{
+			name: "with path and metadata",
+			uris: UniformResourceIdentifiers{{
+				path:     "hs:hs_auth:api:v2:provide_access_to_uri",
+				metadata: map[string]string{"test_arg": "test1"},
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri#test_arg%3Dtest1\"]",
+		},
+		{
+			name: "with path, arguments and metadata",
+			uris: UniformResourceIdentifiers{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"test_arg": "test1"},
+				metadata:  map[string]string{"until": "21392103"},
+			}},
+			expectedResult: "[\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\"]",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := tt.uris.MarshalJSON()
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expectedResult, string(result))
+		})
+	}
+}
+
+func Test_UniformResourceIdentifiers_UnmarshalJSON__should_return_correct_uri(t *testing.T) {
+	tests := []struct {
+		name           string
+		uriString      string
+		expectedResult UniformResourceIdentifiers
+	}{
+		{
+			name:           "with no uris",
+			uriString:      "null",
+			expectedResult: nil,
+		},
+		{
+			name:      "with uri array, single element",
+			uriString: "[\"hs:hs_auth:api:v2:provide_access_to_uri?test_arg%3Dtest1#until%3D21392103\"]",
+			expectedResult: UniformResourceIdentifiers{{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"test_arg": "test1"},
+				metadata:  map[string]string{"until": "21392103"},
+			}},
+		},
+		{
+			name:      "with uri array, multiple elements",
+			uriString: "[\"hs:hs_auth:api:v2:provide_access_to_uri\",\"hs:hs_notify\"]",
+			expectedResult: UniformResourceIdentifiers{
+				{
+					path: "hs:hs_auth:api:v2:provide_access_to_uri",
+				},
+				{
+					path: "hs:hs_notify",
+				}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			identifier := UniformResourceIdentifiers(nil)
+			err := identifier.UnmarshalJSON([]byte(tt.uriString))
+			assert.NoError(t, err)
+
+			assert.Equal(t, tt.expectedResult, identifier)
+		})
+	}
+}
+
+func Test_UniformResourceIdentifiers_UnmarshalJSON__should_return_error_with_invalid_uri(t *testing.T) {
+	testURIString := "[\"hs:hs_auth:api:v2:user?test_arg%3Dtest1##until%3D21392103\"]"
+
+	identifier := UniformResourceIdentifiers{}
+	err := identifier.UnmarshalJSON([]byte(testURIString))
+	assert.Error(t, err)
 }
 
 func Test_UnmarshalYAML__should_unmarshal_with_valid_uri(t *testing.T) {
@@ -285,6 +438,36 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 		target UniformResourceIdentifier
 	}{
 		{
+			name: "only path of same lengths",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUser",
+			},
+			target: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUser",
+			},
+		},
+		{
+			name: "path of same lengths, and same arguments",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+		},
+		{
+			name: "path of same lengths, and arguments",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2:GetUser",
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+		},
+		{
 			name: "only path",
 			source: UniformResourceIdentifier{
 				path: "hs:hs_auth:api:v2",
@@ -323,7 +506,7 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 		t.Run(tt.name, func(t *testing.T) {
 			valid := tt.source.isSubsetOf(tt.target)
 
-			assert.Equal(t, valid, true)
+			assert.Equal(t, true, valid)
 		})
 	}
 }
@@ -344,7 +527,7 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 			},
 		},
 		{
-			name: "only path with same number of components",
+			name: "only path with target longer than source",
 			source: UniformResourceIdentifier{
 				path: "hs:hs_auth:api:v2:GetUser",
 			},
@@ -353,7 +536,27 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 			},
 		},
 		{
-			name: "path and arguments",
+			name: "only path with source longer than target",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_application:teams",
+			},
+			target: UniformResourceIdentifier{
+				path: "hs:hs_application:user",
+			},
+		},
+		{
+			name: "path of same lengths and different argument values",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "123"},
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:GetUser",
+				arguments: map[string]string{"path_id": "me"},
+			},
+		},
+		{
+			name: "path and arguments with regex",
 			source: UniformResourceIdentifier{
 				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
 				arguments: map[string]string{"allowed_uri": "hs:hs_application:checkin:*"},
@@ -370,7 +573,7 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 		t.Run(tt.name, func(t *testing.T) {
 			valid := tt.source.isSubsetOf(tt.target)
 
-			assert.Equal(t, valid, false)
+			assert.Equal(t, false, valid)
 		})
 	}
 }

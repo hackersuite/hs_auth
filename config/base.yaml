@@ -10,6 +10,12 @@ email:
   noreply_email_name: "UniCS"
   email_verification_email_subj: "Verify email"
   password_reset_email_subj: "Reset password"
+  token_lifetime: 108000 # 30 hours
 app_url: "auth.unicsmcr.com"
 data_policy_url: "https://drive.google.com/file/d/1wMcJbfEhIp9FjdNbyom4RVUoTH4xc0OB/view"
 soft_max_team_members: 4
+auth:
+  user_token_lifetime: 108000 # 30 hours
+  default_role: "unverified"
+  email_verification_required: true
+  default_email_verified_role: "applicant"

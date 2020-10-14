@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
+	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
@@ -27,11 +28,11 @@ type Authorizer interface {
 	// CreateServiceToken creates a token with the given permissions.
 	// Setting expirationDate to 0 will create a token that does not expire.
 	CreateServiceToken(ctx context.Context, userId primitive.ObjectID, allowedResources []common.UniformResourceIdentifier, expirationDate int64) (string, error)
-	// InvalidateServiceToken invalidates a token with the given ID
-	InvalidateServiceToken(ctx context.Context, tokenId string) error
+	// InvalidateServiceToken invalidates given token
+	InvalidateServiceToken(ctx context.Context, token string) error
 	// GetAuthorizedResources returns what resources from urisToCheck the given token can access.
 	// Will return ErrInvalidToken if the provided token is invalid.
-	GetAuthorizedResources(token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error)
+	GetAuthorizedResources(ctx context.Context, token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error)
 	// WithAuthMiddleware wraps the given operation handler with authorization middleware
 	WithAuthMiddleware(router common.RouterResource, handler gin.HandlerFunc) gin.HandlerFunc
 	// GetUserIdFromToken extracts the user id from user tokens
@@ -40,20 +41,25 @@ type Authorizer interface {
 	GetTokenTypeFromToken(token string) (TokenType, error)
 }
 
-func NewAuthorizer(provider utils.TimeProvider, env *environment.Env, logger *zap.Logger, tokenService services.TokenService) Authorizer {
+func NewAuthorizer(provider utils.TimeProvider, cfg *config.AppConfig, env *environment.Env, logger *zap.Logger,
+	tokenService services.TokenService, userService services.UserService) Authorizer {
 	return &authorizer{
 		timeProvider: provider,
+		cfg:          cfg,
 		env:          env,
 		logger:       logger,
 		tokenService: tokenService,
+		userService:  userService,
 	}
 }
 
 type authorizer struct {
 	timeProvider utils.TimeProvider
+	cfg          *config.AppConfig
 	env          *environment.Env
 	logger       *zap.Logger
 	tokenService services.TokenService
+	userService  services.UserService
 }
 
 func (a *authorizer) CreateUserToken(userId primitive.ObjectID, expirationDate int64) (string, error) {
@@ -97,11 +103,20 @@ func (a *authorizer) CreateServiceToken(ctx context.Context, userId primitive.Ob
 	return signedToken, nil
 }
 
-func (a *authorizer) InvalidateServiceToken(ctx context.Context, tokenId string) error {
-	return a.tokenService.DeleteServiceToken(ctx, tokenId)
+func (a *authorizer) InvalidateServiceToken(ctx context.Context, token string) error {
+	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
+	if err != nil {
+		return errors.Wrap(common.ErrInvalidToken, err.Error())
+	}
+
+	if claims.TokenType != Service {
+		return errors.Wrap(common.ErrInvalidTokenType, "only service tokens can be invalidated")
+	}
+
+	return a.tokenService.DeleteServiceToken(ctx, claims.Id)
 }
 
-func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {
+func (a *authorizer) GetAuthorizedResources(ctx context.Context, token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {
 	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
 	if err != nil {
 		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
@@ -112,7 +127,24 @@ func (a *authorizer) GetAuthorizedResources(token string, urisToCheck []common.U
 		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
 	}
 
-	claims.AllowedResources, err = a.filterUrisWithInvalidMetadata(claims.AllowedResources)
+	var claimedResources common.UniformResourceIdentifiers
+	if claims.TokenType == User {
+		user, err := a.userService.GetUserWithID(ctx, claims.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		rolePermissions, err := a.cfg.UserRole.GetRolePermissions(user.Role)
+		if err != nil {
+			return nil, err
+		}
+
+		claimedResources = append(user.SpecialPermissions, rolePermissions...)
+	} else if claims.TokenType == Service {
+		claimedResources = claims.AllowedResources
+	}
+
+	claimedResources, err = a.filterUrisWithInvalidMetadata(claimedResources)
 	if err != nil {
 		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
 	}
@@ -143,7 +175,7 @@ func (a *authorizer) WithAuthMiddleware(router common.RouterResource, operationH
 		}
 
 		uri := common.NewUriFromRequest(router, operationHandler, ctx)
-		authorized, err := a.GetAuthorizedResources(token, []common.UniformResourceIdentifier{uri})
+		authorized, err := a.GetAuthorizedResources(ctx, token, []common.UniformResourceIdentifier{uri})
 		if err != nil {
 			a.logger.Debug("could not retrieve authorized resources for token", zap.Error(err))
 			router.HandleUnauthorized(ctx)

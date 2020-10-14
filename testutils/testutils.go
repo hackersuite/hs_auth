@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"reflect"
 	"runtime"
+
+	"github.com/gin-gonic/gin"
 )
 
 // UnmarshallResponse unmarshalls the reponse in res and stores it in out
@@ -35,7 +36,14 @@ func AddRequestWithFormParamsToCtx(ctx *gin.Context, method string, params map[s
 	ctx.Request = req
 }
 
-// AddUrlParamsToCtx attaches url params to the context
+// AddRequestWithJSONToCtx attaches a request with given method and json content to the context
+func AddRequestWithJSONToCtx(ctx *gin.Context, method string, marshalledJSON string) {
+	req := httptest.NewRequest(method, "/test", bytes.NewBufferString(marshalledJSON))
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+}
+
+// AddUrlParamsToCtx attaches a request with given method and url params to the context
 func AddUrlParamsToCtx(ctx *gin.Context, params map[string]string) {
 	p := gin.Params{}
 	for key, val := range params {

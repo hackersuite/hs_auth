@@ -53,7 +53,7 @@ func Test_GetRolePermissions__should_return_correct_uri_set_for_each_role(t *tes
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := roleConfig.GetRolePermissions(tt.name)
+			result, err := roleConfig.GetRolePermissions(UserRole(tt.name))
 			assert.NoError(t, err)
 
 			assert.Equal(t, tt.expectedResult, result)

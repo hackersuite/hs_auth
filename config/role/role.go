@@ -18,8 +18,8 @@ const Organiser UserRole = "organiser"
 // RoleConfig stores the configuration to be used by the v2 authorizer
 type UserRoleConfig map[UserRole]common.UniformResourceIdentifiers
 
-func (r UserRoleConfig) GetRolePermissions(role string) (common.UniformResourceIdentifiers, error) {
-	uris, ok := r[UserRole(role)]
+func (r UserRoleConfig) GetRolePermissions(role UserRole) (common.UniformResourceIdentifiers, error) {
+	uris, ok := r[role]
 	if !ok {
 		return nil, errors.Wrap(common.ErrUnknownRole, fmt.Sprintf("role %s does not exist", role))
 	}
