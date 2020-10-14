@@ -2,6 +2,7 @@ package frontend
 
 import (
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
+	"github.com/unicsmcr/hs_auth/routers/common"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,7 +32,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockTeamService := mock_services.NewMockTeamService(ctrl)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 
-	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService, mockAuthorizer, nil)
+	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService, mockAuthorizer, nil, nil)
 
 	tests := []struct {
 		route  string
@@ -119,7 +120,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 
 func TestRouter_GetResourcePath(t *testing.T) {
 	router := &frontendRouter{}
-	assert.Equal(t, "hs:hs_auth:frontend", router.GetResourcePath())
+	assert.Equal(t, common.FrontendResourcePath, router.GetResourcePath())
 }
 
 func TestRouter_GetAuthToken__returns_correct_token(t *testing.T) {
