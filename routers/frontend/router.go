@@ -2,6 +2,7 @@ package frontend
 
 import (
 	authV2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/utils"
 	"net/http"
 
@@ -15,7 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const resourcePath = "hs:hs_auth:frontend"
 const authCookieName = "Authorization"
 
 func jwtProvider(ctx *gin.Context) string {
@@ -59,18 +59,19 @@ type templateDataModel struct {
 
 type frontendRouter struct {
 	models.BaseRouter
-	logger       *zap.Logger
-	cfg          *config.AppConfig
-	env          *environment.Env
-	userService  services.UserService
-	teamService  services.TeamService
-	emailService services.EmailService
-	authorizer   authV2.Authorizer
-	timeProvider utils.TimeProvider
+	logger         *zap.Logger
+	cfg            *config.AppConfig
+	env            *environment.Env
+	userService    services.UserService
+	teamService    services.TeamService
+	emailService   services.EmailService
+	emailServiceV2 services.EmailServiceV2
+	authorizer     authV2.Authorizer
+	timeProvider   utils.TimeProvider
 }
 
 func (r *frontendRouter) GetResourcePath() string {
-	return resourcePath
+	return common.FrontendResourcePath
 }
 
 func (r *frontendRouter) GetAuthToken(ctx *gin.Context) string {
@@ -87,16 +88,19 @@ func (r *frontendRouter) HandleUnauthorized(ctx *gin.Context) {
 	invalidJWTHandler(ctx)
 }
 
-func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, teamService services.TeamService, emailService services.EmailService, authorizer authV2.Authorizer, timeProvider utils.TimeProvider) Router {
+func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService,
+	teamService services.TeamService, emailService services.EmailService, authorizer authV2.Authorizer,
+	timeProvider utils.TimeProvider, emailServiceV2 services.EmailServiceV2) Router {
 	return &frontendRouter{
-		logger:       logger,
-		cfg:          cfg,
-		env:          env,
-		userService:  userService,
-		teamService:  teamService,
-		emailService: emailService,
-		authorizer:   authorizer,
-		timeProvider: timeProvider,
+		logger:         logger,
+		cfg:            cfg,
+		env:            env,
+		userService:    userService,
+		teamService:    teamService,
+		emailService:   emailService,
+		authorizer:     authorizer,
+		timeProvider:   timeProvider,
+		emailServiceV2: emailServiceV2,
 	}
 }
 
