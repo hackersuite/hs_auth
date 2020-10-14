@@ -2,19 +2,17 @@ package frontend
 
 import (
 	"encoding/json"
-	"github.com/unicsmcr/hs_auth/config/role"
-	"github.com/unicsmcr/hs_auth/routers/api/models"
-	"net/http"
-	"time"
-
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
-	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"net/http"
 )
 
 const ReturnToCookie = "ReturnTo"
@@ -127,10 +125,14 @@ func (r *frontendRouter) LoginPage(ctx *gin.Context) {
 }
 
 func (r *frontendRouter) Login(ctx *gin.Context) {
-	email := ctx.PostForm("email")
-	password := ctx.PostForm("password")
-	if email == "" || password == "" {
-		r.logger.Debug("email or password was not provided")
+	var req struct {
+		Email    string `form:"email"`
+		Password string `form:"password"`
+	}
+	ctx.Bind(&req)
+	if len(req.Email) == 0 || len(req.Password) == 0 {
+		r.logger.Debug("email or password was not provided", zap.Int("email length", len(req.Email)),
+			zap.Int("password length", len(req.Password)))
 		ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Both email and password are required",
@@ -138,15 +140,16 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	user, err := r.userService.GetUserWithEmailAndPwd(ctx, email, password)
+	user, err := r.userService.GetUserWithEmailAndPwd(ctx, req.Email, req.Password)
 	if err != nil {
-		if err == services.ErrNotFound {
-			r.logger.Debug("user not found", zap.String("email", email))
-			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
+		switch errors.Cause(err) {
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.String("email", req.Email), zap.Error(err))
+			ctx.HTML(http.StatusNotFound, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "User not found",
 			})
-		} else {
+		default:
 			r.logger.Error("could not fetch user", zap.Error(err))
 			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
@@ -156,9 +159,9 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	token, err := auth.NewJWT(*user, time.Now().Unix(), r.cfg.AuthTokenLifetime, auth.Auth, []byte(r.env.Get(environment.JWTSecret)))
+	token, err := r.authorizer.CreateUserToken(user.ID, r.cfg.Auth.UserTokenLifetime+r.timeProvider.Now().Unix())
 	if err != nil {
-		r.logger.Error("could not create JWT", zap.String("user", user.ID.Hex()), zap.Error(err))
+		r.logger.Error("could not create JWT", zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Something went wrong",
@@ -166,10 +169,10 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 		return
 	}
 
-	ctx.SetCookie(authCookieName, token, int(r.cfg.AuthTokenLifetime), "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
+	ctx.SetCookie(authCookieName, token, int(r.cfg.Auth.UserTokenLifetime), "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
 
-	if user.AuthLevel <= authlevels.Unverified {
-		r.logger.Debug("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", email))
+	if user.Role == role.Unverified {
+		r.logger.Debug("user's email not verified", zap.String("user id", user.ID.Hex()), zap.String("email", req.Email))
 		ctx.Redirect(http.StatusMovedPermanently, "/emailunverified")
 		return
 	}

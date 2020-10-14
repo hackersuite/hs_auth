@@ -3,10 +3,15 @@ package frontend
 import (
 	"errors"
 	"fmt"
+	"github.com/unicsmcr/hs_auth/config/role"
+	_ "github.com/unicsmcr/hs_auth/config/role"
+	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
+	mock_utils "github.com/unicsmcr/hs_auth/mocks/utils"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -24,18 +29,24 @@ import (
 	"go.uber.org/zap"
 )
 
+var testUserId = primitive.NewObjectID()
+
 type testSetup struct {
-	mockUService *mock_services.MockUserService
-	mockEService *mock_services.MockEmailService
-	mockTService *mock_services.MockTeamService
-	env          *environment.Env
-	router       frontendRouter
-	testUser     *entities.User
-	w            *httptest.ResponseRecorder
-	testCtx      *gin.Context
-	testServer   *gin.Engine
-	claims       *auth.Claims
-	emailToken   string
+	mockUService     *mock_services.MockUserService
+	mockEService     *mock_services.MockEmailService
+	mockTService     *mock_services.MockTeamService
+	mockAuthorizer   *mock_v2.MockAuthorizer
+	mockTimeProvider *mock_utils.MockTimeProvider
+	env              *environment.Env
+	router           frontendRouter
+	testUser         *entities.User
+	w                *httptest.ResponseRecorder
+	testCtx          *gin.Context
+	testServer       *gin.Engine
+	claims           *auth.Claims
+	emailToken       string
+	cfg              *config.AppConfig
+	ctrl             *gomock.Controller
 }
 
 func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLevel) *testSetup {
@@ -43,20 +54,29 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockEService := mock_services.NewMockEmailService(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
+	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
+	mockTimeProvider := mock_utils.NewMockTimeProvider(ctrl)
 
 	restore := testutils.SetEnvVars(envVars)
 	env := environment.NewEnv(zap.NewNop())
 	restore()
 
-	router := frontendRouter{
-		logger: zap.NewNop(),
-		cfg: &config.AppConfig{
-			BaseAuthLevel: 0,
+	cfg := &config.AppConfig{
+		BaseAuthLevel: 0,
+		Auth: config.AuthConfig{
+			UserTokenLifetime: 1000,
 		},
+	}
+
+	router := frontendRouter{
+		logger:       zap.NewNop(),
+		cfg:          cfg,
 		env:          env,
 		userService:  mockUService,
 		teamService:  mockTService,
 		emailService: mockEService,
+		authorizer:   mockAuthorizer,
+		timeProvider: mockTimeProvider,
 	}
 
 	testUser := entities.User{
@@ -79,16 +99,20 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 	testServer.LoadHTMLGlob("../../templates/*/*.gohtml")
 
 	return &testSetup{
-		mockUService: mockUService,
-		mockEService: mockEService,
-		mockTService: mockTService,
-		env:          env,
-		router:       router,
-		testUser:     &testUser,
-		w:            w,
-		testCtx:      testCtx,
-		testServer:   testServer,
-		claims:       claims,
+		mockUService:     mockUService,
+		mockEService:     mockEService,
+		mockTService:     mockTService,
+		mockAuthorizer:   mockAuthorizer,
+		mockTimeProvider: mockTimeProvider,
+		env:              env,
+		router:           router,
+		testUser:         &testUser,
+		w:                w,
+		testCtx:          testCtx,
+		testServer:       testServer,
+		claims:           claims,
+		ctrl:             ctrl,
+		cfg:              cfg,
 	}
 }
 
@@ -121,14 +145,14 @@ func Test_Login(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:     "should return 401 when GetUserWithEmailAndPwd returns ErrNotFound",
+			name:     "should return 404 when GetUserWithEmailAndPwd returns ErrNotFound",
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
 					Return(nil, services.ErrNotFound).Times(1)
 			},
-			wantResCode: http.StatusUnauthorized,
+			wantResCode: http.StatusNotFound,
 		},
 		{
 			name:     "should return 500 when GetUserWithEmailAndPwd returns unknown error",
@@ -141,12 +165,28 @@ func Test_Login(t *testing.T) {
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
+			name:     "should return 500 when authorizer returns an error",
+			email:    "test@email.com",
+			password: "testpassword",
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
+					Return(&entities.User{ID: testUserId}, nil).Times(1)
+				setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(1000, 0)).Times(1)
+				setup.mockAuthorizer.EXPECT().CreateUserToken(testUserId, setup.cfg.Auth.UserTokenLifetime+1000).
+					Return("", errors.New("authorizer err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
 			name:     "should return 200 when user's email is not verified",
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
-					Return(&entities.User{AuthLevel: common.Unverified}, nil).Times(1)
+					Return(&entities.User{ID: testUserId, Role: role.Unverified}, nil).Times(1)
+				setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(1000, 0)).Times(1)
+				setup.mockAuthorizer.EXPECT().CreateUserToken(testUserId, setup.cfg.Auth.UserTokenLifetime+1000).
+					Return("authToken", nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -156,7 +196,10 @@ func Test_Login(t *testing.T) {
 			password: "testpassword",
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
-					Return(&entities.User{AuthLevel: common.Organiser}, nil).Times(1)
+					Return(&entities.User{ID: testUserId, Role: role.Unverified}, nil).Times(1)
+				setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(1000, 0)).Times(1)
+				setup.mockAuthorizer.EXPECT().CreateUserToken(testUserId, setup.cfg.Auth.UserTokenLifetime+1000).
+					Return("authToken", nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -167,6 +210,7 @@ func Test_Login(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
 				tt.prep(setup)
