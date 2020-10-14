@@ -1,6 +1,7 @@
 package frontend
 
 import (
+	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,6 +16,8 @@ import (
 	"go.uber.org/zap"
 )
 
+const testAuthToken = "authToken"
+
 func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	restoreVars := testutils.SetEnvVars(map[string]string{
 		"JWT_SECRET": "verysecret",
@@ -26,8 +29,9 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockUserService := mock_services.NewMockUserService(ctrl)
 	mockEmailService := mock_services.NewMockEmailService(ctrl)
 	mockTeamService := mock_services.NewMockTeamService(ctrl)
+	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 
-	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService, nil, nil)
+	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService, mockAuthorizer, nil)
 
 	tests := []struct {
 		route  string
@@ -111,4 +115,44 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			assert.NotEqual(t, http.StatusNotFound, w.Code)
 		})
 	}
+}
+
+func TestRouter_GetResourcePath(t *testing.T) {
+	router := &frontendRouter{}
+	assert.Equal(t, "hs:hs_auth:frontend", router.GetResourcePath())
+}
+
+func TestRouter_GetAuthToken__returns_correct_token(t *testing.T) {
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	ctx.Request.AddCookie(&http.Cookie{
+		Name:  authCookieName,
+		Value: testAuthToken,
+	})
+	router := &frontendRouter{}
+
+	actualToken := router.GetAuthToken(ctx)
+	assert.Equal(t, testAuthToken, actualToken)
+}
+
+func TestRouter_GetAuthToken__returns_empty_string_when_token_is_not_set(t *testing.T) {
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	router := &frontendRouter{logger: zap.NewNop()}
+
+	actualToken := router.GetAuthToken(ctx)
+	assert.Equal(t, "", actualToken)
+}
+
+func TestRouter_HandleUnauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	router := &frontendRouter{}
+
+	router.HandleUnauthorized(ctx)
+	assert.Equal(t, http.StatusSeeOther, w.Code)
+	assert.Equal(t, "/login", w.HeaderMap["Location"][0])
 }
