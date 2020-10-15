@@ -8,7 +8,7 @@ import (
 	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
-	common2 "github.com/unicsmcr/hs_auth/routers/common"
+	rcommon "github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -104,7 +104,7 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 
 	if r.cfg.Auth.EmailVerificationRequired {
-		err = r.emailService.SendEmailVerificationEmail(ctx, *user, common2.MakeEmailVerificationURIs(*user))
+		err = r.emailService.SendEmailVerificationEmail(ctx, *user, rcommon.MakeEmailVerificationURIs(*user))
 		if err != nil {
 			r.logger.Warn("could not send email verification email", zap.Error(err))
 		}
@@ -390,7 +390,7 @@ func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
 		return
 	}
 
-	err = r.emailService.SendPasswordResetEmail(ctx, *user, common2.MakePasswordResetURIs(*user))
+	err = r.emailService.SendPasswordResetEmail(ctx, *user, rcommon.MakePasswordResetURIs(*user))
 	if err != nil {
 		r.logger.Error("could send password reset email", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
@@ -537,7 +537,7 @@ func (r *apiV2Router) ResendEmailVerification(ctx *gin.Context) {
 		return
 	}
 
-	err = r.emailService.SendEmailVerificationEmail(ctx, *user, common2.MakeEmailVerificationURIs(*user))
+	err = r.emailService.SendEmailVerificationEmail(ctx, *user, rcommon.MakeEmailVerificationURIs(*user))
 	if err != nil {
 		r.logger.Error("could send email verification email", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
