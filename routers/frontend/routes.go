@@ -7,6 +7,7 @@ import (
 	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
+	"github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
@@ -192,13 +193,16 @@ func (r *frontendRouter) RegisterPage(ctx *gin.Context) {
 }
 
 func (r *frontendRouter) Register(ctx *gin.Context) {
-	name := ctx.PostForm("name")
-	email := ctx.PostForm("email")
-	password := ctx.PostForm("password")
-	passwordConfirm := ctx.PostForm("passwordConfirm")
+	var req struct {
+		Name            string `form:"name"`
+		Email           string `form:"email"`
+		Password        string `form:"password"`
+		PasswordConfirm string `form:"passwordConfirm"`
+	}
+	ctx.Bind(&req)
 
-	if len(name) == 0 || len(email) == 0 || len(password) == 0 {
-		r.logger.Debug("one of name, email, password, passwordConfirm not specified", zap.String("name", name), zap.String("email", email), zap.Int("password length", len(password)), zap.Int("passwordConfirm length", len(passwordConfirm)))
+	if len(req.Name) == 0 || len(req.Email) == 0 || len(req.Password) == 0 {
+		r.logger.Debug("one of name, email, password, passwordConfirm not specified", zap.String("name", req.Name), zap.String("email", req.Email), zap.Int("password length", len(req.Password)), zap.Int("passwordConfirm length", len(req.PasswordConfirm)))
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "All fields are required",
@@ -206,9 +210,9 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		return
 	}
 
-	// TODO: might be a good idea to handle this at the service level
-	if len(password) < 6 || len(password) > 160 {
-		r.logger.Debug("invalid password length", zap.Int("length", len(password)))
+	// TODO: implement automatic validation at the entity level (https://github.com/unicsmcr/hs_auth/issues/123)
+	if len(req.Password) < 6 || len(req.Password) > 160 {
+		r.logger.Debug("invalid password length", zap.Int("length", len(req.Password)))
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Password must contain between 6 and 160 characters",
@@ -216,7 +220,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		return
 	}
 
-	if password != passwordConfirm {
+	if req.Password != req.PasswordConfirm {
 		r.logger.Debug("password and passwordConfirm do not match")
 		ctx.HTML(http.StatusBadRequest, "register.gohtml", templateDataModel{
 			Cfg: r.cfg,
@@ -225,7 +229,7 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		return
 	}
 
-	user, err := r.userService.CreateUser(ctx, name, email, password, role.Unverified)
+	user, err := r.userService.CreateUser(ctx, req.Name, req.Email, req.Password, r.cfg.Auth.DefaultRole)
 	if err != nil {
 		switch err {
 		case services.ErrEmailTaken:
@@ -245,11 +249,6 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 		}
 	}
 
-	err = r.emailService.SendEmailVerificationEmail(*user)
-	if err != nil {
-		r.logger.Error("could not send email verification email", zap.Error(err))
-	}
-
 	type res struct {
 		Email string
 	}
@@ -259,6 +258,11 @@ func (r *frontendRouter) Register(ctx *gin.Context) {
 			Email: user.Email,
 		},
 	})
+
+	err = r.emailServiceV2.SendEmailVerificationEmail(ctx, *user, common.MakeEmailVerificationURIs(*user))
+	if err != nil {
+		r.logger.Error("could not send email verification email", zap.Error(err))
+	}
 }
 
 func (r *frontendRouter) ForgotPasswordPage(ctx *gin.Context) {

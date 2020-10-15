@@ -2,13 +2,13 @@ package v2
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
+	rcommon "github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -104,14 +104,9 @@ func (r *apiV2Router) Register(ctx *gin.Context) {
 	ctx.Status(http.StatusOK)
 
 	if r.cfg.Auth.EmailVerificationRequired {
-		verificationURIs, err := r.makeEmailVerificationURIs(*user)
+		err = r.emailService.SendEmailVerificationEmail(ctx, *user, rcommon.MakeEmailVerificationURIs(*user))
 		if err != nil {
-			r.logger.Warn("could not create URIs for email verification", zap.Error(err))
-		} else {
-			err = r.emailService.SendEmailVerificationEmail(ctx, *user, verificationURIs)
-			if err != nil {
-				r.logger.Warn("could not send email verification email", zap.Error(err))
-			}
+			r.logger.Warn("could not send email verification email", zap.Error(err))
 		}
 	}
 }
@@ -395,14 +390,7 @@ func (r *apiV2Router) GetPasswordResetEmail(ctx *gin.Context) {
 		return
 	}
 
-	pwdResetURIs, err := r.makeEmailVerificationURIs(*user)
-	if err != nil {
-		r.logger.Error("could create password reset URIs", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
-	err = r.emailService.SendPasswordResetEmail(ctx, *user, pwdResetURIs)
+	err = r.emailService.SendPasswordResetEmail(ctx, *user, rcommon.MakePasswordResetURIs(*user))
 	if err != nil {
 		r.logger.Error("could send password reset email", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
@@ -549,14 +537,7 @@ func (r *apiV2Router) ResendEmailVerification(ctx *gin.Context) {
 		return
 	}
 
-	verificationURIs, err := r.makeEmailVerificationURIs(*user)
-	if err != nil {
-		r.logger.Error("could create email verification URIs", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		return
-	}
-
-	err = r.emailService.SendEmailVerificationEmail(ctx, *user, verificationURIs)
+	err = r.emailService.SendEmailVerificationEmail(ctx, *user, rcommon.MakeEmailVerificationURIs(*user))
 	if err != nil {
 		r.logger.Error("could send email verification email", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
@@ -611,24 +592,4 @@ func (r *apiV2Router) getTeamMembersCtxAware(ctx *gin.Context, teamId string) ([
 	}
 
 	return members, nil
-}
-
-func (r *apiV2Router) makeEmailVerificationURIs(user entities.User) (common.UniformResourceIdentifiers, error) {
-	apiUri, err := common.NewURIFromString(fmt.Sprintf("%s:VerifyEmail?path_id=%s", r.GetResourcePath(), user.ID.Hex()))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create URI for API email verification resource")
-	}
-
-	// TODO: add resource for frontend email verification (https://github.com/unicsmcr/hs_auth/issues/106)
-	return []common.UniformResourceIdentifier{apiUri}, err
-}
-
-func (r *apiV2Router) makePasswordResetURIs(user entities.User) (common.UniformResourceIdentifiers, error) {
-	apiUri, err := common.NewURIFromString(fmt.Sprintf("%s:SetPassword?path_id=%s", r.GetResourcePath(), user.ID.Hex()))
-	if err != nil {
-		return nil, errors.Wrap(err, "could not create URI for API password reset resource")
-	}
-
-	// TODO: add resource for frontend password reset (https://github.com/unicsmcr/hs_auth/issues/106)
-	return []common.UniformResourceIdentifier{apiUri}, err
 }

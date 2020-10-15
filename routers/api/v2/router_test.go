@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config"
+	common2 "github.com/unicsmcr/hs_auth/routers/common"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -156,7 +157,7 @@ func TestApiV2Router_RegisterRoutes(t *testing.T) {
 
 func TestApiV2Router_GetResourcePath(t *testing.T) {
 	router := &apiV2Router{}
-	assert.Equal(t, "hs:hs_auth:api:v2", router.GetResourcePath())
+	assert.Equal(t, common2.ApiV2ResourcePath, router.GetResourcePath())
 }
 
 func TestApiV2Router_GetAuthToken(t *testing.T) {

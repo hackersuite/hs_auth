@@ -34,6 +34,7 @@ var testUserId = primitive.NewObjectID()
 type testSetup struct {
 	mockUService     *mock_services.MockUserService
 	mockEService     *mock_services.MockEmailService
+	mockEServiceV2   *mock_services.MockEmailServiceV2
 	mockTService     *mock_services.MockTeamService
 	mockAuthorizer   *mock_v2.MockAuthorizer
 	mockTimeProvider *mock_utils.MockTimeProvider
@@ -53,6 +54,7 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
 	mockEService := mock_services.NewMockEmailService(ctrl)
+	mockEServiceV2 := mock_services.NewMockEmailServiceV2(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 	mockTimeProvider := mock_utils.NewMockTimeProvider(ctrl)
@@ -69,14 +71,15 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 	}
 
 	router := frontendRouter{
-		logger:       zap.NewNop(),
-		cfg:          cfg,
-		env:          env,
-		userService:  mockUService,
-		teamService:  mockTService,
-		emailService: mockEService,
-		authorizer:   mockAuthorizer,
-		timeProvider: mockTimeProvider,
+		logger:         zap.NewNop(),
+		cfg:            cfg,
+		env:            env,
+		userService:    mockUService,
+		teamService:    mockTService,
+		emailService:   mockEService,
+		emailServiceV2: mockEServiceV2,
+		authorizer:     mockAuthorizer,
+		timeProvider:   mockTimeProvider,
 	}
 
 	testUser := entities.User{
@@ -101,6 +104,7 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 	return &testSetup{
 		mockUService:     mockUService,
 		mockEService:     mockEService,
+		mockEServiceV2:   mockEServiceV2,
 		mockTService:     mockTService,
 		mockAuthorizer:   mockAuthorizer,
 		mockTimeProvider: mockTimeProvider,
@@ -463,7 +467,7 @@ func Test_Register(t *testing.T) {
 			password:        "testtest",
 			email:           "bob@test.com",
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest", gomock.Any()).
+				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest", setup.cfg.Auth.DefaultRole).
 					Return(nil, services.ErrEmailTaken).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
@@ -489,7 +493,7 @@ func Test_Register(t *testing.T) {
 			prep: func(setup *testSetup) {
 				setup.mockUService.EXPECT().CreateUser(gomock.Any(), "bob", "bob@test.com", "testtest", gomock.Any()).
 					Return(&entities.User{}, nil).Times(1)
-				setup.mockEService.EXPECT().SendEmailVerificationEmail(entities.User{}).
+				setup.mockEServiceV2.EXPECT().SendEmailVerificationEmail(setup.testCtx, entities.User{}, gomock.Any()).
 					Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -501,6 +505,7 @@ func Test_Register(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
 				tt.prep(setup)

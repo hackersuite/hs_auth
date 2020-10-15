@@ -1,6 +1,7 @@
 package v2
 
 import (
+	common2 "github.com/unicsmcr/hs_auth/routers/common"
 	"net/http"
 
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
@@ -15,7 +16,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const resourcePath = "hs:hs_auth:api:v2"
 const authTokenHeader = "Authorization"
 
 type APIV2Router interface {
@@ -96,7 +96,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 }
 
 func (r *apiV2Router) GetResourcePath() string {
-	return resourcePath
+	return common2.ApiV2ResourcePath
 }
 
 func (r *apiV2Router) GetAuthToken(ctx *gin.Context) string {
