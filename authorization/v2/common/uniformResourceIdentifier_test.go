@@ -431,7 +431,7 @@ func Test_UnmarshalBSONValue_should_return_error_with_invalid_uri(t *testing.T) 
 	assert.Error(t, err)
 }
 
-func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T) {
+func Test_isSupersetOf__should_return_true_with_source_in_target_set(t *testing.T) {
 	tests := []struct {
 		name   string
 		source UniformResourceIdentifier
@@ -511,7 +511,7 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 	}
 }
 
-func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testing.T) {
+func Test_isSupersetOf__should_return_false_with_source_not_in_target_set(t *testing.T) {
 	tests := []struct {
 		name   string
 		source UniformResourceIdentifier
@@ -578,7 +578,7 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 	}
 }
 
-func Test_isSubsetOf__should_return_false_when_source_doesnt_match_target_arguments(t *testing.T) {
+func Test_isSupersetOf__should_return_false_when_source_doesnt_match_target_arguments(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
@@ -592,7 +592,7 @@ func Test_isSubsetOf__should_return_false_when_source_doesnt_match_target_argume
 	assert.Equal(t, valid, false)
 }
 
-func Test_IsSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {
+func Test_IsSupersetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
@@ -611,7 +611,7 @@ func Test_IsSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *t
 	assert.Equal(t, valid, true)
 }
 
-func Test_IsSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T) {
+func Test_IsSupersetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
@@ -621,7 +621,7 @@ func Test_IsSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T
 	assert.Equal(t, valid, false)
 }
 
-func Test_IsSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *testing.T) {
+func Test_IsSupersetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path: "hs:hs_auth1",
 	}
