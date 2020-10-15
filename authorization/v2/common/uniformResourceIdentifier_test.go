@@ -635,6 +635,53 @@ func Test_IsSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *te
 	assert.Equal(t, valid, false)
 }
 
+func Test_GetAllSubsetTargets__should_return_valid_uri_set(t *testing.T) {
+	tests := []struct {
+		name         string
+		source       UniformResourceIdentifier
+		targets      []UniformResourceIdentifier
+		expectedUris []UniformResourceIdentifier
+	}{
+		{
+			name: "with one target uri that is a subset of source",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2",
+			},
+			targets: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v1:SetUser"},
+				{path: "hs:hs_auth:api:v2:GetUser"},
+				{path: "hs:hs_application"},
+			},
+			expectedUris: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v2:GetUser"},
+			},
+		},
+		{
+			name: "with many target uris that is are subset of source",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2",
+			},
+			targets: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v1:SetUser"},
+				{path: "hs:hs_auth:api:v2"},
+				{path: "hs:hs_application"},
+				{path: "hs:hs_auth:api:v2:GetUser:test"},
+			},
+			expectedUris: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v2"},
+				{path: "hs:hs_auth:api:v2:GetUser:test"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validTargets := tt.source.GetAllSubsetTargets(tt.targets)
+			assert.Equal(t, tt.expectedUris, validTargets)
+		})
+	}
+}
+
 func TestUniformResourceIdentifier_GetMetadata(t *testing.T) {
 	testUri := UniformResourceIdentifier{
 		metadata: map[string]string{"testKey": "testValue"},
