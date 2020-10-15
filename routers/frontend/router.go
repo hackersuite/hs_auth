@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
+const resourcePath = "hs:hs_auth:frontend"
 const authCookieName = "Authorization"
 
 func jwtProvider(ctx *gin.Context) string {
@@ -66,6 +67,24 @@ type frontendRouter struct {
 	emailService services.EmailService
 	authorizer   authV2.Authorizer
 	timeProvider utils.TimeProvider
+}
+
+func (r *frontendRouter) GetResourcePath() string {
+	return resourcePath
+}
+
+func (r *frontendRouter) GetAuthToken(ctx *gin.Context) string {
+	jwt, err := ctx.Cookie(authCookieName)
+	if err != nil {
+		r.logger.Debug("could not retrieve auth token", zap.Error(err))
+		return ""
+	}
+
+	return jwt
+}
+
+func (r *frontendRouter) HandleUnauthorized(ctx *gin.Context) {
+	invalidJWTHandler(ctx)
 }
 
 func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, teamService services.TeamService, emailService services.EmailService, authorizer authV2.Authorizer, timeProvider utils.TimeProvider) Router {
