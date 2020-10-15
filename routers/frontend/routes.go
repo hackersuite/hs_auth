@@ -286,28 +286,34 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 	type res struct {
 		Email string
 	}
-	err := r.emailService.SendPasswordResetEmailForUserWithEmail(ctx, email)
+	user, err := r.userService.GetUserWithEmail(ctx, email)
 	if err != nil {
-		switch err {
+		switch errors.Cause(err) {
 		case services.ErrNotFound:
 			r.logger.Debug("user with email doesn't exist", zap.String("email", email))
-			// don't want to give the user a tool to figure which email addresses are registered
-			// as this would be a security issue
 			ctx.HTML(http.StatusOK, "forgotPasswordEnd.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Data: res{
 					Email: email,
 				},
 			})
-			return
 		default:
 			r.logger.Error("could not fetch user", zap.String("email", email), zap.Error(err))
 			ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "Something went wrong",
 			})
-			return
 		}
+		return
+	}
+
+	err = r.emailServiceV2.SendPasswordResetEmail(ctx, *user, common.MakePasswordResetURIs(*user))
+	if err != nil {
+		r.logger.Error("could not send password reset email", zap.Error(err))
+		ctx.HTML(http.StatusInternalServerError, "forgotPassword.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Err: "Something went wrong",
+		})
 	}
 
 	ctx.HTML(http.StatusOK, "forgotPasswordEnd.gohtml", templateDataModel{
