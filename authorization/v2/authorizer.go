@@ -129,7 +129,7 @@ func (a *authorizer) GetAuthorizedResources(ctx context.Context, token string, u
 
 	var allowedResources common.UniformResourceIdentifiers
 	for _, resource := range claimedResources {
-		allowedResources = append(allowedResources, resource.GetAllSubsetTargets(uris)...)
+		allowedResources = append(allowedResources, resource.GetAllSupersets(uris)...)
 	}
 
 	return allowedResources, nil
@@ -161,7 +161,7 @@ func (a *authorizer) WithAuthMiddleware(router common.RouterResource, operationH
 
 		var allowedResources []common.UniformResourceIdentifier
 		for _, resource := range authorized {
-			if resource.IsSubsetOfAtLeastOne(uris) {
+			if resource.IsSupersetOfAtLeastOne(uris) {
 				allowedResources = append(allowedResources, resource)
 			}
 		}

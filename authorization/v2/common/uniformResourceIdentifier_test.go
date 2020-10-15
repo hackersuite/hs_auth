@@ -504,7 +504,7 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			valid := tt.source.isSubsetOf(tt.target)
+			valid := tt.source.isSupersetOf(tt.target)
 
 			assert.Equal(t, true, valid)
 		})
@@ -571,7 +571,7 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			valid := tt.source.isSubsetOf(tt.target)
+			valid := tt.source.isSupersetOf(tt.target)
 
 			assert.Equal(t, false, valid)
 		})
@@ -588,7 +588,7 @@ func Test_isSubsetOf__should_return_false_when_source_doesnt_match_target_argume
 		arguments: map[string]string{"test": "1", "foo": "bar"},
 	}
 
-	valid := testSource.isSubsetOf(testTarget)
+	valid := testSource.isSupersetOf(testTarget)
 	assert.Equal(t, valid, false)
 }
 
@@ -607,7 +607,7 @@ func Test_IsSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *t
 		},
 	}
 
-	valid := testSource.IsSubsetOfAtLeastOne(testTargets)
+	valid := testSource.IsSupersetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, true)
 }
 
@@ -617,7 +617,7 @@ func Test_IsSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T
 		arguments: map[string]string{"test": "1"},
 	}
 
-	valid := testSource.IsSubsetOfAtLeastOne(nil)
+	valid := testSource.IsSupersetOfAtLeastOne(nil)
 	assert.Equal(t, valid, false)
 }
 
@@ -631,7 +631,7 @@ func Test_IsSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *te
 		},
 	}
 
-	valid := testSource.IsSubsetOfAtLeastOne(testTargets)
+	valid := testSource.IsSupersetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, false)
 }
 
@@ -676,7 +676,7 @@ func Test_GetAllSubsetTargets__should_return_valid_uri_set(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validTargets := tt.source.GetAllSubsetTargets(tt.targets)
+			validTargets := tt.source.GetAllSupersets(tt.targets)
 			assert.Equal(t, tt.expectedUris, validTargets)
 		})
 	}
