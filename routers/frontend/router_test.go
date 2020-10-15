@@ -27,7 +27,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockEmailService := mock_services.NewMockEmailService(ctrl)
 	mockTeamService := mock_services.NewMockTeamService(ctrl)
 
-	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService)
+	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService, nil, nil)
 
 	tests := []struct {
 		route  string

@@ -1,6 +1,8 @@
 package frontend
 
 import (
+	authV2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	"github.com/unicsmcr/hs_auth/utils"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -62,9 +64,11 @@ type frontendRouter struct {
 	userService  services.UserService
 	teamService  services.TeamService
 	emailService services.EmailService
+	authorizer   authV2.Authorizer
+	timeProvider utils.TimeProvider
 }
 
-func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, teamService services.TeamService, emailService services.EmailService) Router {
+func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService, teamService services.TeamService, emailService services.EmailService, authorizer authV2.Authorizer, timeProvider utils.TimeProvider) Router {
 	return &frontendRouter{
 		logger:       logger,
 		cfg:          cfg,
@@ -72,6 +76,8 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 		userService:  userService,
 		teamService:  teamService,
 		emailService: emailService,
+		authorizer:   authorizer,
+		timeProvider: timeProvider,
 	}
 }
 
