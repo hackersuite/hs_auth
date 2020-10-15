@@ -255,9 +255,9 @@ func marshallURIMap(uriMap map[string]string) string {
 	return marshalledMap[:len(marshalledMap)-1]
 }
 
-// isSubsetOf checks that the URI is a subset of the given URI
-func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier) bool {
-	// Ensure the target path is a subset of the source path
+// isSupersetOf checks that the URI is a superset of the given URI
+func (uri UniformResourceIdentifier) isSupersetOf(target UniformResourceIdentifier) bool {
+	// Ensure the source path is a superset of the target
 	if len(uri.path) > len(target.path) {
 		return false
 	}
@@ -296,10 +296,21 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 	return true
 }
 
-// isSubsetOfAtLeastOne checks if the URI is a subset of at least one of the given URIs
-func (uri UniformResourceIdentifier) IsSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
+// GetAllSupersets checks if the URI is a superset of the target and returns all those matching target uris
+func (uri UniformResourceIdentifier) GetAllSupersets(targets []UniformResourceIdentifier) []UniformResourceIdentifier {
+	var matchedUris UniformResourceIdentifiers
 	for i := 0; i < len(targets); i++ {
-		if uri.isSubsetOf(targets[i]) {
+		if uri.isSupersetOf(targets[i]) {
+			matchedUris = append(matchedUris, targets[i])
+		}
+	}
+	return matchedUris
+}
+
+// IsSupersetOfAtLeastOne checks if the URI is a superset of at least one of the given URIs
+func (uri UniformResourceIdentifier) IsSupersetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
+	for i := 0; i < len(targets); i++ {
+		if uri.isSupersetOf(targets[i]) {
 			return true
 		}
 	}

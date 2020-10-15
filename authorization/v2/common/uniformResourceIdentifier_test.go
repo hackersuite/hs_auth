@@ -3,6 +3,12 @@ package common
 import (
 	"bytes"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"reflect"
+	"testing"
+
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -10,11 +16,6 @@ import (
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
 	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
-	"net/http"
-	"net/http/httptest"
-	"net/url"
-	"reflect"
-	"testing"
 )
 
 func testHandler(*gin.Context) {}
@@ -430,7 +431,7 @@ func Test_UnmarshalBSONValue_should_return_error_with_invalid_uri(t *testing.T) 
 	assert.Error(t, err)
 }
 
-func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T) {
+func Test_isSupersetOf__should_return_true_with_source_in_target_set(t *testing.T) {
 	tests := []struct {
 		name   string
 		source UniformResourceIdentifier
@@ -503,14 +504,14 @@ func Test_isSubsetOf__should_return_true_with_source_in_target_set(t *testing.T)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			valid := tt.source.isSubsetOf(tt.target)
+			valid := tt.source.isSupersetOf(tt.target)
 
 			assert.Equal(t, true, valid)
 		})
 	}
 }
 
-func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testing.T) {
+func Test_isSupersetOf__should_return_false_with_source_not_in_target_set(t *testing.T) {
 	tests := []struct {
 		name   string
 		source UniformResourceIdentifier
@@ -570,14 +571,14 @@ func Test_isSubsetOf__should_return_false_with_source_not_in_target_set(t *testi
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			valid := tt.source.isSubsetOf(tt.target)
+			valid := tt.source.isSupersetOf(tt.target)
 
 			assert.Equal(t, false, valid)
 		})
 	}
 }
 
-func Test_isSubsetOf__should_return_false_when_source_doesnt_match_target_arguments(t *testing.T) {
+func Test_isSupersetOf__should_return_false_when_source_doesnt_match_target_arguments(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
@@ -587,11 +588,11 @@ func Test_isSubsetOf__should_return_false_when_source_doesnt_match_target_argume
 		arguments: map[string]string{"test": "1", "foo": "bar"},
 	}
 
-	valid := testSource.isSubsetOf(testTarget)
+	valid := testSource.isSupersetOf(testTarget)
 	assert.Equal(t, valid, false)
 }
 
-func Test_IsSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {
+func Test_IsSupersetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
@@ -606,21 +607,21 @@ func Test_IsSubsetOfAtLeastOne__should_return_true_when_last_target_matches(t *t
 		},
 	}
 
-	valid := testSource.IsSubsetOfAtLeastOne(testTargets)
+	valid := testSource.IsSupersetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, true)
 }
 
-func Test_IsSubsetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T) {
+func Test_IsSupersetOfAtLeastOne__should_return_false_when_no_targets(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path:      "hs:hs_auth",
 		arguments: map[string]string{"test": "1"},
 	}
 
-	valid := testSource.IsSubsetOfAtLeastOne(nil)
+	valid := testSource.IsSupersetOfAtLeastOne(nil)
 	assert.Equal(t, valid, false)
 }
 
-func Test_IsSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *testing.T) {
+func Test_IsSupersetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *testing.T) {
 	testSource := UniformResourceIdentifier{
 		path: "hs:hs_auth1",
 	}
@@ -630,8 +631,55 @@ func Test_IsSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *te
 		},
 	}
 
-	valid := testSource.IsSubsetOfAtLeastOne(testTargets)
+	valid := testSource.IsSupersetOfAtLeastOne(testTargets)
 	assert.Equal(t, valid, false)
+}
+
+func Test_GetAllSupersets__should_return_valid_uri_set(t *testing.T) {
+	tests := []struct {
+		name         string
+		source       UniformResourceIdentifier
+		targets      []UniformResourceIdentifier
+		expectedUris []UniformResourceIdentifier
+	}{
+		{
+			name: "with one target uri that is a subset of source",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2",
+			},
+			targets: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v1:SetUser"},
+				{path: "hs:hs_auth:api:v2:GetUser"},
+				{path: "hs:hs_application"},
+			},
+			expectedUris: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v2:GetUser"},
+			},
+		},
+		{
+			name: "with many target uris that is are subset of source",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:api:v2",
+			},
+			targets: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v1:SetUser"},
+				{path: "hs:hs_auth:api:v2"},
+				{path: "hs:hs_application"},
+				{path: "hs:hs_auth:api:v2:GetUser:test"},
+			},
+			expectedUris: []UniformResourceIdentifier{
+				{path: "hs:hs_auth:api:v2"},
+				{path: "hs:hs_auth:api:v2:GetUser:test"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validTargets := tt.source.GetAllSupersets(tt.targets)
+			assert.Equal(t, tt.expectedUris, validTargets)
+		})
+	}
 }
 
 func TestUniformResourceIdentifier_GetMetadata(t *testing.T) {

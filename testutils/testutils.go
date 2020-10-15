@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"reflect"
 	"runtime"
+
+	"github.com/gin-gonic/gin"
 )
 
 // UnmarshallResponse unmarshalls the reponse in res and stores it in out
@@ -53,6 +54,28 @@ func AddUrlParamsToCtx(ctx *gin.Context, params map[string]string) {
 	}
 
 	ctx.Params = p
+}
+
+// AddRequestWithUrlParamsToCtx attaches a request with given method and url params to the context
+func AddRequestWithUrlParamsToCtx(ctx *gin.Context, method string, params map[string]string) {
+	p := gin.Params{}
+	data := url.Values{}
+	for key, val := range params {
+		p = append(p, gin.Param{
+			Key:   key,
+			Value: val,
+		})
+		data.Add(key, val)
+	}
+
+	urlEncodedParams := "/test"
+	if params != nil {
+		urlEncodedParams = fmt.Sprintf("/test?%s", data.Encode())
+		ctx.Params = p
+	}
+
+	req := httptest.NewRequest(method, urlEncodedParams, nil)
+	ctx.Request = req
 }
 
 // SetEnvVars sets given environment variables and provides a callback function to restore the variables to their initial values

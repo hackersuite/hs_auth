@@ -4,10 +4,7 @@ import (
 	common2 "github.com/unicsmcr/hs_auth/routers/common"
 	"net/http"
 
-	"github.com/unicsmcr/hs_auth/authorization/v2/common"
-
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	v2 "github.com/unicsmcr/hs_auth/authorization/v2"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
@@ -85,7 +82,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.GET("/:id/email/verify", r.authorizer.WithAuthMiddleware(r, r.ResendEmailVerification))
 
 	tokensGroup := routerGroup.Group("/tokens")
-	tokensGroup.GET("/resources/authorized/:id", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
+	tokensGroup.GET("/resources/authorized", r.authorizer.WithAuthMiddleware(r, r.GetAuthorizedResources))
 	tokensGroup.POST("/service", r.authorizer.WithAuthMiddleware(r, r.CreateServiceToken))
 	tokensGroup.DELETE("/service/:id", r.authorizer.WithAuthMiddleware(r, r.InvalidateServiceToken))
 
@@ -105,29 +102,4 @@ func (r *apiV2Router) GetAuthToken(ctx *gin.Context) string {
 
 func (r *apiV2Router) HandleUnauthorized(ctx *gin.Context) {
 	models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to use this operation")
-}
-
-// TODO: finish implementation (https://github.com/unicsmcr/hs_auth/issues/83)
-func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
-	// TODO: extract URIs from request, requires string -> URI mapper
-	var requestedUris []common.UniformResourceIdentifier
-
-	token := r.GetAuthToken(ctx)
-
-	authorizedUris, err := r.authorizer.GetAuthorizedResources(ctx, token, requestedUris)
-	if err != nil {
-		switch errors.Cause(err) {
-		case common.ErrInvalidToken:
-			r.logger.Debug("invalid token", zap.Error(err))
-			r.HandleUnauthorized(ctx)
-		default:
-			r.logger.Error("could not get authorized URIs", zap.Error(err))
-			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
-		}
-		return
-	}
-
-	ctx.JSON(http.StatusOK, getAuthorizedResourcesRes{
-		AuthorizedUris: authorizedUris,
-	})
 }

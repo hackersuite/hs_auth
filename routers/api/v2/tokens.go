@@ -2,14 +2,16 @@ package v2
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/url"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/services"
 	"go.uber.org/zap"
-	"net/http"
-	"strings"
 )
 
 // POST: /api/v2/tokens/service
@@ -104,4 +106,45 @@ func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 	}
 
 	ctx.Status(http.StatusNoContent)
+}
+
+// GET: /api/v2/tokens/resources/authorized?from={authorisedUris}
+// Request:	 authorisedUris string
+// Response: authorisedUris []common.UniformResourceIdentifier
+// Headers:  Authorization -> token
+func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
+	fromUris := ctx.Query("from")
+
+	fromUris, err := url.QueryUnescape(fromUris)
+	if err != nil {
+		r.logger.Debug("could not unescape query parameters in request", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse set of requested resources")
+		return
+	}
+
+	var requestedUris common.UniformResourceIdentifiers
+	err = json.Unmarshal([]byte(fromUris), &requestedUris)
+	if err != nil {
+		r.logger.Debug("could not parse uri array")
+		models.SendAPIError(ctx, http.StatusBadRequest, "provided uri could not be parsed")
+		return
+	}
+
+	token := r.GetAuthToken(ctx)
+	authorizedUris, err := r.authorizer.GetAuthorizedResources(ctx, token, requestedUris)
+	if err != nil {
+		switch errors.Cause(err) {
+		case common.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
+		default:
+			r.logger.Error("could not get authorized URIs", zap.Error(err))
+			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
+		}
+		return
+	}
+
+	ctx.JSON(http.StatusOK, getAuthorizedResourcesRes{
+		AuthorizedUris: authorizedUris,
+	})
 }
