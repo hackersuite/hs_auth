@@ -635,7 +635,7 @@ func Test_IsSubsetOfAtLeastOne__should_return_false_when_path_doesnt_match(t *te
 	assert.Equal(t, valid, false)
 }
 
-func Test_GetAllSubsetTargets__should_return_valid_uri_set(t *testing.T) {
+func Test_GetAllSupersets__should_return_valid_uri_set(t *testing.T) {
 	tests := []struct {
 		name         string
 		source       UniformResourceIdentifier
