@@ -117,49 +117,19 @@ func (a *authorizer) InvalidateServiceToken(ctx context.Context, token string) e
 }
 
 func (a *authorizer) GetAuthorizedResources(ctx context.Context, token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {
-	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
+	claimedResources, err := a.getTokenValidUris(ctx, token)
 	if err != nil {
-		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
+		return nil, err
 	}
 
-	err = verifyTokenType(claims.TokenType)
-	if err != nil {
-		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
-	}
-
-	var claimedResources common.UniformResourceIdentifiers
-	if claims.TokenType == User {
-		user, err := a.userService.GetUserWithID(ctx, claims.Id)
-		if err != nil {
-			return nil, err
-		}
-
-		rolePermissions, err := a.cfg.UserRole.GetRolePermissions(user.Role)
-		if err != nil {
-			return nil, err
-		}
-
-		claimedResources = append(user.SpecialPermissions, rolePermissions...)
-	} else if claims.TokenType == Service {
-		claimedResources = claims.AllowedResources
-	}
-
-	claimedResources, err = a.filterUrisWithInvalidMetadata(claimedResources)
-	if err != nil {
-		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
-	}
-
-	urisToCheck, err = a.filterUrisWithInvalidMetadata(urisToCheck)
+	uris, err := a.filterUrisWithInvalidMetadata(urisToCheck)
 	if err != nil {
 		return nil, errors.Wrap(common.ErrInvalidURI, err.Error())
 	}
 
-	// filtering for resources the token has access to
-	var allowedResources []common.UniformResourceIdentifier
-	for _, resource := range claims.AllowedResources {
-		if match, matchedUri := resource.IsSubsetOfAtLeastOne(urisToCheck); match {
-			allowedResources = append(allowedResources, matchedUri)
-		}
+	var allowedResources common.UniformResourceIdentifiers
+	for _, resource := range claimedResources {
+		allowedResources = append(allowedResources, resource.GetAllSubsetTargets(uris)...)
 	}
 
 	return allowedResources, nil
@@ -175,14 +145,28 @@ func (a *authorizer) WithAuthMiddleware(router common.RouterResource, operationH
 		}
 
 		uri := common.NewUriFromRequest(router, operationHandler, ctx)
-		authorized, err := a.GetAuthorizedResources(ctx, token, []common.UniformResourceIdentifier{uri})
+		authorized, err := a.getTokenValidUris(ctx, token)
 		if err != nil {
 			a.logger.Debug("could not retrieve authorized resources for token", zap.Error(err))
 			router.HandleUnauthorized(ctx)
 			return
 		}
 
-		if len(authorized) == 0 {
+		uris, err := a.filterUrisWithInvalidMetadata([]common.UniformResourceIdentifier{uri})
+		if err != nil {
+			a.logger.Debug("could not retrieve authorized resources for token", zap.Error(err))
+			router.HandleUnauthorized(ctx)
+			return
+		}
+
+		var allowedResources []common.UniformResourceIdentifier
+		for _, resource := range authorized {
+			if resource.IsSubsetOfAtLeastOne(uris) {
+				allowedResources = append(allowedResources, resource)
+			}
+		}
+
+		if len(allowedResources) == 0 {
 			router.HandleUnauthorized(ctx)
 			return
 		}
@@ -222,6 +206,42 @@ func (a *authorizer) GetTokenTypeFromToken(token string) (TokenType, error) {
 	}
 
 	return claims.TokenType, nil
+}
+
+func (a *authorizer) getTokenValidUris(ctx context.Context, token string) ([]common.UniformResourceIdentifier, error) {
+	claims, err := getTokenClaims(token, a.env.Get(environment.JWTSecret))
+	if err != nil {
+		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
+	}
+
+	err = verifyTokenType(claims.TokenType)
+	if err != nil {
+		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
+	}
+
+	var claimedResources common.UniformResourceIdentifiers
+	if claims.TokenType == User {
+		user, err := a.userService.GetUserWithID(ctx, claims.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		rolePermissions, err := a.cfg.UserRole.GetRolePermissions(user.Role)
+		if err != nil {
+			return nil, err
+		}
+
+		claimedResources = append(user.SpecialPermissions, rolePermissions...)
+	} else if claims.TokenType == Service {
+		claimedResources = claims.AllowedResources
+	}
+
+	claimedResources, err = a.filterUrisWithInvalidMetadata(claimedResources)
+	if err != nil {
+		return nil, errors.Wrap(common.ErrInvalidToken, err.Error())
+	}
+
+	return claimedResources, nil
 }
 
 func (a *authorizer) filterUrisWithInvalidMetadata(uris []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {

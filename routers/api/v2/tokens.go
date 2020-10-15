@@ -2,7 +2,6 @@ package v2
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -111,39 +110,28 @@ func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 
 // GET: /api/v2/tokens/resources/authorized?from={authorisedUris}
 // Request:	 authorisedUris string
-// Response: authorisedUris []v2.UniformResourceIdentifier
-// Headers:  Authorization <- token
+// Response: authorisedUris []common.UniformResourceIdentifier
+// Headers:  Authorization -> token
 func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
 	fromUris := ctx.Query("from")
-	if len(fromUris) == 0 {
-		r.logger.Debug("could not parse get authorized resources request")
-		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse request")
-		return
-	}
 
 	fromUris, err := url.QueryUnescape(fromUris)
 	if err != nil {
-		r.logger.Debug("could not parse get authorized resources request", zap.Error(err))
-		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse request")
+		r.logger.Debug("could not unescape query parameters in request", zap.Error(err))
+		models.SendAPIError(ctx, http.StatusBadRequest, "failed to parse set of requested resources")
 		return
 	}
 
-	// Remove the leading '[' and trailing ']' from the uri parameter
-	fromUris = fromUris[1 : len(fromUris)-1]
-	rawUriList := strings.Split(fromUris, ",")
-
-	var requestedUris = make([]common.UniformResourceIdentifier, len(rawUriList))
-	for i, rawUri := range rawUriList {
-		err := requestedUris[i].UnmarshalJSON([]byte(rawUri))
-		if err != nil {
-			r.logger.Debug(fmt.Sprintf("uri could not be parsed at index %d", i))
-			models.SendAPIError(ctx, http.StatusBadRequest, "provided uri could not be parsed")
-			return
-		}
+	var requestedUris common.UniformResourceIdentifiers
+	err = json.Unmarshal([]byte(fromUris), &requestedUris)
+	if err != nil {
+		r.logger.Debug("could not parse uri array")
+		models.SendAPIError(ctx, http.StatusBadRequest, "provided uri could not be parsed")
+		return
 	}
 
 	token := r.GetAuthToken(ctx)
-	authorizedUris, err := r.authorizer.GetAuthorizedResources(token, requestedUris)
+	authorizedUris, err := r.authorizer.GetAuthorizedResources(ctx, token, requestedUris)
 	if err != nil {
 		switch errors.Cause(err) {
 		case common.ErrInvalidToken:

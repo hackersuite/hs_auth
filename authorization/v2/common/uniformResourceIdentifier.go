@@ -3,16 +3,15 @@ package common
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	"go.mongodb.org/mongo-driver/bson/bsontype"
+	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 	"net/url"
 	"reflect"
 	"regexp"
 	"runtime"
 	"strings"
-
-	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
-	"go.mongodb.org/mongo-driver/bson/bsontype"
-	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 )
 
 // UniformResourceIdentifier stores an identifier for a resource
@@ -297,15 +296,25 @@ func (uri UniformResourceIdentifier) isSubsetOf(target UniformResourceIdentifier
 	return true
 }
 
-// isSubsetOfAtLeastOne checks if the URI is a subset of at least one of the given URIs
-// Returns true if the uri matched a target uri along with the matching uri from the target set
-func (uri UniformResourceIdentifier) IsSubsetOfAtLeastOne(targets []UniformResourceIdentifier) (bool, UniformResourceIdentifier) {
+// GetAllSubsetTargets checks if the URI is a subset of the target and returns all those matching target uris
+func (uri UniformResourceIdentifier) GetAllSubsetTargets(targets []UniformResourceIdentifier) []UniformResourceIdentifier {
+	var matchedUris UniformResourceIdentifiers
 	for i := 0; i < len(targets); i++ {
 		if uri.isSubsetOf(targets[i]) {
-			return true, targets[i]
+			matchedUris = append(matchedUris, targets[i])
 		}
 	}
-	return false, UniformResourceIdentifier{}
+	return matchedUris
+}
+
+// IsSubsetOfAtLeastOne checks if the URI is a subset of at least one of the given URIs
+func (uri UniformResourceIdentifier) IsSubsetOfAtLeastOne(targets []UniformResourceIdentifier) bool {
+	for i := 0; i < len(targets); i++ {
+		if uri.isSubsetOf(targets[i]) {
+			return true
+		}
+	}
+	return false
 }
 
 func (uri UniformResourceIdentifier) GetMetadata() map[string]string {

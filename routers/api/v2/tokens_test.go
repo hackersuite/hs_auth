@@ -290,10 +290,10 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 		{
 			name: "with valid request",
 			prep: func(setup *tokensTestSetup) {
-				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any()).
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, gomock.Any(), gomock.Any()).
 					Return(expectedUriRes, nil).Times(1)
 			},
-			testAllowedURIs: "[hs:hs_auth]",
+			testAllowedURIs: "[\"hs:hs_auth\"]",
 			wantResCode:     http.StatusOK,
 			wantRes:         expectedRes,
 		},
@@ -322,9 +322,9 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 		},
 		{
 			name:            "invalid jwt in req",
-			testAllowedURIs: "[hs:hs_auth]",
+			testAllowedURIs: "[\"hs:hs_auth\"]",
 			prep: func(setup *tokensTestSetup) {
-				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any()).
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, gomock.Any(), gomock.Any()).
 					Return(nil, common.ErrInvalidToken).Times(1)
 			},
 			wantResCode: http.StatusUnauthorized,
@@ -334,9 +334,9 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 		},
 		{
 			name:            "authorizer method returns unknown error",
-			testAllowedURIs: "[hs:hs_auth]",
+			testAllowedURIs: "[\"hs:hs_auth\"]",
 			prep: func(setup *tokensTestSetup) {
-				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any()).
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, gomock.Any(), gomock.Any()).
 					Return(nil, errors.New("random error")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
