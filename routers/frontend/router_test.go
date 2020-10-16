@@ -1,8 +1,11 @@
 package frontend
 
 import (
+	authCommon "github.com/unicsmcr/hs_auth/authorization/v2/common"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
 	"github.com/unicsmcr/hs_auth/routers/common"
+	"github.com/unicsmcr/hs_auth/services"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -32,7 +35,19 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockTeamService := mock_services.NewMockTeamService(ctrl)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 
-	router := NewRouter(zap.NewNop(), &config.AppConfig{Name: "test"}, env, mockUserService, mockTeamService, mockEmailService, mockAuthorizer, nil, nil)
+	mockUserService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidID).AnyTimes()
+	mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).Return(primitive.ObjectID{}, authCommon.ErrInvalidToken).AnyTimes()
+
+	router := &frontendRouter{
+		logger:       zap.NewNop(),
+		cfg:          &config.AppConfig{Name: "test"},
+		env:          env,
+		userService:  mockUserService,
+		teamService:  mockTeamService,
+		emailService: mockEmailService,
+		authorizer:   mockAuthorizer,
+	}
+	emailVerificationRouter := &emailVerificationRouter{*router}
 
 	tests := []struct {
 		route  string
@@ -106,6 +121,11 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			_, testServer := gin.CreateTestContext(w)
 
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.ResetPassword)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.ProfilePage)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.Logout)
+			mockAuthMiddlewareCall(emailVerificationRouter, mockAuthorizer, router.VerifyEmail)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.VerifyEmailResend)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.EmailUnverifiedPage)
 
 			router.RegisterRoutes(&testServer.RouterGroup)
 
@@ -166,4 +186,18 @@ func mockAuthMiddlewareCall(router Router, mockAuthorizer *mock_v2.MockAuthorize
 			handler(ctx)
 			return
 		})
+}
+
+func TestEmailVerificationRouter_GetAuthToken(t *testing.T) {
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/test?token=authToken", nil)
+
+	router := emailVerificationRouter{}
+
+	assert.Equal(t, "authToken", router.GetAuthToken(ctx))
+}
+
+func TestNewRouter__returns_non_nil(t *testing.T) {
+	assert.NotNil(t, NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil))
 }

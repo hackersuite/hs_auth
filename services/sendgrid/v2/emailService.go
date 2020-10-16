@@ -90,7 +90,7 @@ func (s *sendgridEmailService) SendEmailVerificationEmail(ctx context.Context, u
 		return errors.Wrap(err, "could not create auth token for email")
 	}
 
-	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s", s.cfg.AppURL, emailToken)
+	verificationURL := fmt.Sprintf("http://%s/verifyemail?token=%s&userId=%s", s.cfg.AppURL, emailToken, user.ID.Hex())
 
 	var contentBuff bytes.Buffer
 	err = s.emailVerifyEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{
