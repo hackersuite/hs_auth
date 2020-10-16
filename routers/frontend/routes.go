@@ -350,7 +350,7 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		UserId string
 	}
 	if len(req.Password) == 0 {
-		r.logger.Debug("one of email, password not specified", zap.Int("password len", len(req.Password)))
+		r.logger.Debug("password not specified", zap.Int("password len", len(req.Password)))
 		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "All fields are required",
@@ -428,7 +428,6 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 	ctx.HTML(http.StatusOK, "resetPasswordEnd.gohtml", templateDataModel{
 		Cfg: r.cfg,
 	})
-
 }
 
 func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
