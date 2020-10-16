@@ -325,117 +325,110 @@ func (r *frontendRouter) ForgotPassword(ctx *gin.Context) {
 }
 
 func (r *frontendRouter) ResetPasswordPage(ctx *gin.Context) {
-	token := ctx.Query("token")
-	email := ctx.Query("email")
+	ctx.SetCookie(authCookieName, ctx.Query("token"), int(r.cfg.Auth.UserTokenLifetime), "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
 
 	type res struct {
-		Token string
-		Email string
+		UserId string
 	}
 	ctx.HTML(http.StatusOK, "resetPassword.gohtml", templateDataModel{
 		Cfg: r.cfg,
 		Data: res{
-			Token: token,
-			Email: email,
+			UserId: ctx.Query("userId"),
 		},
 	})
 }
 
 func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
-	email := ctx.PostForm("email")
-	token := ctx.PostForm("token")
-	password := ctx.PostForm("password")
-	passwordConfirm := ctx.PostForm("passwordConfirm")
+	var req struct {
+		UserId          string `form:"userId"`
+		Password        string `form:"password"`
+		PasswordConfirm string `form:"passwordConfirm"`
+	}
+	ctx.Bind(&req)
 
 	type res struct {
-		Token string
-		Email string
+		UserId string
 	}
-
-	if len(email) == 0 || len(password) == 0 || len(passwordConfirm) == 0 {
-		r.logger.Debug("one of email, password, passwordConfirm not specified", zap.String("email", email), zap.Int("password len", len(password)), zap.Int("passwordConfirm len", len(passwordConfirm)))
+	if len(req.Password) == 0 {
+		r.logger.Debug("one of email, password not specified", zap.Int("password len", len(req.Password)))
 		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "All fields are required",
 			Data: res{
-				Token: token,
-				Email: email,
+				UserId: req.UserId,
 			},
 		})
 		return
 	}
 
-	if password != passwordConfirm {
+	if req.Password != req.PasswordConfirm {
 		r.logger.Debug("password and passwordConfirm do not match")
 		ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Passwords do not match",
 			Data: res{
-				Token: token,
-				Email: email,
+				UserId: req.UserId,
 			},
 		})
 		return
 	}
 
-	hashedPassword, err := auth.GetHashForPassword(password)
+	hashedPassword, err := auth.GetHashForPassword(req.Password)
 	if err != nil {
 		r.logger.Error("could not make hash for password", zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
 			Cfg: r.cfg,
 			Err: "Something went wrong",
 			Data: res{
-				Token: token,
-				Email: email,
+				UserId: req.UserId,
 			},
 		})
 		return
 	}
 
-	err = r.userService.UpdateUserWithJWT(ctx, token, services.UserUpdateParams{
+	err = r.userService.UpdateUserWithID(ctx, req.UserId, services.UserUpdateParams{
 		entities.UserPassword: hashedPassword,
 	})
 	if err != nil {
 		switch err {
-		case services.ErrInvalidToken:
-			r.logger.Debug("invalid token")
-			ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id", zap.String("user id", req.UserId), zap.Error(err))
+			ctx.HTML(http.StatusBadRequest, "resetPassword.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Err: "Invalid token",
+				Err: "Invalid user id",
 				Data: res{
-					Token: token,
-					Email: email,
+					UserId: req.UserId,
 				},
 			})
-			return
 		case services.ErrNotFound:
-			r.logger.Debug("could not find user with token")
-			ctx.HTML(http.StatusUnauthorized, "resetPassword.gohtml", templateDataModel{
+			r.logger.Debug("user not found", zap.Error(err))
+			ctx.HTML(http.StatusNotFound, "resetPassword.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Err: "Could not find user with given auth token",
+				Err: "User not found",
 				Data: res{
-					Token: token,
-					Email: email,
+					UserId: req.UserId,
 				},
 			})
-			return
 		default:
-			r.logger.Error("could not update user", zap.Error(err))
-			ctx.HTML(http.StatusInternalServerError, "resetPassword.gohtml", templateDataModel{
+			r.logger.Error("could not update user with id", zap.Error(err))
+			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
 				Err: "Something went wrong",
-				Data: res{
-					Token: token,
-					Email: email,
-				},
 			})
-			return
 		}
+		return
 	}
 
+	err = r.authorizer.InvalidateServiceToken(ctx, r.GetAuthToken(ctx))
+	if err != nil {
+		r.logger.Warn("could not invalidate service token", zap.Error(err))
+	}
+
+	ctx.SetCookie(authCookieName, "", 0, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
 	ctx.HTML(http.StatusOK, "resetPasswordEnd.gohtml", templateDataModel{
 		Cfg: r.cfg,
 	})
+
 }
 
 func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {

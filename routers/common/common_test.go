@@ -42,5 +42,5 @@ func TestMakePasswordResetURIs(t *testing.T) {
 	assert.NoError(t, err)
 	unescapedFrontendUri, err := url.QueryUnescape(string(frontendUri))
 	assert.NoError(t, err)
-	assert.Equal(t, fmt.Sprintf("\"hs:hs_auth:frontend:ResetPassword?query_userId=%s\"", testUserId.Hex()), unescapedFrontendUri)
+	assert.Equal(t, fmt.Sprintf("\"hs:hs_auth:frontend:ResetPassword?form_userId=%s\"", testUserId.Hex()), unescapedFrontendUri)
 }

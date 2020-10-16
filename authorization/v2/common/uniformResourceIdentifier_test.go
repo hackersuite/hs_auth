@@ -500,6 +500,23 @@ func Test_isSupersetOf__should_return_true_with_source_in_target_set(t *testing.
 				metadata:  map[string]string{"until": "21392103"},
 			},
 		},
+		{
+			name: "target has more argument limitations than source",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:frontend:ResetPassword",
+				arguments: map[string]string{
+					"postForm_userId": "5f759cc023a05c9953542c62",
+				},
+			},
+			target: UniformResourceIdentifier{
+				path: "hs:hs_auth:frontend:ResetPassword",
+				arguments: map[string]string{
+					"postForm_userId":          "5f759cc023a05c9953542c62",
+					"postForm_password":        "asdasd",
+					"postForm_passwordConfirm": "asdasd",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -576,20 +593,6 @@ func Test_isSupersetOf__should_return_false_with_source_not_in_target_set(t *tes
 			assert.Equal(t, false, valid)
 		})
 	}
-}
-
-func Test_isSupersetOf__should_return_false_when_source_doesnt_match_target_arguments(t *testing.T) {
-	testSource := UniformResourceIdentifier{
-		path:      "hs:hs_auth",
-		arguments: map[string]string{"test": "1"},
-	}
-	testTarget := UniformResourceIdentifier{
-		path:      "hs:hs_auth",
-		arguments: map[string]string{"test": "1", "foo": "bar"},
-	}
-
-	valid := testSource.isSupersetOf(testTarget)
-	assert.Equal(t, valid, false)
 }
 
 func Test_IsSupersetOfAtLeastOne__should_return_true_when_last_target_matches(t *testing.T) {

@@ -218,7 +218,8 @@ func getRequestArguments(ctx *gin.Context) map[string]string {
 		args[fmt.Sprintf("query_%s", key)] = strings.Join(value, ",")
 	}
 
-	// query
+	// form
+	ctx.MultipartForm() // triggering a parse on the form arguments
 	for key, value := range ctx.Request.PostForm {
 		args[fmt.Sprintf("postForm_%s", key)] = strings.Join(value, ",")
 	}
@@ -277,18 +278,16 @@ func (uri UniformResourceIdentifier) isSupersetOf(target UniformResourceIdentifi
 	}
 
 	// Validate URI arguments
-	for key, targetValue := range target.arguments {
-		if sourceValue, ok := uri.arguments[key]; ok {
-			match, err := regexp.Match(sourceValue, []byte(targetValue))
-			if !match || err != nil {
-				// Fail-soft, if the regex is invalid or the regex pattern match fails, the URIs don't match
+	for key, sourceValue := range uri.arguments {
+		if targetValue, ok := target.arguments[key]; ok {
+			if match, err := regexp.Match(sourceValue, []byte(targetValue)); !match || err != nil {
+				// the argument value on the target URI is not within the argument limitation
+				// on the source URI
 				return false
 			}
 		} else {
-			// In the case the source URI doesn't contain an argument that exists in the target URI
-			// the uri is no longer a subset of the target.
-			// e.g. Source = hs:hs_auth and Target = hs:hs_auth?test=1
-			// this means, the source is not a subset of the target since it is limited by the argument "test=1"
+			// target URI does not have an argument limitation that is present
+			// on the source URI, source URI is not a superset of the target URI
 			return false
 		}
 	}

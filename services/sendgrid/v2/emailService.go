@@ -121,7 +121,7 @@ func (s *sendgridEmailService) SendPasswordResetEmail(ctx context.Context, user 
 		return errors.Wrap(err, "could not create auth token for email")
 	}
 
-	resetURL := fmt.Sprintf("http://%s/resetpwd?token=%s", s.cfg.AppURL, emailToken)
+	resetURL := fmt.Sprintf("http://%s/resetpwd?token=%s&userId=%s", s.cfg.AppURL, emailToken, user.ID.Hex())
 
 	var contentBuff bytes.Buffer
 	err = s.passwordResetEmailTemplate.Execute(&contentBuff, emailTemplateDataModel{

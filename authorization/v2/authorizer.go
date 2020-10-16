@@ -144,29 +144,29 @@ func (a *authorizer) WithAuthMiddleware(router common.RouterResource, operationH
 			return
 		}
 
-		uri := common.NewUriFromRequest(router, operationHandler, ctx)
-		authorized, err := a.getTokenValidUris(ctx, token)
+		requestedUri := common.NewUriFromRequest(router, operationHandler, ctx)
+		urisInToken, err := a.getTokenValidUris(ctx, token)
 		if err != nil {
 			a.logger.Debug("could not retrieve authorized resources for token", zap.Error(err))
 			router.HandleUnauthorized(ctx)
 			return
 		}
 
-		uris, err := a.filterUrisWithInvalidMetadata([]common.UniformResourceIdentifier{uri})
+		requestedUris, err := a.filterUrisWithInvalidMetadata([]common.UniformResourceIdentifier{requestedUri})
 		if err != nil {
 			a.logger.Debug("could not retrieve authorized resources for token", zap.Error(err))
 			router.HandleUnauthorized(ctx)
 			return
 		}
 
-		var allowedResources []common.UniformResourceIdentifier
-		for _, resource := range authorized {
-			if resource.IsSupersetOfAtLeastOne(uris) {
-				allowedResources = append(allowedResources, resource)
+		var authorizedUris []common.UniformResourceIdentifier
+		for _, uriInToken := range urisInToken {
+			if uriInToken.IsSupersetOfAtLeastOne(requestedUris) {
+				authorizedUris = append(authorizedUris, uriInToken)
 			}
 		}
 
-		if len(allowedResources) == 0 {
+		if len(authorizedUris) == 0 {
 			router.HandleUnauthorized(ctx)
 			return
 		}
