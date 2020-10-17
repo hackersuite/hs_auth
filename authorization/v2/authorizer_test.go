@@ -423,6 +423,9 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err_with_invalid_token(
 	malformedMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=notadate", before))
 	assert.NoError(t, err)
 
+	validUri, err := common.NewURIFromString("hs:hs_auth")
+	assert.NoError(t, err)
+
 	tests := []struct {
 		name      string
 		token     string
@@ -432,16 +435,19 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err_with_invalid_token(
 		{
 			name:      "when token is invalid",
 			token:     "invalid token",
+			givenUris: common.UniformResourceIdentifiers{validUri},
 			wantedErr: common.ErrInvalidToken,
 		},
 		{
 			name:      "when token type is invalid",
 			token:     createToken(t, "user id", nil, int64(0), "unknown type", jwtSecret),
+			givenUris: common.UniformResourceIdentifiers{validUri},
 			wantedErr: common.ErrInvalidToken,
 		},
 		{
 			name:      "when token is expired",
 			token:     createToken(t, "user id", nil, int64(-5), Service, jwtSecret),
+			givenUris: common.UniformResourceIdentifiers{validUri},
 			wantedErr: common.ErrInvalidToken,
 		},
 		{
@@ -453,6 +459,7 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err_with_invalid_token(
 		{
 			name:      "when URIs in token contain URI with malformed metadata",
 			token:     createToken(t, "user id", []common.UniformResourceIdentifier{malformedMetadataUri}, int64(0), Service, jwtSecret),
+			givenUris: common.UniformResourceIdentifiers{validUri},
 			wantedErr: common.ErrInvalidToken,
 		},
 	}
