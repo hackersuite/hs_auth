@@ -424,7 +424,7 @@ func (r *frontendRouter) UpdateUser(ctx *gin.Context) {
 		return
 	}
 	// TODO: input validation should be done at the service level
-	builtParams, err := services.BuildUserUpdateParams(updatedFields)
+	builtParams, err := services.BuildUserUpdateParams(r.cfg, updatedFields)
 	if err != nil {
 		r.logger.Debug("could not build params to update", zap.Error(err))
 		r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "Invalid parameters to update")

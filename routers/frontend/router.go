@@ -11,8 +11,6 @@ import (
 	"github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils"
-	"github.com/unicsmcr/hs_auth/utils/auth"
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.uber.org/zap"
 	"net/http"
 )
@@ -90,8 +88,6 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 }
 
 func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
-	isAtLeastOrganiser := auth.AuthLevelVerifierFactory(authlevels.Organiser, r.GetAuthToken, []byte(r.env.Get(environment.JWTSecret)), r.HandleUnauthorized)
-
 	emailVerificationRouter := emailVerificationRouter{
 		frontendRouter: *r,
 	}
@@ -112,7 +108,7 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.POST("team/create", r.authorizer.WithAuthMiddleware(r, r.CreateTeam))
 	routerGroup.POST("team/join", r.authorizer.WithAuthMiddleware(r, r.JoinTeam))
 	routerGroup.POST("team/leave", r.authorizer.WithAuthMiddleware(r, r.LeaveTeam))
-	routerGroup.POST("user/update/:id", isAtLeastOrganiser, r.UpdateUser)
+	routerGroup.POST("user/update/:id", r.authorizer.WithAuthMiddleware(r, r.UpdateUser))
 }
 
 func (r *frontendRouter) renderPage(ctx *gin.Context, page frontendPage, statusCode int, pageData interface{}, alertMessage string) {

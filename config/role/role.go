@@ -26,6 +26,13 @@ func (r UserRoleConfig) GetRolePermissions(role UserRole) (common.UniformResourc
 	return uris, nil
 }
 
+func (r UserRoleConfig) ValidateRole(role UserRole) error {
+	if _, ok := r[role]; !ok {
+		return errors.Wrap(common.ErrUnknownRole, fmt.Sprintf("role %s does not exist", role))
+	}
+	return nil
+}
+
 func (r *UserRole) UnmarshalJSON(data []byte) error {
 	// Ignore the error from Unquote as invalid roles will be caught below
 	role, _ := strconv.Unquote(string(data))
