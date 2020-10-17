@@ -1,6 +1,6 @@
 var table = new Tabulator("#users-list", {
     height: "70%",
-    data: adminData != null && adminData.hasOwnProperty("users") ? adminData.users : [],
+    data: adminData != null && adminData.hasOwnProperty("Users") ? adminData.Users : [],
     layout: "fitColumns",
     pagination: "local",
     paginationSize: 20,
