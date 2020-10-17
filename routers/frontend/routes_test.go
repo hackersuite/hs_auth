@@ -727,7 +727,6 @@ func Test_CreateTeam(t *testing.T) {
 		name        string
 		prep        func(*testSetup)
 		teamName    string
-		jwt         string
 		wantResCode int
 	}{
 		{
@@ -735,22 +734,75 @@ func Test_CreateTeam(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:     "should return 500 when CreateTeamForUserWithJWT returns unknown error",
+			name:     "should return 401 when authorizer returns ErrInvalidToken",
 			teamName: "testteam",
-			jwt:      "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().CreateTeamForUserWithJWT(gomock.Any(), "testteam", "test").
-					Return(nil, errors.New("service err"))
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, authCommon.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:     "should return 500 when authorizer returns unknown error",
+			teamName: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, errors.New("authorizer err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:     "should return 400 when team service returns ErrNameTaken",
+			teamName: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().CreateTeamForUserWithID(setup.testCtx, "testteam", testUserId.Hex()).
+					Return(nil, services.ErrNameTaken).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:     "should return 400 when team service returns ErrUserInTeam",
+			teamName: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().CreateTeamForUserWithID(setup.testCtx, "testteam", testUserId.Hex()).
+					Return(nil, services.ErrUserInTeam).Times(1)
+			},
+			wantResCode: http.StatusBadRequest,
+		},
+		{
+			name:     "should return 404 when team service returns ErrNotFound",
+			teamName: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().CreateTeamForUserWithID(setup.testCtx, "testteam", testUserId.Hex()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusNotFound,
+		},
+		{
+			name:     "should return 500 when team service returns unknown error",
+			teamName: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().CreateTeamForUserWithID(setup.testCtx, "testteam", testUserId.Hex()).
+					Return(nil, errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
 			name:     "should return 200",
 			teamName: "testteam",
-			jwt:      "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().CreateTeamForUserWithJWT(gomock.Any(), "testteam", "test").
-					Return(&entities.Team{Name: "testteam"}, nil)
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().CreateTeamForUserWithID(setup.testCtx, "testteam", testUserId.Hex()).
+					Return(&entities.Team{}, nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -761,6 +813,7 @@ func Test_CreateTeam(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
 
@@ -768,16 +821,10 @@ func Test_CreateTeam(t *testing.T) {
 				tt.prep(setup)
 			}
 
-			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
-				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
-
 			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
 				"name": tt.teamName,
 			})
-			setup.testCtx.Request.AddCookie(&http.Cookie{
-				Name:  authCookieName,
-				Value: tt.jwt,
-			})
+			attachAuthCookie(setup.testCtx)
 
 			setup.router.CreateTeam(setup.testCtx)
 
@@ -791,7 +838,6 @@ func Test_JoinTeam(t *testing.T) {
 		name        string
 		prep        func(*testSetup)
 		teamID      string
-		jwt         string
 		wantResCode int
 	}{
 		{
@@ -799,42 +845,75 @@ func Test_JoinTeam(t *testing.T) {
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:   "should return 400 when AddUserWithJWTToTeamWithID returns ErrNotFound",
+			name:   "should return 401 when authorizer returns ErrInvalidToken",
 			teamID: "testteam",
-			jwt:    "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
-					Return(services.ErrNotFound)
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, authCommon.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name:   "should return 500 when authorizer returns unknown error",
+			teamID: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, errors.New("authorizer err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:   "should return 400 when team service returns ErrInvalidID",
+			teamID: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().AddUserWithIDToTeamWithID(setup.testCtx, testUserId.Hex(), "testteam").
+					Return(services.ErrInvalidID).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:   "should return 400 when AddUserWithJWTToTeamWithID returns ErrUserInTeam",
+			name:   "should return 404 when team service returns ErrNotFound",
 			teamID: "testteam",
-			jwt:    "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
-					Return(services.ErrUserInTeam)
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().AddUserWithIDToTeamWithID(setup.testCtx, testUserId.Hex(), "testteam").
+					Return(services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusNotFound,
+		},
+		{
+			name:   "should return 400 when team service returns ErrUserInTeam",
+			teamID: "testteam",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().AddUserWithIDToTeamWithID(setup.testCtx, testUserId.Hex(), "testteam").
+					Return(services.ErrUserInTeam).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:   "should return 500 when AddUserWithJWTToTeamWithID returns unknown error",
+			name:   "should return 500 when team service returns unknown error",
 			teamID: "testteam",
-			jwt:    "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
-					Return(errors.New("service err"))
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().AddUserWithIDToTeamWithID(setup.testCtx, testUserId.Hex(), "testteam").
+					Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
 			name:   "should return 200",
 			teamID: "testteam",
-			jwt:    "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().AddUserWithJWTToTeamWithID(gomock.Any(), "test", "testteam").
-					Return(nil)
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().AddUserWithIDToTeamWithID(setup.testCtx, testUserId.Hex(), "testteam").
+					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -845,6 +924,7 @@ func Test_JoinTeam(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
 
@@ -852,16 +932,10 @@ func Test_JoinTeam(t *testing.T) {
 				tt.prep(setup)
 			}
 
-			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
-				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
-
 			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
 				"id": tt.teamID,
 			})
-			setup.testCtx.Request.AddCookie(&http.Cookie{
-				Name:  authCookieName,
-				Value: tt.jwt,
-			})
+			attachAuthCookie(setup.testCtx)
 
 			setup.router.JoinTeam(setup.testCtx)
 
@@ -878,29 +952,53 @@ func Test_LeaveTeam(t *testing.T) {
 		wantResCode int
 	}{
 		{
-			name: "should return 400 when RemoveUserWithJWTFromTheirTeam returns ErrNotFound",
+			name: "should return 401 when authorizer returns ErrInvalidToken",
 			jwt:  "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
-					Return(services.ErrNotFound)
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, authCommon.ErrInvalidToken).Times(1)
+			},
+			wantResCode: http.StatusUnauthorized,
+		},
+		{
+			name: "should return 500 when authorizer returns unknown error",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(primitive.ObjectID{}, errors.New("authorizer err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name: "should return 404 when team service returns ErrNotFound",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(services.ErrNotFound).Times(1)
+			},
+			wantResCode: http.StatusNotFound,
+		},
+		{
+			name: "should return 400 when team service returns ErrUserNotInTeam",
+			jwt:  "test",
+			prep: func(setup *testSetup) {
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(services.ErrUserNotInTeam).Times(1)
 			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name: "should return 400 when RemoveUserWithJWTFromTheirTeam returns ErrUserNotInTeam",
+			name: "should return 500 when team service returns unknown error",
 			jwt:  "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
-					Return(services.ErrUserNotInTeam)
-			},
-			wantResCode: http.StatusBadRequest,
-		},
-		{
-			name: "should return 400 when RemoveUserWithJWTFromTheirTeam returns unknown error",
-			jwt:  "test",
-			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
-					Return(errors.New("service err"))
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
@@ -908,8 +1006,10 @@ func Test_LeaveTeam(t *testing.T) {
 			name: "should return 200",
 			jwt:  "test",
 			prep: func(setup *testSetup) {
-				setup.mockTService.EXPECT().RemoveUserWithJWTFromTheirTeam(gomock.Any(), "test").
-					Return(nil)
+				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
+					Return(testUserId, nil).Times(1)
+				setup.mockTService.EXPECT().RemoveUserWithIDFromTheirTeam(setup.testCtx, testUserId.Hex()).
+					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
 		},
@@ -920,6 +1020,7 @@ func Test_LeaveTeam(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
 
@@ -927,14 +1028,8 @@ func Test_LeaveTeam(t *testing.T) {
 				tt.prep(setup)
 			}
 
-			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
-				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
-
 			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{})
-			setup.testCtx.Request.AddCookie(&http.Cookie{
-				Name:  authCookieName,
-				Value: tt.jwt,
-			})
+			attachAuthCookie(setup.testCtx)
 
 			setup.router.LeaveTeam(setup.testCtx)
 

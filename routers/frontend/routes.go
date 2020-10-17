@@ -289,13 +289,6 @@ func (r *frontendRouter) Logout(ctx *gin.Context) {
 }
 
 func (r *frontendRouter) CreateTeam(ctx *gin.Context) {
-	jwt, err := ctx.Cookie(authCookieName)
-	if err != nil {
-		r.logger.Debug("invalid auth token")
-		ctx.Redirect(http.StatusSeeOther, "/login")
-		return
-	}
-
 	name := ctx.PostForm("name")
 	if len(name) == 0 {
 		r.logger.Debug("team name not specified", zap.String("name", name))
@@ -303,95 +296,112 @@ func (r *frontendRouter) CreateTeam(ctx *gin.Context) {
 		return
 	}
 
-	_, err = r.teamService.CreateTeamForUserWithJWT(ctx, name, jwt)
+	userId, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 	if err != nil {
-		switch err {
-		case services.ErrInvalidToken:
-			r.logger.Debug("invalid auth token")
-			ctx.Redirect(http.StatusSeeOther, "/login")
-			return
-		case services.ErrNotFound:
-			r.logger.Debug("could not find user in jwt")
-			ctx.Redirect(http.StatusSeeOther, "/login")
-			return
+		switch errors.Cause(err) {
+		case authCommon.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
 		default:
-			r.logger.Error("could not create new team", zap.Error(err))
+			r.logger.Error("could not extract user id from token", zap.Error(err))
 			r.renderPage(ctx, profilePage, http.StatusInternalServerError, nil, "Something went wrong")
-			return
 		}
-	}
-
-	ctx.Redirect(http.StatusSeeOther, "/")
-}
-
-func (r *frontendRouter) JoinTeam(ctx *gin.Context) {
-	jwt, err := ctx.Cookie(authCookieName)
-	if err != nil {
-		r.logger.Debug("invalid auth token")
-		ctx.Redirect(http.StatusSeeOther, "/login")
 		return
 	}
 
-	team := ctx.PostForm("id")
-	if len(team) == 0 {
+	_, err = r.teamService.CreateTeamForUserWithID(ctx, name, userId.Hex())
+	if err != nil {
+		switch errors.Cause(err) {
+		case services.ErrNameTaken:
+			r.logger.Debug("team name taken", zap.String("teamName", name), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "Team with the given name already exists")
+		case services.ErrUserInTeam:
+			r.logger.Debug("user is already in team", zap.String("userId", userId.Hex()), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "You are already in a team")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.String("userId", userId.Hex()), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusNotFound, nil, "User not found")
+		default:
+			r.logger.Error("could not create team for user", zap.String("userId", userId.Hex()), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusInternalServerError, nil, "Something went wrong")
+		}
+		return
+	}
+
+	r.renderPage(ctx, profilePage, http.StatusOK, nil, "")
+}
+
+func (r *frontendRouter) JoinTeam(ctx *gin.Context) {
+	teamId := ctx.PostForm("id")
+	if len(teamId) == 0 {
 		r.logger.Debug("team id not provided")
 		r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "Please specify the ID of the team to join")
 		return
 	}
 
-	err = r.teamService.AddUserWithJWTToTeamWithID(ctx, jwt, team)
+	userId, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 	if err != nil {
-		switch err {
-		case services.ErrInvalidToken:
-			r.logger.Debug("invalid auth token")
-			ctx.Redirect(http.StatusSeeOther, "/login")
-			return
-		case services.ErrNotFound:
-			r.logger.Debug("team with id not found")
-			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "Team with given ID does not exist")
-			return
-		case services.ErrUserInTeam:
-			r.logger.Debug("user already in team")
-			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "You are already in a team")
-			return
+		switch errors.Cause(err) {
+		case authCommon.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
 		default:
-			r.logger.Error("could not add user to team", zap.String("team id", team), zap.Error(err))
+			r.logger.Error("could not extract user id from token", zap.Error(err))
 			r.renderPage(ctx, profilePage, http.StatusInternalServerError, nil, "Something went wrong")
-			return
 		}
+		return
+	}
+
+	err = r.teamService.AddUserWithIDToTeamWithID(ctx, userId.Hex(), teamId)
+	if err != nil {
+		switch errors.Cause(err) {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid team id", zap.String("teamId", teamId), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "Invalid team ID provided")
+		case services.ErrNotFound:
+			r.logger.Debug("team not found", zap.String("teamId", teamId), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusNotFound, nil, "Team with given ID does not exist")
+		case services.ErrUserInTeam:
+			r.logger.Debug("user is already in team", zap.String("userId", userId.Hex()), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "You are already in a team")
+		default:
+			r.logger.Debug("could not add user to team", zap.String("userId", userId.Hex()), zap.String("teamId", teamId), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusInternalServerError, nil, "Something went wrong")
+		}
+		return
 	}
 
 	r.renderPage(ctx, profilePage, http.StatusOK, nil, "")
 }
 
 func (r *frontendRouter) LeaveTeam(ctx *gin.Context) {
-	jwt, err := ctx.Cookie(authCookieName)
+	userId, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 	if err != nil {
-		r.logger.Debug("invalid auth token")
-		ctx.Redirect(http.StatusSeeOther, "/login")
+		switch errors.Cause(err) {
+		case authCommon.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
+		default:
+			r.logger.Error("could not extract user id from token", zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusInternalServerError, nil, "Something went wrong")
+		}
 		return
 	}
 
-	err = r.teamService.RemoveUserWithJWTFromTheirTeam(ctx, jwt)
+	err = r.teamService.RemoveUserWithIDFromTheirTeam(ctx, userId.Hex())
 	if err != nil {
-		switch err {
-		case services.ErrInvalidToken:
-			r.logger.Debug("invalid auth token")
-			ctx.Redirect(http.StatusSeeOther, "/login")
-			return
+		switch errors.Cause(err) {
 		case services.ErrNotFound:
-			r.logger.Debug("user in token not found")
-			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "User not found")
-			return
+			r.logger.Debug("user not found", zap.String("userId", userId.Hex()), zap.Error(err))
+			r.renderPage(ctx, profilePage, http.StatusNotFound, nil, "User not found")
 		case services.ErrUserNotInTeam:
-			r.logger.Debug("user is not in team")
+			r.logger.Debug("user is not in a team", zap.String("userId", userId.Hex()), zap.Error(err))
 			r.renderPage(ctx, profilePage, http.StatusBadRequest, nil, "You are not in a team")
-			return
 		default:
-			r.logger.Error("could not remove user from their team", zap.Error(err))
+			r.logger.Debug("could not remove user from team", zap.String("userId", userId.Hex()), zap.Error(err))
 			r.renderPage(ctx, profilePage, http.StatusInternalServerError, nil, "Something went wrong")
-			return
 		}
+		return
 	}
 
 	r.renderPage(ctx, profilePage, http.StatusOK, nil, "")
