@@ -77,7 +77,7 @@ func (r *apiV2Router) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	usersGroup.PUT("/:id/role", r.authorizer.WithAuthMiddleware(r, r.SetRole))
 	usersGroup.PUT("/:id/permissions", r.authorizer.WithAuthMiddleware(r, r.SetSpecialPermissions))
 	usersGroup.PUT("/:id/password", r.authorizer.WithAuthMiddleware(r, r.SetPassword))
-	usersGroup.GET("/:id/password/resetEmail", r.authorizer.WithAuthMiddleware(r, r.GetPasswordResetEmail))
+	usersGroup.GET("/:id/password/resetEmail", r.GetPasswordResetEmail)
 	usersGroup.PUT("/:id/email/verify", r.authorizer.WithAuthMiddleware(r, r.VerifyEmail))
 	usersGroup.GET("/:id/email/verify", r.authorizer.WithAuthMiddleware(r, r.ResendEmailVerification))
 
