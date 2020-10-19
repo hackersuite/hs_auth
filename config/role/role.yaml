@@ -4,6 +4,7 @@ role:
     - "hs:hs_auth:frontend:EmailUnverifiedPageComponents"
     - "hs:hs_auth:frontend:VerifyEmailResend"
     - "hs:hs_auth:api:v2:ResendEmailVerification?path_id=me"
+    - "hs:hs_auth:api:v2:GetAuthorizedResources"
   applicant:
     - "hs:hs_auth:frontend:ProfilePage"
     - "hs:hs_auth:frontend:ProfilePageComponents:Default"
@@ -41,6 +42,7 @@ role:
     - "hs:hs_auth:api:v2:GetUser"
     - "hs:hs_auth:api:v2:GetUsers"
     - "hs:hs_auth:api:v2:GetTeams"
+    - "hs:hs_auth:api:v2:GetAuthorizedResources"
     - "hs:hs_apply:apply"
     - "hs:hs_hub"
     - "hs:hs_apply:review"
