@@ -30,6 +30,7 @@ func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_prod(t 
 	assert.NoError(t, err)
 
 	assert.Equal(t, expectedConfig.Name, actualConfig.Name)
+
 }
 
 func Test_NewAppConfig__should_return_correct_config_when_ENVIRONMENT_is_dev(t *testing.T) {
