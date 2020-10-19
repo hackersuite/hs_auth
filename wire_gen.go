@@ -11,11 +11,9 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
-	"github.com/unicsmcr/hs_auth/routers/api/v1"
 	v2_3 "github.com/unicsmcr/hs_auth/routers/api/v2"
 	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services/mongo"
-	"github.com/unicsmcr/hs_auth/services/sendgrid"
 	v2_2 "github.com/unicsmcr/hs_auth/services/sendgrid/v2"
 	"github.com/unicsmcr/hs_auth/utils"
 )
@@ -32,40 +30,35 @@ func InitializeServer() (Server, error) {
 	if err != nil {
 		return Server{}, err
 	}
+	timeProvider := utils.NewTimeProvider()
 	database, err := utils.NewDatabase(logger, env)
 	if err != nil {
 		return Server{}, err
 	}
-	userRepository, err := repositories.NewUserRepository(database)
-	if err != nil {
-		return Server{}, err
-	}
-	userService := mongo.NewMongoUserService(logger, env, appConfig, userRepository)
-	client := utils.NewSendgridClient(env)
-	emailService, err := sendgrid.NewSendgridEmailService(logger, appConfig, env, client, userService)
-	if err != nil {
-		return Server{}, err
-	}
-	teamRepository, err := repositories.NewTeamRepository(database)
-	if err != nil {
-		return Server{}, err
-	}
-	teamService := mongo.NewMongoTeamService(logger, env, teamRepository, userService)
-	apiv1Router := v1.NewAPIV1Router(logger, appConfig, env, userService, emailService, teamService)
-	timeProvider := utils.NewTimeProvider()
 	tokenRepository, err := repositories.NewTokenRepository(database)
 	if err != nil {
 		return Server{}, err
 	}
 	tokenService := mongo.NewMongoTokenService(logger, env, tokenRepository)
+	userRepository, err := repositories.NewUserRepository(database)
+	if err != nil {
+		return Server{}, err
+	}
+	userService := mongo.NewMongoUserService(logger, env, appConfig, userRepository)
 	authorizer := v2.NewAuthorizer(timeProvider, appConfig, env, logger, tokenService, userService)
+	teamRepository, err := repositories.NewTeamRepository(database)
+	if err != nil {
+		return Server{}, err
+	}
+	teamService := mongo.NewMongoTeamService(logger, env, teamRepository, userService)
+	client := utils.NewSendgridClient(env)
 	emailServiceV2, err := v2_2.NewSendgridEmailServiceV2(appConfig, env, client, userService, authorizer, timeProvider)
 	if err != nil {
 		return Server{}, err
 	}
 	apiv2Router := v2_3.NewAPIV2Router(logger, appConfig, authorizer, userService, teamService, tokenService, emailServiceV2, timeProvider)
-	router := frontend.NewRouter(logger, appConfig, env, userService, teamService, emailService, authorizer, timeProvider, emailServiceV2)
-	mainRouter := routers.NewMainRouter(logger, apiv1Router, apiv2Router, router)
+	router := frontend.NewRouter(logger, appConfig, env, userService, teamService, authorizer, timeProvider, emailServiceV2)
+	mainRouter := routers.NewMainRouter(logger, apiv2Router, router)
 	server := NewServer(mainRouter, env)
 	return server, nil
 }

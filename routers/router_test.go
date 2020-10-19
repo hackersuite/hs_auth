@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	mock_v1 "github.com/unicsmcr/hs_auth/mocks/routers/api/v1"
 	mock_frontend "github.com/unicsmcr/hs_auth/mocks/routers/frontend"
 	"github.com/unicsmcr/hs_auth/testutils"
 	"go.uber.org/zap"
@@ -17,16 +16,14 @@ import (
 
 func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	mockAPIV1Router := mock_v1.NewMockAPIV1Router(ctrl)
 	mockAPIV2Router := mock_v2.NewMockAPIV2Router(ctrl)
 	mockFrontendRouter := mock_frontend.NewMockRouter(ctrl)
 
 	// checking routers get registered on correct paths
 	mockFrontendRouter.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/"}).Times(1)
-	mockAPIV1Router.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/api/v1"}).Times(1)
 	mockAPIV2Router.EXPECT().RegisterRoutes(testutils.RouterGroupMatcher{Path: "/api/v2"}).Times(1)
 
-	router := NewMainRouter(zap.NewNop(), mockAPIV1Router, mockAPIV2Router, mockFrontendRouter)
+	router := NewMainRouter(zap.NewNop(), mockAPIV2Router, mockFrontendRouter)
 
 	w := httptest.NewRecorder()
 	_, testServer := gin.CreateTestContext(w)
