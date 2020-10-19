@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
+	authCommon "github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
-	"github.com/unicsmcr/hs_auth/routers/api/models"
 	"github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/utils/auth"
@@ -431,60 +431,61 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 }
 
 func (r *frontendRouter) VerifyEmail(ctx *gin.Context) {
-	token := ctx.Query("token")
-	if token == "" {
-		r.logger.Debug("invalid token")
-		ctx.HTML(http.StatusUnauthorized, "verificationTokenInvalid.gohtml", templateDataModel{
-			Cfg: r.cfg,
-		})
-		return
-	}
-
-	user, err := r.userService.GetUserWithJWT(ctx, token)
+	userId := ctx.Query("userId")
+	user, err := r.userService.GetUserWithID(ctx, userId)
 	if err != nil {
-		if err == services.ErrInvalidToken {
-			r.logger.Debug("invalid token")
-			ctx.HTML(http.StatusUnauthorized, "verificationTokenInvalid.gohtml", templateDataModel{
+		switch errors.Cause(err) {
+		case services.ErrInvalidID:
+			r.logger.Debug("invalid user id", zap.String("userId", userId), zap.Error(err))
+			ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
+				Err: "Invalid user id",
 			})
-			return
-		} else if err == services.ErrNotFound {
-			r.logger.Debug("user not found")
-			models.SendAPIError(ctx, http.StatusBadRequest, "user not found")
-		} else {
-			r.logger.Error("could not fetch user", zap.Error(err))
-			models.SendAPIError(ctx, http.StatusInternalServerError, "there was a problem with fetching the user")
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.String("userId", userId), zap.Error(err))
+			ctx.HTML(http.StatusNotFound, "login.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Err: "User not found",
+			})
+		default:
+			r.logger.Debug("could not fetch user", zap.String("userId", userId), zap.Error(err))
+			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Err: "Something went wrong",
+			})
 		}
 		return
 	}
 
-	if user.AuthLevel < authlevels.Unverified {
-		r.logger.Debug("user auth level too low to verify email")
-		models.SendAPIError(ctx, http.StatusUnauthorized, "you are not authorized to verify your email")
-		return
-	}
-	if user.AuthLevel > authlevels.Unverified {
-		r.logger.Debug("user's email is already verified")
-		models.SendAPIError(ctx, http.StatusBadRequest, "your email has already been verified")
+	if user.Role != role.Unverified {
+		r.logger.Debug("user's email is already verified", zap.String("userId", userId))
+		ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
+			Cfg: r.cfg,
+			Err: "Your email is already verified",
+		})
 		return
 	}
 
-	err = r.userService.UpdateUserWithID(ctx, user.ID.Hex(), services.UserUpdateParams{
-		// TODO: the default auth level after verification should be configurable via the config
-		// files in case we want to implement functionality to disable applications
-		entities.UserAuthLevel: authlevels.Applicant,
+	err = r.userService.UpdateUserWithID(ctx, userId, services.UserUpdateParams{
+		entities.UserRole: r.cfg.Auth.DefaultEmailVerifiedRole,
 	})
 	if err != nil {
-		r.logger.Error("could not update user", zap.Error(err))
+		r.logger.Debug("could not update user", zap.String("userId", userId), zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Err: "Something went wrong"})
+			Err: "Something went wrong",
+		})
 		return
 	}
 
 	ctx.HTML(http.StatusOK, "verifyEmail.gohtml", templateDataModel{
 		Cfg: r.cfg,
 	})
+
+	err = r.authorizer.InvalidateServiceToken(ctx, ctx.Query("token"))
+	if err != nil {
+		r.logger.Warn("could not invalidate service token", zap.Error(err))
+	}
 }
 
 func (r *frontendRouter) Logout(ctx *gin.Context) {
@@ -664,37 +665,48 @@ func (r *frontendRouter) EmailUnverifiedPage(ctx *gin.Context) {
 }
 
 func (r *frontendRouter) VerifyEmailResend(ctx *gin.Context) {
-	jwt := jwtProvider(ctx)
-
-	user, err := r.userService.GetUserWithJWT(ctx, jwt)
+	userId, err := r.authorizer.GetUserIdFromToken(r.GetAuthToken(ctx))
 	if err != nil {
-		switch err {
-		case services.ErrInvalidToken:
-			r.logger.Debug("invalid token")
-			ctx.HTML(http.StatusUnauthorized, "login.gohtml", templateDataModel{
-				Cfg: r.cfg,
-				Err: "Invalid token"})
-		case services.ErrNotFound:
-			r.logger.Debug("user not found")
-			ctx.HTML(http.StatusBadRequest, "login.gohtml", templateDataModel{
-				Cfg: r.cfg,
-				Err: "Could not find user"})
+		switch errors.Cause(err) {
+		case authCommon.ErrInvalidToken:
+			r.logger.Debug("invalid token", zap.Error(err))
+			r.HandleUnauthorized(ctx)
 		default:
-			r.logger.Error("could not find user with jwt", zap.Error(err))
+			r.logger.Error("could not extract token type", zap.Error(err))
 			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 				Cfg: r.cfg,
-				Err: "Something went wrong"})
+				Err: "Something went wrong",
+			})
 		}
 		return
 	}
 
-	err = r.emailService.SendEmailVerificationEmail(*user)
+	user, err := r.userService.GetUserWithID(ctx, userId.Hex())
 	if err != nil {
-		r.logger.Error("could not send email verification email", zap.Error(err))
+		switch errors.Cause(err) {
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.String("userId", userId.Hex()), zap.Error(err))
+			ctx.HTML(http.StatusNotFound, "login.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Err: "User not found",
+			})
+		default:
+			r.logger.Debug("could not fetch user", zap.String("userId", userId.Hex()), zap.Error(err))
+			ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
+				Cfg: r.cfg,
+				Err: "Something went wrong",
+			})
+		}
+		return
+	}
+
+	err = r.emailServiceV2.SendEmailVerificationEmail(ctx, *user, common.MakeEmailVerificationURIs(*user))
+	if err != nil {
+		r.logger.Debug("could not send email verification email", zap.Error(err))
 		ctx.HTML(http.StatusInternalServerError, "login.gohtml", templateDataModel{
 			Cfg: r.cfg,
-			Err: "Something went wrong"})
-		return
+			Err: "Something went wrong",
+		})
 	}
 
 	ctx.HTML(http.StatusOK, "emailVerifyResend.gohtml", templateDataModel{

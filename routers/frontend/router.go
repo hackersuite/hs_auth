@@ -44,10 +44,13 @@ type Router interface {
 	ResetPasswordPage(*gin.Context)
 	ResetPassword(*gin.Context)
 	VerifyEmail(*gin.Context)
+	VerifyEmailResend(*gin.Context)
+	EmailUnverifiedPage(*gin.Context)
 	CreateTeam(*gin.Context)
 	JoinTeam(*gin.Context)
 	LeaveTeam(*gin.Context)
 	UpdateUser(*gin.Context)
+	ProfilePage(*gin.Context)
 }
 
 type templateDataModel struct {
@@ -105,25 +108,39 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 }
 
 func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
-	isAtLeastUnverified := auth.AuthLevelVerifierFactory(authlevels.Unverified, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
 	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
 	isAtLeastOrganiser := auth.AuthLevelVerifierFactory(authlevels.Organiser, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
 
-	routerGroup.GET("", isAtLeastApplicant, r.ProfilePage)
+	emailVerificationRouter := emailVerificationRouter{
+		frontendRouter: *r,
+	}
+
+	routerGroup.GET("", r.authorizer.WithAuthMiddleware(r, r.ProfilePage))
 	routerGroup.GET("login", r.LoginPage)
 	routerGroup.POST("login", r.Login)
-	routerGroup.GET("logout", isAtLeastUnverified, r.Logout)
+	routerGroup.GET("logout", r.authorizer.WithAuthMiddleware(r, r.Logout))
 	routerGroup.GET("register", r.RegisterPage)
 	routerGroup.POST("register", r.Register)
 	routerGroup.GET("forgotpwd", r.ForgotPasswordPage)
 	routerGroup.POST("forgotpwd", r.ForgotPassword)
 	routerGroup.GET("resetpwd", r.ResetPasswordPage)
 	routerGroup.POST("resetpwd", r.authorizer.WithAuthMiddleware(r, r.ResetPassword))
-	routerGroup.GET("verifyemail", r.VerifyEmail)
-	routerGroup.GET("verifyemail/resend", isAtLeastUnverified, r.VerifyEmailResend)
-	routerGroup.GET("emailunverified", isAtLeastUnverified, r.EmailUnverifiedPage)
+	routerGroup.GET("verifyemail", r.authorizer.WithAuthMiddleware(&emailVerificationRouter, r.VerifyEmail))
+	routerGroup.GET("verifyemail/resend", r.authorizer.WithAuthMiddleware(r, r.VerifyEmailResend))
+	routerGroup.GET("emailunverified", r.authorizer.WithAuthMiddleware(r, r.EmailUnverifiedPage))
 	routerGroup.POST("team/create", isAtLeastApplicant, r.CreateTeam)
 	routerGroup.POST("team/join", isAtLeastApplicant, r.JoinTeam)
 	routerGroup.POST("team/leave", isAtLeastApplicant, r.LeaveTeam)
 	routerGroup.POST("user/update/:id", isAtLeastOrganiser, r.UpdateUser)
+}
+
+// RouterResource implementation for email verification.
+// Modifies frontendRouter's auth token extraction function to deal with the way
+// the token is provided to the VerifyEmail operation
+type emailVerificationRouter struct {
+	frontendRouter
+}
+
+func (r *emailVerificationRouter) GetAuthToken(ctx *gin.Context) string {
+	return ctx.Query("token")
 }
