@@ -135,37 +135,6 @@ func Test_Team_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *te
 	}
 }
 
-func Test_Team_ErrInvalidToken_should_be_returned_when_provided_JWT_is_invalid(t *testing.T) {
-	setup := setupTeamTest(t)
-	defer setup.cleanup()
-
-	tests := []struct {
-		name         string
-		testFunction func(jwt string) error
-	}{
-		{
-			name: "AddUserWithJWTToTeamWithID",
-			testFunction: func(jwt string) error {
-				err := setup.tService.AddUserWithJWTToTeamWithID(context.Background(), jwt, "")
-				return err
-			},
-		},
-		{
-			name: "RemoveUserWithJWTFromTheirTeam",
-			testFunction: func(jwt string) error {
-				err := setup.tService.RemoveUserWithJWTFromTheirTeam(context.Background(), jwt)
-				return err
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, services.ErrInvalidToken, tt.testFunction("invalid token"))
-		})
-	}
-}
-
 func Test_CreateTeam__should_return_ErrNameTaken_when_email_is_taken(t *testing.T) {
 	setup := setupTeamTest(t)
 	defer setup.cleanup()
@@ -325,35 +294,6 @@ func Test_GetTeamForUserWithEmail__should_return_expected_team(t *testing.T) {
 	assert.NoError(t, err)
 
 	team, err := setup.tService.GetTeamForUserWithEmail(context.Background(), "test@email.com")
-
-	assert.NoError(t, err)
-	assert.Equal(t, testTeam, *team)
-}
-
-func Test_GetTeamForUserWithJWT__should_return_error_when_GetUserWithEmail_returns_error(t *testing.T) {
-	setup := setupTeamTest(t)
-	defer setup.cleanup()
-
-	setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "some token").Return(nil, services.ErrNotFound).Times(1)
-
-	team, err := setup.tService.GetTeamForUserWithJWT(context.Background(), "some token")
-
-	assert.Equal(t, services.ErrNotFound, err)
-	assert.Nil(t, team)
-}
-
-func Test_GetTeamForUserWithJWT__should_return_expected_team(t *testing.T) {
-	setup := setupTeamTest(t)
-	defer setup.cleanup()
-
-	setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "some token").Return(&entities.User{
-		Team: testTeam.ID,
-	}, nil).Times(1)
-
-	_, err := setup.tRepo.InsertOne(context.Background(), testTeam)
-	assert.NoError(t, err)
-
-	team, err := setup.tService.GetTeamForUserWithJWT(context.Background(), "some token")
 
 	assert.NoError(t, err)
 	assert.Equal(t, testTeam, *team)

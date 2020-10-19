@@ -144,13 +144,9 @@ func setupUserBenchmark(b *testing.B) *usersBenchmarkSetup {
 	resetEnv()
 
 	tokenService := mongo.NewMongoTokenService(zap.NewNop(), env, tokenRepository)
-	userService := mongo.NewMongoUserService(zap.NewNop(), env, &config.AppConfig{
-		AuthTokenLifetime: testAuthTokenLifetime,
-	}, userRepository)
+	userService := mongo.NewMongoUserService(zap.NewNop(), env, &config.AppConfig{}, userRepository)
 
-	testCfg := &config.AppConfig{
-		AuthTokenLifetime: testAuthTokenLifetime,
-	}
+	testCfg := &config.AppConfig{}
 	ctrl := gomock.NewController(b)
 	timeProvider := utils.NewTimeProvider()
 	authorizer := v2.NewAuthorizer(timeProvider, testCfg, env, zap.NewNop(), tokenService, userService)

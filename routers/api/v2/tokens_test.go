@@ -43,9 +43,7 @@ func setupTokensTest(t *testing.T) *tokensTestSetup {
 	mockTService := mock_services.NewMockTokenService(ctrl)
 	mockTimeProvider := mock_utils.NewMockTimeProvider(ctrl)
 
-	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{
-		AuthTokenLifetime: testAuthTokenLifetime,
-	}, mockAuthorizer, nil, nil, mockTService, nil, mockTimeProvider)
+	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{}, mockAuthorizer, nil, nil, mockTService, nil, mockTimeProvider)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)

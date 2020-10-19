@@ -37,9 +37,7 @@ func setupTeamsTest(t *testing.T) *teamsTestSetup {
 	mockTimeProvider := mock_utils.NewMockTimeProvider(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
 
-	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{
-		AuthTokenLifetime: testAuthTokenLifetime,
-	}, mockAuthorizer, nil, mockTService, nil, nil, mockTimeProvider)
+	router := NewAPIV2Router(zap.NewNop(), &config.AppConfig{}, mockAuthorizer, nil, mockTService, nil, nil, mockTimeProvider)
 
 	w := httptest.NewRecorder()
 	testCtx, _ := gin.CreateTestContext(w)
