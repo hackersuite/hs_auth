@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"github.com/pkg/errors"
+	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/config/role"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"strconv"
@@ -10,7 +12,7 @@ import (
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 )
 
-func BuildUserUpdateParams(stringParams map[entities.UserField]string) (builtParams UserUpdateParams, err error) {
+func BuildUserUpdateParams(cfg *config.AppConfig, stringParams map[entities.UserField]string) (builtParams UserUpdateParams, err error) {
 	builtParams = UserUpdateParams{}
 	for field, value := range stringParams {
 		switch field {
@@ -29,6 +31,11 @@ func BuildUserUpdateParams(stringParams map[entities.UserField]string) (builtPar
 				return UserUpdateParams{}, ErrInvalidUserUpdateParams
 			}
 			break
+		case entities.UserRole:
+			if err := cfg.UserRole.ValidateRole(role.UserRole(value)); err != nil {
+				return UserUpdateParams{}, errors.Wrap(ErrInvalidUserUpdateParams, err.Error())
+			}
+			builtParams[field] = value
 		}
 	}
 	return builtParams, nil

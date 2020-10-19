@@ -11,7 +11,17 @@ var table = new Tabulator("#users-list", {
     columns: [
         { title: "Name", field: "name", headerFilter: "input", editor: "input" },
         { title: "Email", field: "email", headerFilter: "input" },
-        { title: "Auth Level", field: "auth_level", headerFilter: "number", headerFilterPlaceholder: "at least...", headerFilterFunc: ">=", editor: "number" },
+        { title: "Role", field: "role", headerFilter: "select", headerFilterParams: {
+            "unverified":"unverified",
+            "applicant":"applicant",
+            "attendee":"attendee",
+            "volunteer":"volunteer",
+            "organiser":"organiser"}, editor: "select", editorParams: {
+                "unverified":"unverified",
+                "applicant":"applicant",
+                "attendee":"attendee",
+                "volunteer":"volunteer",
+                "organiser":"organiser"}},
         { title: "Team", field: "team", headerFilter: "input", editor: "input" },
     ]
 });

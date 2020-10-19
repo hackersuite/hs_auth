@@ -2,6 +2,7 @@ role:
   # TODO: review permissions for roles after Auth System V2 is finished (https://github.com/unicsmcr/hs_auth/issues/81)
   unverified:
     - "hs:hs_auth:frontend:EmailUnverifiedPage"
+    - "hs:hs_auth:frontend:EmailUnverifiedPageComponents"
     - "hs:hs_auth:frontend:VerifyEmailResend"
   applicant:
     - "hs:hs_auth:frontend:ProfilePage"

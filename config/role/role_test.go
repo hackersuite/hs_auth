@@ -68,6 +68,33 @@ func Test_GetRolePermissions__should_return_error_with_invalid_role(t *testing.T
 	assert.Error(t, err)
 }
 
+func Test_ValidateRole__should_return_nil_for_existing_roles(t *testing.T) {
+	roleConfig := testSetupRoleConfig()
+
+	tests := []struct {
+		role string
+	}{
+		{"unverified"},
+		{"applicant"},
+		{"attendee"},
+		{"volunteer"},
+		{role: "organiser"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.role, func(t *testing.T) {
+			err := roleConfig.ValidateRole(UserRole(tt.role))
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func Test_ValidateRole__should_return_error_for_non_existant_role(t *testing.T) {
+	roleConfig := testSetupRoleConfig()
+
+	assert.Error(t, roleConfig.ValidateRole(UserRole("non-existant role")))
+}
+
 func TestUserRole_UnmarshalJSON__should_return_correct_role_for_registered_role_strings(t *testing.T) {
 	tests := []struct {
 		name         string

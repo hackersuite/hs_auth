@@ -9,6 +9,9 @@
 <body>
   <div class="container">
     <div class="container-fluid">
+      {{if index .Components "Default:Navbar" }}
+        {{template "navbar.gohtml" index .Components "Default:Navbar"}}
+      {{end}}
       <div class="row">
         <div class="card mx-auto align-middle w-50">
           <div class="card-header card-header-primary">

@@ -30,7 +30,9 @@ var (
 
 	verifyEmailPage, _       = newFrontendPage("VerifyEmailPage", "verifyEmail.gohtml", nil)
 	verifyEmailResendPage, _ = newFrontendPage("VerifyEmailResendPage", "emailVerifyResend.gohtml", nil)
-	emailUnverifiedPage, _   = newFrontendPage("EmailUnverifiedPage", "emailNotVerified.gohtml", nil)
+	emailUnverifiedPage, _   = newFrontendPage("EmailUnverifiedPage", "emailNotVerified.gohtml", frontendComponents{
+		navbar,
+	})
 )
 
 func newFrontendPage(pageName, templatePath string, components frontendComponents) (frontendPage, error) {
