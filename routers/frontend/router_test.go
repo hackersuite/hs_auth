@@ -127,6 +127,9 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			mockAuthMiddlewareCall(emailVerificationRouter, mockAuthorizer, router.VerifyEmail)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.VerifyEmailResend)
 			mockAuthMiddlewareCall(router, mockAuthorizer, router.EmailUnverifiedPage)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.CreateTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.JoinTeam)
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.LeaveTeam)
 
 			router.RegisterRoutes(&testServer.RouterGroup)
 

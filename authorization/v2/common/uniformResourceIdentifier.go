@@ -201,7 +201,7 @@ func (uris *UniformResourceIdentifiers) UnmarshalYAML(unmarshal func(interface{}
 func getHandlerName(handler gin.HandlerFunc) string {
 	parts := strings.Split(runtime.FuncForPC(reflect.ValueOf(handler).Pointer()).Name(), ".")
 	funcName := parts[len(parts)-1]
-	return strings.TrimRight(funcName, "-fm")
+	return strings.TrimSuffix(funcName, "-fm")
 }
 
 func getRequestArguments(ctx *gin.Context) map[string]string {

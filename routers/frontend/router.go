@@ -90,7 +90,6 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 }
 
 func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
-	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, r.GetAuthToken, []byte(r.env.Get(environment.JWTSecret)), r.HandleUnauthorized)
 	isAtLeastOrganiser := auth.AuthLevelVerifierFactory(authlevels.Organiser, r.GetAuthToken, []byte(r.env.Get(environment.JWTSecret)), r.HandleUnauthorized)
 
 	emailVerificationRouter := emailVerificationRouter{
@@ -100,7 +99,7 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("", r.authorizer.WithAuthMiddleware(r, r.ProfilePage))
 	routerGroup.GET("login", r.LoginPage)
 	routerGroup.POST("login", r.Login)
-	routerGroup.GET("logout", r.authorizer.WithAuthMiddleware(r, r.Logout))
+	routerGroup.GET("logout", r.Logout)
 	routerGroup.GET("register", r.RegisterPage)
 	routerGroup.POST("register", r.Register)
 	routerGroup.GET("forgotpwd", r.ForgotPasswordPage)
@@ -110,9 +109,9 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("verifyemail", r.authorizer.WithAuthMiddleware(&emailVerificationRouter, r.VerifyEmail))
 	routerGroup.GET("verifyemail/resend", r.authorizer.WithAuthMiddleware(r, r.VerifyEmailResend))
 	routerGroup.GET("emailunverified", r.authorizer.WithAuthMiddleware(r, r.EmailUnverifiedPage))
-	routerGroup.POST("team/create", isAtLeastApplicant, r.CreateTeam)
-	routerGroup.POST("team/join", isAtLeastApplicant, r.JoinTeam)
-	routerGroup.POST("team/leave", isAtLeastApplicant, r.LeaveTeam)
+	routerGroup.POST("team/create", r.authorizer.WithAuthMiddleware(r, r.CreateTeam))
+	routerGroup.POST("team/join", r.authorizer.WithAuthMiddleware(r, r.JoinTeam))
+	routerGroup.POST("team/leave", r.authorizer.WithAuthMiddleware(r, r.LeaveTeam))
 	routerGroup.POST("user/update/:id", isAtLeastOrganiser, r.UpdateUser)
 }
 

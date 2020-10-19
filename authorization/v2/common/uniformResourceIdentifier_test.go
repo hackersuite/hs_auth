@@ -18,7 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/x/bsonx/bsoncore"
 )
 
-func testHandler(*gin.Context) {}
+func testHandlerm(*gin.Context) {}
 func testUnmarshalYAMLValid(a interface{}) error {
 	sl := reflect.ValueOf(a).Elem()
 	sl.Set(reflect.Append(sl, reflect.ValueOf("hs:hs_auth")))
@@ -45,9 +45,9 @@ func TestNewUriFromRequest(t *testing.T) {
 	mockRouterResource := mock_resources.NewMockRouterResource(ctrl)
 	mockRouterResource.EXPECT().GetResourcePath().Return("test_router").Times(1)
 
-	uri := NewUriFromRequest(mockRouterResource, testHandler, testCtx)
+	uri := NewUriFromRequest(mockRouterResource, testHandlerm, testCtx)
 
-	assert.Equal(t, "test_router:testHandler", uri.path)
+	assert.Equal(t, "test_router:testHandlerm", uri.path)
 	assert.Equal(t, map[string]string{
 		"path_name":     "Bill the Tester",
 		"query_name":    "RobTheTester",
