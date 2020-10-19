@@ -57,12 +57,11 @@ func (s *mongoUserService) CreateUser(ctx context.Context, name, email, password
 	}
 
 	user := &entities.User{
-		ID:        primitive.NewObjectID(),
-		Name:      name,
-		Email:     formattedEmail,
-		Password:  pwdHash,
-		AuthLevel: s.cfg.BaseAuthLevel,
-		Role:      role,
+		ID:       primitive.NewObjectID(),
+		Name:     name,
+		Email:    formattedEmail,
+		Password: pwdHash,
+		Role:     role,
 	}
 
 	_, err = s.userRepository.InsertOne(ctx, *user)

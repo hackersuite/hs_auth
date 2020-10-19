@@ -8,7 +8,6 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/services"
-	"github.com/unicsmcr/hs_auth/utils/auth"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -93,15 +92,6 @@ func (s *mongoTeamService) CreateTeamForUserWithID(ctx context.Context, name, us
 	return team, nil
 }
 
-func (s *mongoTeamService) CreateTeamForUserWithJWT(ctx context.Context, name, jwt string) (*entities.Team, error) {
-	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		return nil, services.ErrInvalidToken
-	}
-
-	return s.CreateTeamForUserWithID(ctx, name, claims.Id)
-}
-
 func (s *mongoTeamService) GetTeams(ctx context.Context) ([]entities.Team, error) {
 	cur, err := s.teamRepository.Find(ctx, bson.M{})
 	if err != nil {
@@ -170,15 +160,6 @@ func (s *mongoTeamService) GetTeamForUserWithEmail(ctx context.Context, email st
 	return s.GetTeamWithID(ctx, user.Team.Hex())
 }
 
-func (s *mongoTeamService) GetTeamForUserWithJWT(ctx context.Context, jwt string) (*entities.Team, error) {
-	user, err := s.userService.GetUserWithJWT(ctx, jwt)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.GetTeamWithID(ctx, user.Team.Hex())
-}
-
 func (s *mongoTeamService) DeleteTeamWithID(ctx context.Context, id string) error {
 	mongoID, err := primitive.ObjectIDFromHex(id)
 	if err != nil {
@@ -212,15 +193,6 @@ func (s *mongoTeamService) AddUserWithIDToTeamWithID(ctx context.Context, userID
 	return s.userService.UpdateUserWithID(ctx, userID, services.UserUpdateParams{
 		entities.UserTeam: team.ID,
 	})
-}
-
-func (s *mongoTeamService) AddUserWithJWTToTeamWithID(ctx context.Context, jwt string, teamID string) error {
-	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		return services.ErrInvalidToken
-	}
-
-	return s.AddUserWithIDToTeamWithID(ctx, claims.Id, teamID)
 }
 
 func (s *mongoTeamService) RemoveUserWithIDFromTheirTeam(ctx context.Context, userID string) error {
@@ -267,15 +239,6 @@ func (s *mongoTeamService) RemoveUserWithIDFromTheirTeam(ctx context.Context, us
 		},
 	})
 	return err
-}
-
-func (s *mongoTeamService) RemoveUserWithJWTFromTheirTeam(ctx context.Context, jwt string) error {
-	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		return services.ErrInvalidToken
-	}
-
-	return s.RemoveUserWithIDFromTheirTeam(ctx, claims.Id)
 }
 
 func decodeTeamResult(res *mongo.SingleResult) (*entities.Team, error) {
