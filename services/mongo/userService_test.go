@@ -4,36 +4,31 @@ package mongo
 
 import (
 	"context"
-	"github.com/unicsmcr/hs_auth/config/role"
-	"strings"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/unicsmcr/hs_auth/config"
+	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/environment"
-	repositories "github.com/unicsmcr/hs_auth/repositories"
+	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
-	"github.com/unicsmcr/hs_auth/utils/auth"
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
+	"github.com/unicsmcr/hs_auth/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"strings"
+	"testing"
 )
 
 var (
-	testJWTSecret     = "supersecret"
-	testBaseAuthLevel = authlevels.Applicant
+	testJWTSecret = "supersecret"
 
 	testUser = entities.User{
-		ID:        primitive.NewObjectID(),
-		Name:      "Bob the Tester",
-		Email:     "test@email.com",
-		Password:  "password123",
-		AuthLevel: testBaseAuthLevel,
-		Team:      primitive.NewObjectID(),
+		ID:       primitive.NewObjectID(),
+		Name:     "Bob the Tester",
+		Email:    "test@email.com",
+		Password: "password123",
+		Team:     primitive.NewObjectID(),
 	}
 )
 
@@ -52,10 +47,8 @@ func setupUserTest(t *testing.T) (uService *mongoUserService, uRepo *repositorie
 	resetEnv()
 
 	uService = &mongoUserService{
-		logger: zap.NewNop(),
-		cfg: &config.AppConfig{
-			BaseAuthLevel: testBaseAuthLevel,
-		},
+		logger:         zap.NewNop(),
+		cfg:            &config.AppConfig{},
 		env:            env,
 		userRepository: userRepository,
 	}
@@ -131,51 +124,6 @@ func Test_User_ErrInvalidID_should_be_returned_when_provided_id_is_invalid(t *te
 	}
 }
 
-func Test_User_ErrInvalidToken_should_be_returned_when_provided_JWT_is_invalid(t *testing.T) {
-	uService, _, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	tests := []struct {
-		name         string
-		testFunction func(jwt string) error
-	}{
-		{
-			name: "GetUserWithJWT",
-			testFunction: func(jwt string) error {
-				_, err := uService.GetUserWithJWT(context.Background(), jwt)
-				return err
-			},
-		},
-		{
-			name: "UpdateUserWithJWT",
-			testFunction: func(jwt string) error {
-				err := uService.UpdateUserWithJWT(context.Background(), jwt, nil)
-				return err
-			},
-		},
-		{
-			name: "ResetPasswordForUserWithJWTAndEmail",
-			testFunction: func(jwt string) error {
-				err := uService.ResetPasswordForUserWithJWTAndEmail(context.Background(), jwt, "", "")
-				return err
-			},
-		},
-		{
-			name: "ResetPasswordForUserWithJWTAndEmail",
-			testFunction: func(jwt string) error {
-				_, err := uService.GetTeammatesForUserWithJWT(context.Background(), jwt)
-				return err
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, services.ErrInvalidToken, tt.testFunction("invalid token"))
-		})
-	}
-}
-
 func Test_CreateUser__should_return_ErrEmailTaken_when_email_is_taken(t *testing.T) {
 	uService, uRepo, cleanup := setupUserTest(t)
 	defer cleanup()
@@ -204,11 +152,10 @@ func Test_CreateUser__should_create_correct_user(t *testing.T) {
 	assert.Equal(t, testUser2.Name, user.Name)
 
 	res := uRepo.FindOne(context.Background(), bson.M{
-		string(entities.UserID):        user.ID,
-		string(entities.UserEmail):     testUser2FormattedEmail,
-		string(entities.UserName):      testUser2.Name,
-		string(entities.UserAuthLevel): testBaseAuthLevel,
-		string(entities.UserRole):      role.Applicant,
+		string(entities.UserID):    user.ID,
+		string(entities.UserEmail): testUser2FormattedEmail,
+		string(entities.UserName):  testUser2.Name,
+		string(entities.UserRole):  role.Applicant,
 	})
 
 	assert.NoError(t, res.Err())
@@ -254,29 +201,6 @@ func Test_GetUsersWithTeam__should_return_expected_users(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Equal(t, usersInTeam1, users)
-}
-
-func Test_GetUsersWithAuthLevel__should_return_expected_users(t *testing.T) {
-	uService, uRepo, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	testUser2 := testUser
-	testUser2.ID = primitive.NewObjectID()
-	testUser2.Email = "test2@email.com"
-	testUser3 := testUser
-	testUser3.ID = primitive.NewObjectID()
-	testUser3.Email = "test3@email.com"
-	testUser3.AuthLevel = testUser.AuthLevel + 1
-
-	expextedUsers := []entities.User{testUser, testUser2}
-
-	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2, testUser3})
-	assert.NoError(t, err)
-
-	users, err := uService.GetUsersWithAuthLevel(context.Background(), testBaseAuthLevel)
-
-	assert.NoError(t, err)
-	assert.Equal(t, expextedUsers, users)
 }
 
 func Test_GetUserWithID__should_return_error_when_user_with_id_doesnt_exist(t *testing.T) {
@@ -380,27 +304,12 @@ func Test_GetUserWithEmailAndPwd__should_return_expected_user(t *testing.T) {
 	rawPwd := testUser.Password
 
 	var err error
-	testUser.Password, err = auth.GetHashForPassword(testUser.Password)
+	testUser.Password, err = utils.GetHashForPassword(testUser.Password)
 
 	_, err = uRepo.InsertOne(context.Background(), testUser)
 	assert.NoError(t, err)
 
 	user, err := uService.GetUserWithEmailAndPwd(context.Background(), testUser.Email, rawPwd)
-
-	assert.NoError(t, err)
-	assert.Equal(t, testUser, *user)
-}
-
-func Test_GetUserWithJWT__should_return_expected_user(t *testing.T) {
-	uService, uRepo, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	_, err := uRepo.InsertOne(context.Background(), testUser)
-	assert.NoError(t, err)
-
-	jwt, err := auth.NewJWT(testUser, 1000000000, time.Now().Unix(), auth.Auth, []byte(testJWTSecret))
-
-	user, err := uService.GetUserWithJWT(context.Background(), jwt)
 
 	assert.NoError(t, err)
 	assert.Equal(t, testUser, *user)
@@ -422,39 +331,6 @@ func Test_UpdateUsersWithTeam__should_update_expected_users(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = uService.UpdateUsersWithTeam(context.Background(), testUser.Team.Hex(), services.UserUpdateParams{
-		entities.UserName: "Rob the tester",
-	})
-
-	assert.NoError(t, err)
-
-	cur, err := uRepo.Find(context.Background(), bson.M{})
-	assert.NoError(t, err)
-
-	users, err := decodeUsersResult(context.Background(), cur)
-	assert.NoError(t, err)
-
-	testUser.Name = "Rob the tester"
-	testUser2.Name = "Rob the tester"
-
-	assert.Equal(t, []entities.User{testUser, testUser2, testUser3}, users)
-}
-
-func Test_UpdateUsersWithAuthLevel__should_update_expected_users(t *testing.T) {
-	uService, uRepo, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	testUser2 := testUser
-	testUser2.ID = primitive.NewObjectID()
-	testUser2.Email = "test2@email.com"
-	testUser3 := testUser
-	testUser3.ID = primitive.NewObjectID()
-	testUser3.Email = "test3@email.com"
-	testUser3.AuthLevel = testUser.AuthLevel + 1
-
-	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2, testUser3})
-	assert.NoError(t, err)
-
-	err = uService.UpdateUsersWithAuthLevel(context.Background(), testUser.AuthLevel, services.UserUpdateParams{
 		entities.UserName: "Rob the tester",
 	})
 
@@ -534,35 +410,6 @@ func Test_UpdateUserWithEmail__should_update_expected_user(t *testing.T) {
 	assert.NoError(t, err)
 
 	err = uService.UpdateUserWithEmail(context.Background(), testUser.Email, services.UserUpdateParams{
-		entities.UserName: "Rob the tester",
-	})
-	assert.NoError(t, err)
-
-	cur, err := uRepo.Find(context.Background(), bson.M{})
-	assert.NoError(t, err)
-
-	users, err := decodeUsersResult(context.Background(), cur)
-	assert.NoError(t, err)
-
-	testUser.Name = "Rob the tester"
-
-	assert.Equal(t, []entities.User{testUser, testUser2}, users)
-}
-
-func Test_UpdateUserWithJWT__should_update_expected_user(t *testing.T) {
-	uService, uRepo, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	testUser2 := testUser
-	testUser2.ID = primitive.NewObjectID()
-	testUser2.Email = "test2@email.com"
-
-	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2})
-	assert.NoError(t, err)
-
-	jwt, err := auth.NewJWT(testUser, 1000000000, time.Now().Unix(), auth.Auth, []byte(testJWTSecret))
-
-	err = uService.UpdateUserWithJWT(context.Background(), jwt, services.UserUpdateParams{
 		entities.UserName: "Rob the tester",
 	})
 	assert.NoError(t, err)
@@ -673,38 +520,7 @@ func Test_ResetPasswordForUserWithIDAndEmail__should_update_expected_user(t *tes
 
 	assert.Equal(t, testUser.ID, users[0].ID)
 
-	err = auth.CompareHashAndPassword(users[0].Password, "password321")
-	assert.NoError(t, err)
-
-	assert.Equal(t, testUser2, users[1])
-}
-
-func Test_ResetPasswordForUserWithJWTAndEmail__should_update_expected_user(t *testing.T) {
-	uService, uRepo, cleanup := setupUserTest(t)
-	defer cleanup()
-
-	testUser2 := testUser
-	testUser2.ID = primitive.NewObjectID()
-	testUser2.Email = "test2@email.com"
-
-	_, err := uRepo.InsertMany(context.Background(), []interface{}{testUser, testUser2})
-	assert.NoError(t, err)
-
-	jwt, err := auth.NewJWT(testUser, time.Now().Unix(), 1000000000, auth.Auth, []byte(testJWTSecret))
-	assert.NoError(t, err)
-
-	err = uService.ResetPasswordForUserWithJWTAndEmail(context.Background(), jwt, testUser.Email, "password321")
-	assert.NoError(t, err)
-
-	cur, err := uRepo.Find(context.Background(), bson.M{})
-	assert.NoError(t, err)
-
-	users, err := decodeUsersResult(context.Background(), cur)
-	assert.NoError(t, err)
-
-	assert.Equal(t, testUser.ID, users[0].ID)
-
-	err = auth.CompareHashAndPassword(users[0].Password, "password321")
+	err = utils.CompareHashAndPassword(users[0].Password, "password321")
 	assert.NoError(t, err)
 
 	assert.Equal(t, testUser2, users[1])

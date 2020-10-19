@@ -45,7 +45,6 @@ type frontendRouter struct {
 	env            *environment.Env
 	userService    services.UserService
 	teamService    services.TeamService
-	emailService   services.EmailService
 	emailServiceV2 services.EmailServiceV2
 	authorizer     authV2.Authorizer
 	timeProvider   utils.TimeProvider
@@ -72,7 +71,7 @@ func (r *frontendRouter) HandleUnauthorized(ctx *gin.Context) {
 }
 
 func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService,
-	teamService services.TeamService, emailService services.EmailService, authorizer authV2.Authorizer,
+	teamService services.TeamService, authorizer authV2.Authorizer,
 	timeProvider utils.TimeProvider, emailServiceV2 services.EmailServiceV2) Router {
 	return &frontendRouter{
 		logger:         logger,
@@ -80,7 +79,6 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 		env:            env,
 		userService:    userService,
 		teamService:    teamService,
-		emailService:   emailService,
 		authorizer:     authorizer,
 		timeProvider:   timeProvider,
 		emailServiceV2: emailServiceV2,

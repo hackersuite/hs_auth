@@ -12,7 +12,7 @@ import (
 )
 
 func Test_navbarDataProvider__returns_correct_model(t *testing.T) {
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 	setup.testCtx.Request.AddCookie(&http.Cookie{
 		Name:   returnToCookie,
@@ -28,7 +28,7 @@ func Test_navbarDataProvider__returns_correct_model(t *testing.T) {
 }
 
 func Test_navbarDataProvider__returns_empty_string_when_cookie_is_not_defined(t *testing.T) {
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 
 	dataModel, err := navbarDataProvider(setup.testCtx, &setup.router)
@@ -83,7 +83,7 @@ func Test_personalInformationPanelDataProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupTest(t, nil, 0)
+			setup := setupTest(t, nil)
 			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
@@ -166,7 +166,7 @@ func Test_teamPanelDataProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupTest(t, nil, 0)
+			setup := setupTest(t, nil)
 			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
@@ -219,7 +219,7 @@ func Test_usersListPanelDataProvider(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			setup := setupTest(t, nil, 0)
+			setup := setupTest(t, nil)
 			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
