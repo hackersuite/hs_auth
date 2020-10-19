@@ -17,11 +17,15 @@
           <div class="card-body">
             <h2>Success!</h2>
             <h4>You have successfully registered!
-            A verification email has been sent to {{.Data.Email}}.</h4>
-            <h4>Once you verify your email you will be able to <a href="/login">login</a></h4>
-            <h6>Check your spam folder if you can't find the email and if it's not there,
-            drop us a message at <a href="mailto:{{.Cfg.Email.HelpEmailAddr}}?Subject=Can't%20verify%20email" target="_top">{{.Cfg.Email.HelpEmailAddr}}</a>
-            </h6>
+              {{if .Cfg.Auth.EmailVerificationRequired}}
+                A verification email has been sent to {{.CustomPageData.Email}}.</h4>
+                <h4>You can request a new verification email by <a href="/login">logging in</a></h4>
+                <h6>Check your spam folder if you can't find the email and if it's not there,
+                  drop us a message at <a href="mailto:{{.Cfg.Email.HelpEmailAddr}}?Subject=Can't%20verify%20email" target="_top">{{.Cfg.Email.HelpEmailAddr}}</a>
+                </h6>
+              {{else}}
+                You can now <a href="/login">login</a></h4>
+              {{end}}
           </div>
         </div>
       </div>
@@ -29,8 +33,8 @@
   </div>
 </body>
 
-{{if .Err}}
-{{template "errorNotifier.gohtml" .Err}}
+{{if .Alert}}
+{{template "errorNotifier.gohtml" .Alert}}
 {{end}}
 {{template "cookieDisclaimer.gohtml"}}
 </html>

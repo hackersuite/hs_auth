@@ -27,8 +27,8 @@
   </div>
 </body>
 
-{{if .Err}}
-{{template "errorNotifier.gohtml" .Err}}
+{{if .Alert}}
+{{template "errorNotifier.gohtml" .Alert}}
 {{end}}
 {{template "cookieDisclaimer.gohtml"}}
 </html>

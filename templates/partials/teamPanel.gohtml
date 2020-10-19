@@ -1,20 +1,20 @@
-{{ if .Data.Team}}
+{{ if .Team}}
   <div class="col-md-6 col-lg-5">
     <div class="card">
       <div class="card-header card-header-tabs card-header-primary">
         <h4 class="card-title">Team Information</h4>
       </div>
       <div class="card-body">
-          <h2 class="text-center text">Team name: {{.Data.Team.Name}}</h2>
-          <h3 class="text-center text">Team ID: {{.Data.Team.ID.Hex}}</h3>
+          <h2 class="text-center text">Team name: {{.Team.Name}}</h2>
+          <h3 class="text-center text">Team ID: {{.Team.ID.Hex}}</h3>
         <div class="form-group">
-          {{ if  ne (len .Data.Teammates)  0 }}
+          {{ if  ne (len .Teammates)  0 }}
           <div id="teamMemberList">
             <h3>Teammates:</h3>
-            {{range .Data.Teammates}}
-            <p>{{.Name}} {{if eq .ID.String $.Data.Team.Creator.String}}<i class="fas fa-crown" style="color: Gold"></i>{{end}}</p>
+            {{range .Teammates}}
+            <p>{{.Name}} {{if eq .ID.String $.Team.Creator.String}}<i class="fas fa-crown" style="color: Gold"></i>{{end}}</p>
             {{end}}
-            <small class="{{ if  ge (len .Data.Teammates) .Cfg.SoftMaxTeamMembers }}text-danger font-weight-bold text-uppercase{{else}}text-muted{{end}}"> Teams of more than {{.Cfg.SoftMaxTeamMembers}} people will not be able to compete for prizes</small>
+            <small class="{{ if  ge (len .Teammates) .TeamMembersSoftLimit }}text-danger font-weight-bold text-uppercase{{else}}text-muted{{end}}"> Teams of more than {{.TeamMembersSoftLimit}} people will not be able to compete for prizes</small>
           {{end}}
           </div>
           <form action="/team/leave" method="post">
@@ -46,7 +46,7 @@
         <div class="form-group">
           <form action="/team/join" method="post">
             <label for="teamCodeInput">Team ID</label>
-            <input type="text" class="form-control" name="id" id="teamCodeInput" placeholder="aWeRsOmEtEaM" required>
+            <input type="text" class="form-control" name="id" id="teamCodeInput" placeholder="000000000000000000000000" required>
             <button type="submit" class="btn btn-success">Join team</button>
           </form>
         </div>

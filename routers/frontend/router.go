@@ -1,36 +1,23 @@
 package frontend
 
 import (
-	authV2 "github.com/unicsmcr/hs_auth/authorization/v2"
-	"github.com/unicsmcr/hs_auth/routers/common"
-	"github.com/unicsmcr/hs_auth/utils"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
+	authV2 "github.com/unicsmcr/hs_auth/authorization/v2"
+	authCommon "github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/routers/api/models"
+	"github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
+	"github.com/unicsmcr/hs_auth/utils"
 	"github.com/unicsmcr/hs_auth/utils/auth"
 	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.uber.org/zap"
+	"net/http"
 )
 
 const authCookieName = "Authorization"
-
-func jwtProvider(ctx *gin.Context) string {
-	jwt, err := ctx.Cookie(authCookieName)
-	if err != nil {
-		return ""
-	}
-	return jwt
-}
-
-func invalidJWTHandler(ctx *gin.Context) {
-	ctx.Redirect(http.StatusSeeOther, "/login")
-	ctx.Abort()
-	return
-}
 
 type Router interface {
 	models.Router
@@ -51,13 +38,6 @@ type Router interface {
 	LeaveTeam(*gin.Context)
 	UpdateUser(*gin.Context)
 	ProfilePage(*gin.Context)
-}
-
-type templateDataModel struct {
-	Cfg      *config.AppConfig
-	Err      string
-	Data     interface{}
-	ReturnTo string
 }
 
 type frontendRouter struct {
@@ -88,7 +68,9 @@ func (r *frontendRouter) GetAuthToken(ctx *gin.Context) string {
 }
 
 func (r *frontendRouter) HandleUnauthorized(ctx *gin.Context) {
-	invalidJWTHandler(ctx)
+	r.renderPage(ctx, loginPage, http.StatusUnauthorized, nil, "You do not have permissions to access this operation")
+	ctx.Abort()
+	return
 }
 
 func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, userService services.UserService,
@@ -108,8 +90,8 @@ func NewRouter(logger *zap.Logger, cfg *config.AppConfig, env *environment.Env, 
 }
 
 func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
-	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
-	isAtLeastOrganiser := auth.AuthLevelVerifierFactory(authlevels.Organiser, jwtProvider, []byte(r.env.Get(environment.JWTSecret)), invalidJWTHandler)
+	isAtLeastApplicant := auth.AuthLevelVerifierFactory(authlevels.Applicant, r.GetAuthToken, []byte(r.env.Get(environment.JWTSecret)), r.HandleUnauthorized)
+	isAtLeastOrganiser := auth.AuthLevelVerifierFactory(authlevels.Organiser, r.GetAuthToken, []byte(r.env.Get(environment.JWTSecret)), r.HandleUnauthorized)
 
 	emailVerificationRouter := emailVerificationRouter{
 		frontendRouter: *r,
@@ -132,6 +114,46 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.POST("team/join", isAtLeastApplicant, r.JoinTeam)
 	routerGroup.POST("team/leave", isAtLeastApplicant, r.LeaveTeam)
 	routerGroup.POST("user/update/:id", isAtLeastOrganiser, r.UpdateUser)
+}
+
+func (r *frontendRouter) renderPage(ctx *gin.Context, page frontendPage, statusCode int, pageData interface{}, alertMessage string) {
+	authorizedComponentURIs, err := r.authorizer.GetAuthorizedResources(ctx, r.GetAuthToken(ctx), page.componentURIs)
+	if err != nil {
+		switch errors.Cause(err) {
+		case authCommon.ErrInvalidToken:
+			r.logger.Debug("invalid auth token")
+			ctx.HTML(http.StatusUnauthorized, "login.gohtml", pageDataModel{
+				Cfg:   *r.cfg,
+				Alert: "You are not authorized to view this page",
+			})
+		default:
+			r.logger.Error("could not get authorized resources", zap.Error(err))
+			ctx.HTML(http.StatusInternalServerError, "login.gohtml", pageDataModel{
+				Cfg:   *r.cfg,
+				Alert: "Something went wrong",
+			})
+		}
+		return
+	}
+
+	authorizedComponents := page.getComponentsWithURIs(authorizedComponentURIs)
+
+	var componentsToRender = make(map[string]interface{})
+	for _, component := range authorizedComponents {
+		componentData, err := component.dataProvider(ctx, r)
+		if err != nil {
+			r.logger.Error("could not fetch data for component", zap.String("component", component.name), zap.Error(err))
+		} else {
+			componentsToRender[component.name] = componentData
+		}
+	}
+
+	ctx.HTML(statusCode, page.templateName, pageDataModel{
+		Cfg:            *r.cfg,
+		Alert:          alertMessage,
+		Components:     componentsToRender,
+		CustomPageData: pageData,
+	})
 }
 
 // RouterResource implementation for email verification.

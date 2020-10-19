@@ -117,6 +117,10 @@ func (a *authorizer) InvalidateServiceToken(ctx context.Context, token string) e
 }
 
 func (a *authorizer) GetAuthorizedResources(ctx context.Context, token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {
+	if len(urisToCheck) == 0 {
+		return nil, nil
+	}
+
 	claimedResources, err := a.getTokenValidUris(ctx, token)
 	if err != nil {
 		return nil, err

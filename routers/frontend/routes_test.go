@@ -126,13 +126,16 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 
 func Test_LoginPage__should_set_returnto_cookie_correctly(t *testing.T) {
 	setup := setupTest(t, nil, 0)
+	defer setup.ctrl.Finish()
+
+	mockRenderPageCall(setup)
 
 	testReq := httptest.NewRequest(http.MethodGet, "/?returnto=testurl", nil)
 
 	setup.testCtx.Request = testReq
 	setup.router.LoginPage(setup.testCtx)
 
-	assert.True(t, strings.Contains(setup.w.HeaderMap["Set-Cookie"][0], ReturnToCookie+"=testurl"))
+	assert.True(t, strings.Contains(setup.w.HeaderMap["Set-Cookie"][0], returnToCookie+"=testurl"))
 }
 
 func Test_Login(t *testing.T) {
@@ -144,11 +147,17 @@ func Test_Login(t *testing.T) {
 		wantResCode int
 	}{
 		{
-			name:        "should return 400 when email not specified",
+			name: "should return 400 when email not specified",
+			prep: func(setup *testSetup) {
+				mockRenderPageCall(setup)
+			},
 			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:        "should return 400 when password not specified",
+			name: "should return 400 when password not specified",
+			prep: func(setup *testSetup) {
+				mockRenderPageCall(setup)
+			},
 			email:       "test@email.com",
 			wantResCode: http.StatusBadRequest,
 		},
@@ -157,6 +166,7 @@ func Test_Login(t *testing.T) {
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
+				mockRenderPageCall(setup)
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
 					Return(nil, services.ErrNotFound).Times(1)
 			},
@@ -167,6 +177,7 @@ func Test_Login(t *testing.T) {
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
+				mockRenderPageCall(setup)
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
 					Return(nil, errors.New("service err")).Times(1)
 			},
@@ -177,6 +188,7 @@ func Test_Login(t *testing.T) {
 			email:    "test@email.com",
 			password: "testpassword",
 			prep: func(setup *testSetup) {
+				mockRenderPageCall(setup)
 				setup.mockUService.EXPECT().GetUserWithEmailAndPwd(gomock.Any(), "test@email.com", "testpassword").
 					Return(&entities.User{ID: testUserId}, nil).Times(1)
 				setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(1000, 0)).Times(1)
@@ -231,181 +243,6 @@ func Test_Login(t *testing.T) {
 			setup.router.Login(setup.testCtx)
 
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
-		})
-	}
-}
-
-func Test_renderProfilePage(t *testing.T) {
-	tests := []struct {
-		name            string
-		jwt             string
-		prep            func(setup *testSetup)
-		givenStatusCode int
-		givenErr        string
-		wantResCode     int
-	}{
-		{
-			name:        "should return 401 when auth cookie is empty",
-			wantResCode: http.StatusUnauthorized,
-		},
-		{
-			name: "should return 500 when getBasicUserInfo returns error",
-			jwt:  "test",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(nil, services.ErrNotFound).Times(1)
-			},
-			wantResCode: http.StatusInternalServerError,
-		},
-		{
-			name: "should return correct status code",
-			jwt:  "test",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
-			},
-			givenStatusCode: http.StatusOK,
-			wantResCode:     http.StatusOK,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setup := setupTest(t, nil, common.Applicant)
-			if tt.prep != nil {
-				tt.prep(setup)
-			}
-
-			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodGet, nil)
-			if tt.jwt != "" {
-				setup.testCtx.Request.AddCookie(&http.Cookie{
-					Name:  authCookieName,
-					Value: tt.jwt,
-				})
-			}
-			setup.router.renderProfilePage(setup.testCtx, tt.givenStatusCode, tt.givenErr)
-
-			assert.Equal(t, tt.wantResCode, setup.w.Code)
-		})
-	}
-}
-
-func Test_getProfilePageData(t *testing.T) {
-	userID := primitive.NewObjectID()
-	teamID := primitive.NewObjectID()
-
-	tests := []struct {
-		name    string
-		prep    func(setup *testSetup)
-		wantOut profilePageData
-		wantErr bool
-	}{
-		{
-			name: "should return error when GetUserWithJWT returns error",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(nil, services.ErrNotFound).Times(1)
-			},
-			wantErr: true,
-			wantOut: profilePageData{},
-		},
-		{
-			name: "should return empty team and teammates when user does not have team",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
-			},
-			wantOut: profilePageData{
-				User:      &entities.User{Name: "Bob the Tester"},
-				Team:      nil,
-				Teammates: nil,
-			},
-		},
-		{
-			name: "should return the user and no team when GetTeamWithID returns error",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{Name: "Bob the Tester", Team: teamID}, nil).Times(1)
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), teamID.Hex()).
-					Return(nil, services.ErrNotFound).Times(1)
-			},
-			wantOut: profilePageData{
-				User:      &entities.User{Name: "Bob the Tester", Team: teamID},
-				Team:      nil,
-				Teammates: nil,
-			},
-		},
-		{
-			name: "should return the user and their team but no teammates or error when GetTeammatesForUserWithID returns error",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{ID: userID, Name: "Bob the Tester", Team: teamID}, nil).Times(1)
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), teamID.Hex()).
-					Return(&entities.Team{Name: "Team of Bobs", ID: teamID}, nil).Times(1)
-				setup.mockUService.EXPECT().GetTeammatesForUserWithID(gomock.Any(), userID.Hex()).
-					Return(nil, services.ErrNotFound).Times(1)
-			},
-			wantOut: profilePageData{
-				User: &entities.User{ID: userID, Name: "Bob the Tester", Team: teamID},
-				Team: &entities.Team{Name: "Team of Bobs", ID: teamID},
-			},
-		},
-		{
-			name: "should return the user and an empty AdminData when user is Organiser and GetUsers returns err",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser}, nil).Times(1)
-				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
-					Return(nil, errors.New("service err")).Times(1)
-			},
-			wantOut: profilePageData{
-				User:      &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser},
-				AdminData: adminData{},
-			},
-		},
-		{
-			name: "should include all users in AdminData when user is an Organiser",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser}, nil).Times(1)
-				setup.mockUService.EXPECT().GetUsers(gomock.Any()).
-					Return([]entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}}, nil).Times(1)
-			},
-			wantOut: profilePageData{
-				User: &entities.User{ID: userID, Name: "Bob the Tester", AuthLevel: common.Organiser},
-				AdminData: adminData{
-					Users: []entities.User{{Name: "Bob the Tester"}, {Name: "Rob the Tester"}},
-				},
-			},
-		},
-		{
-			name: "should return the user, their team and teammates",
-			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), "test").
-					Return(&entities.User{ID: userID, Name: "Bob the Tester", Team: teamID}, nil).Times(1)
-				setup.mockTService.EXPECT().GetTeamWithID(gomock.Any(), teamID.Hex()).
-					Return(&entities.Team{Name: "Team of Bobs", ID: teamID}, nil).Times(1)
-				setup.mockUService.EXPECT().GetTeammatesForUserWithID(gomock.Any(), userID.Hex()).
-					Return([]entities.User{{Name: "Rob the Tester"}}, nil).Times(1)
-			},
-			wantOut: profilePageData{
-				User:      &entities.User{ID: userID, Name: "Bob the Tester", Team: teamID},
-				Team:      &entities.Team{Name: "Team of Bobs", ID: teamID},
-				Teammates: []entities.User{{Name: "Rob the Tester"}},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			setup := setupTest(t, nil, common.Applicant)
-			if tt.prep != nil {
-				tt.prep(setup)
-			}
-
-			uInfo, err := setup.router.getProfilePageData(setup.testCtx, "test")
-			assert.Equal(t, tt.wantOut, uInfo)
-			assert.Equal(t, tt.wantErr, err != nil)
 		})
 	}
 }
@@ -511,6 +348,8 @@ func Test_Register(t *testing.T) {
 			}, 0)
 			defer setup.ctrl.Finish()
 
+			mockRenderPageCall(setup)
+
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -588,6 +427,8 @@ func Test_ForgotPassword(t *testing.T) {
 			}, 0)
 			defer setup.ctrl.Finish()
 
+			mockRenderPageCall(setup)
+
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -622,6 +463,8 @@ func Test_ResetPasswordPage(t *testing.T) {
 				environment.JWTSecret: "test",
 			}, 0)
 			defer setup.ctrl.Finish()
+
+			mockRenderPageCall(setup)
 
 			if tt.prep != nil {
 				tt.prep(setup)
@@ -741,6 +584,8 @@ func Test_ResetPassword(t *testing.T) {
 			}, 0)
 			defer setup.ctrl.Finish()
 
+			mockRenderPageCall(setup)
+
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -849,6 +694,8 @@ func Test_VerifyEmail(t *testing.T) {
 			}, common.Unverified)
 			defer setup.ctrl.Finish()
 
+			mockRenderPageCall(setup)
+
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -865,6 +712,9 @@ func Test_VerifyEmail(t *testing.T) {
 
 func Test_Logout__should_clear_the_auth_cookie(t *testing.T) {
 	setup := setupTest(t, nil, 0)
+	defer setup.ctrl.Finish()
+
+	mockRenderPageCall(setup)
 
 	testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodGet, nil)
 	setup.router.Logout(setup.testCtx)
@@ -911,6 +761,8 @@ func Test_CreateTeam(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+
+			mockRenderPageCall(setup)
 
 			if tt.prep != nil {
 				tt.prep(setup)
@@ -994,6 +846,8 @@ func Test_JoinTeam(t *testing.T) {
 				environment.JWTSecret: "test",
 			}, 0)
 
+			mockRenderPageCall(setup)
+
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -1066,6 +920,8 @@ func Test_LeaveTeam(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+
+			mockRenderPageCall(setup)
 
 			if tt.prep != nil {
 				tt.prep(setup)
@@ -1173,6 +1029,8 @@ func Test_UpdateUser(t *testing.T) {
 				environment.JWTSecret: "test",
 			}, 0)
 
+			mockRenderPageCall(setup)
+
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -1204,13 +1062,13 @@ func Test_VerifyEmailResend(t *testing.T) {
 		wantResCode int
 	}{
 		{
-			name: "should return 200 when authorizer returns ErrInvalidToken",
+			name: "should return 401 when authorizer returns ErrInvalidToken",
 			jwt:  testAuthToken,
 			prep: func(setup *testSetup) {
 				setup.mockAuthorizer.EXPECT().GetUserIdFromToken(testAuthToken).
 					Return(primitive.ObjectID{}, authCommon.ErrInvalidToken).Times(1)
 			},
-			wantResCode: http.StatusOK,
+			wantResCode: http.StatusUnauthorized,
 		},
 		{
 			name: "should return 500 when authorizer returns unknown error",
@@ -1278,6 +1136,8 @@ func Test_VerifyEmailResend(t *testing.T) {
 			}, 0)
 			defer setup.ctrl.Finish()
 
+			mockRenderPageCall(setup)
+
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
@@ -1293,4 +1153,32 @@ func Test_VerifyEmailResend(t *testing.T) {
 			assert.Equal(t, tt.wantResCode, setup.w.Code)
 		})
 	}
+}
+
+func TestFrontendRouter_ProfilePage(t *testing.T) {
+	setup := setupTest(t, nil, 0)
+	defer setup.ctrl.Finish()
+
+	attachAuthCookie(setup.testCtx)
+	mockRenderPageCall(setup)
+
+	setup.router.ProfilePage(setup.testCtx)
+
+	assert.Equal(t, http.StatusOK, setup.w.Code)
+}
+
+func mockRenderPageCall(setup *testSetup) {
+	setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, gomock.Any(), gomock.Any()).
+		Return(nil, nil).Times(1)
+}
+
+func attachAuthCookie(ctx *gin.Context) {
+	if ctx.Request == nil {
+		ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	}
+	ctx.Request.AddCookie(&http.Cookie{
+		Name:   authCookieName,
+		Value:  testAuthToken,
+		MaxAge: 1000,
+	})
 }

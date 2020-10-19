@@ -36,17 +36,17 @@ type AuthConfig struct {
 
 // AppConfig is a struct to store non-private configuration for the project
 type AppConfig struct {
-	Name               string               `yaml:"name"`
-	DomainName         string               `yaml:"domain_name"` // this is the domain under which all cookies will be stored
-	UseSecureCookies   bool                 `yaml:"use_secure_cookies"`
-	BaseAuthLevel      authlevels.AuthLevel `yaml:"base_auth_level"`
-	AuthTokenLifetime  int64                `yaml:"auth_token_lifetime"`
-	AppURL             string               `yaml:"app_url"`
-	Email              EmailConfig          `yaml:"email"`
-	UserRole           role.UserRoleConfig  `yaml:"role"`
-	DataPolicyURL      string               `yaml:"data_policy_url"`
-	SoftMaxTeamMembers uint                 `yaml:"soft_max_team_members"`
-	Auth               AuthConfig           `yaml:"auth"`
+	Name                 string               `yaml:"name"`
+	DomainName           string               `yaml:"domain_name"` // this is the domain under which all cookies will be stored
+	UseSecureCookies     bool                 `yaml:"use_secure_cookies"`
+	BaseAuthLevel        authlevels.AuthLevel `yaml:"base_auth_level"`
+	AuthTokenLifetime    int64                `yaml:"auth_token_lifetime"`
+	AppURL               string               `yaml:"app_url"`
+	Email                EmailConfig          `yaml:"email"`
+	UserRole             role.UserRoleConfig  `yaml:"role"`
+	DataPolicyURL        string               `yaml:"data_policy_url"`
+	TeamMembersSoftLimit uint                 `yaml:"team_members_soft_limit"`
+	Auth                 AuthConfig           `yaml:"auth"`
 }
 
 // NewAppConfig loads the project config from the config files based on the environment

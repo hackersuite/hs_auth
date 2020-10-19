@@ -1,23 +1,23 @@
 package frontend
 
 import (
-	authCommon "github.com/unicsmcr/hs_auth/authorization/v2/common"
-	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
-	"github.com/unicsmcr/hs_auth/routers/common"
-	"github.com/unicsmcr/hs_auth/services"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
+	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	authCommon "github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config"
 	"github.com/unicsmcr/hs_auth/environment"
+	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
+	"github.com/unicsmcr/hs_auth/routers/common"
+	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
+	"net/http"
+	"net/http/httptest"
+	"testing"
 )
 
 const testAuthToken = "authToken"
@@ -37,6 +37,7 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 
 	mockUserService.EXPECT().GetUserWithID(gomock.Any(), gomock.Any()).Return(nil, services.ErrInvalidID).AnyTimes()
 	mockAuthorizer.EXPECT().GetUserIdFromToken(gomock.Any()).Return(primitive.ObjectID{}, authCommon.ErrInvalidToken).AnyTimes()
+	mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	router := &frontendRouter{
 		logger:       zap.NewNop(),
@@ -170,14 +171,21 @@ func TestRouter_GetAuthToken__returns_empty_string_when_token_is_not_set(t *test
 }
 
 func TestRouter_HandleUnauthorized(t *testing.T) {
-	w := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(w)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
-	router := &frontendRouter{}
+	setup := setupTest(t, nil, 0)
+	defer setup.ctrl.Finish()
 
-	router.HandleUnauthorized(ctx)
-	assert.Equal(t, http.StatusSeeOther, w.Code)
-	assert.Equal(t, "/login", w.HeaderMap["Location"][0])
+	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	setup.testCtx.Request.AddCookie(&http.Cookie{
+		Name:   authCookieName,
+		Value:  testAuthToken,
+		MaxAge: 1000,
+	})
+	setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, testAuthToken, gomock.Any()).
+		Return(nil, nil).Times(1)
+
+	setup.router.HandleUnauthorized(setup.testCtx)
+
+	assert.Equal(t, http.StatusUnauthorized, setup.w.Code)
 }
 
 func mockAuthMiddlewareCall(router Router, mockAuthorizer *mock_v2.MockAuthorizer, handler gin.HandlerFunc) {
@@ -200,4 +208,74 @@ func TestEmailVerificationRouter_GetAuthToken(t *testing.T) {
 
 func TestNewRouter__returns_non_nil(t *testing.T) {
 	assert.NotNil(t, NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil))
+}
+
+func Test_renderPage__omits_component_with_failing_data_provider(t *testing.T) {
+	testComponent := frontendComponent{
+		name: "testComponent",
+		dataProvider: func(*gin.Context, *frontendRouter) (interface{}, error) {
+			return nil, errors.New("data provider err")
+		},
+	}
+
+	testPage, err := newFrontendPage("testPage", "login.gohtml", frontendComponents{testComponent})
+	assert.NoError(t, err)
+
+	setup := setupTest(t, nil, 0)
+	defer setup.ctrl.Finish()
+	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	setup.testCtx.Request.AddCookie(&http.Cookie{
+		Name:   authCookieName,
+		Value:  testAuthToken,
+		MaxAge: 1000,
+	})
+
+	setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, testAuthToken, []authCommon.UniformResourceIdentifier{testPage.componentURIs[0]}).
+		Return(authCommon.UniformResourceIdentifiers{testPage.componentURIs[0]}, nil).Times(1)
+
+	setup.router.renderPage(setup.testCtx, testPage, http.StatusOK, nil, "")
+
+	assert.Equal(t, http.StatusOK, setup.w.Code)
+}
+
+func Test_renderPage__returns_401_when_authorizer_returns_ErrInvalidToken(t *testing.T) {
+	testPage, err := newFrontendPage("testPage", "login.gohtml", nil)
+	assert.NoError(t, err)
+
+	setup := setupTest(t, nil, 0)
+	defer setup.ctrl.Finish()
+	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	setup.testCtx.Request.AddCookie(&http.Cookie{
+		Name:   authCookieName,
+		Value:  testAuthToken,
+		MaxAge: 1000,
+	})
+
+	setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, testAuthToken, []authCommon.UniformResourceIdentifier{}).
+		Return(nil, authCommon.ErrInvalidToken).Times(1)
+
+	setup.router.renderPage(setup.testCtx, testPage, http.StatusOK, nil, "")
+
+	assert.Equal(t, http.StatusUnauthorized, setup.w.Code)
+}
+
+func Test_renderPage__returns_500_when_authorizer_returns_unkown_error(t *testing.T) {
+	testPage, err := newFrontendPage("testPage", "login.gohtml", nil)
+	assert.NoError(t, err)
+
+	setup := setupTest(t, nil, 0)
+	defer setup.ctrl.Finish()
+	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+	setup.testCtx.Request.AddCookie(&http.Cookie{
+		Name:   authCookieName,
+		Value:  testAuthToken,
+		MaxAge: 1000,
+	})
+
+	setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, testAuthToken, []authCommon.UniformResourceIdentifier{}).
+		Return(nil, errors.New("authorizer err")).Times(1)
+
+	setup.router.renderPage(setup.testCtx, testPage, http.StatusOK, nil, "")
+
+	assert.Equal(t, http.StatusInternalServerError, setup.w.Code)
 }
