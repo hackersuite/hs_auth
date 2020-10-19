@@ -118,7 +118,7 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 	routerGroup.GET("forgotpwd", r.ForgotPasswordPage)
 	routerGroup.POST("forgotpwd", r.ForgotPassword)
 	routerGroup.GET("resetpwd", r.ResetPasswordPage)
-	routerGroup.POST("resetpwd", r.ResetPassword)
+	routerGroup.POST("resetpwd", r.authorizer.WithAuthMiddleware(r, r.ResetPassword))
 	routerGroup.GET("verifyemail", r.VerifyEmail)
 	routerGroup.GET("verifyemail/resend", isAtLeastUnverified, r.VerifyEmailResend)
 	routerGroup.GET("emailunverified", isAtLeastUnverified, r.EmailUnverifiedPage)

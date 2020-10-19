@@ -3,6 +3,7 @@ package frontend
 import (
 	"errors"
 	"fmt"
+	authCommon "github.com/unicsmcr/hs_auth/authorization/v2/common"
 	"github.com/unicsmcr/hs_auth/config/role"
 	_ "github.com/unicsmcr/hs_auth/config/role"
 	mock_v2 "github.com/unicsmcr/hs_auth/mocks/authorization/v2"
@@ -598,81 +599,132 @@ func Test_ForgotPassword(t *testing.T) {
 	}
 }
 
+func Test_ResetPasswordPage(t *testing.T) {
+	tests := []struct {
+		name        string
+		prep        func(*testSetup)
+		jwt         string
+		wantResCode int
+	}{
+		{
+			name:        "should return 200",
+			jwt:         testAuthToken,
+			wantResCode: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupTest(t, map[string]string{
+				environment.JWTSecret: "test",
+			}, 0)
+			defer setup.ctrl.Finish()
+
+			if tt.prep != nil {
+				tt.prep(setup)
+			}
+
+			setup.testCtx.Request, _ = http.NewRequest(http.MethodGet, fmt.Sprintf("/test?token=%s", tt.jwt), nil)
+			setup.router.ResetPasswordPage(setup.testCtx)
+
+			assert.Equal(t, tt.wantResCode, setup.w.Code)
+		})
+	}
+}
+
 func Test_ResetPassword(t *testing.T) {
 	tests := []struct {
 		name            string
 		prep            func(*testSetup)
-		userName        string
-		email           string
 		password        string
 		passwordConfirm string
 		jwt             string
+		userId          string
 		wantResCode     int
 	}{
 		{
-			name:            "should return 400 when email not specified",
-			password:        "testtest",
-			userName:        "bob",
-			passwordConfirm: "testtest",
-			wantResCode:     http.StatusBadRequest,
-		},
-		{
 			name:            "should return 400 when password not specified",
 			passwordConfirm: "testtest",
-			email:           "bob@test.com",
 			wantResCode:     http.StatusBadRequest,
 		},
 		{
 			name:            "should return 400 when password does not match passwordConfirm",
 			passwordConfirm: "testtest",
 			password:        "testtest2",
-			email:           "bob@test.com",
 			wantResCode:     http.StatusBadRequest,
 		},
 		{
-			name:            "should return 401 when UpdateUserWithJWT returns ErrInvalidToken",
+			name:            "should return 400 when user service returns ErrInvalidID",
 			passwordConfirm: "testtest",
 			password:        "testtest",
-			email:           "bob@test.com",
-			jwt:             "test",
+			jwt:             testAuthToken,
+			userId:          testUserId.Hex(),
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
-					Return(services.ErrInvalidToken).Times(1)
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(services.ErrInvalidID).Times(1)
 			},
-			wantResCode: http.StatusUnauthorized,
+			wantResCode: http.StatusBadRequest,
 		},
 		{
-			name:            "should return 401 when UpdateUserWithJWT returns ErrNotFound",
+			name:            "should return 404 when user service returns ErrNotFound",
 			passwordConfirm: "testtest",
 			password:        "testtest",
-			email:           "bob@test.com",
-			jwt:             "test",
+			jwt:             testAuthToken,
+			userId:          testUserId.Hex(),
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(services.ErrNotFound).Times(1)
 			},
-			wantResCode: http.StatusUnauthorized,
+			wantResCode: http.StatusNotFound,
 		},
 		{
-			name:            "should return 500 when UpdateUserWithJWT returns unknown error",
+			name:            "should return 500 when user service returns unknown error",
 			passwordConfirm: "testtest",
 			password:        "testtest",
-			email:           "bob@test.com",
-			jwt:             "test",
+			jwt:             testAuthToken,
+			userId:          testUserId.Hex(),
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
 					Return(errors.New("service err")).Times(1)
 			},
 			wantResCode: http.StatusInternalServerError,
 		},
 		{
+			name:            "should return 500 when user service returns unknown error",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			jwt:             testAuthToken,
+			userId:          testUserId.Hex(),
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(errors.New("service err")).Times(1)
+			},
+			wantResCode: http.StatusInternalServerError,
+		},
+		{
+			name:            "should return 200 when authorizer fails to invalidate token",
+			passwordConfirm: "testtest",
+			password:        "testtest",
+			jwt:             testAuthToken,
+			userId:          testUserId.Hex(),
+			prep: func(setup *testSetup) {
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(nil).Times(1)
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, gomock.Any()).
+					Return(authCommon.ErrInvalidTokenType).Times(1)
+			},
+			wantResCode: http.StatusOK,
+		},
+		{
 			name:            "should return 200",
 			passwordConfirm: "testtest",
 			password:        "testtest",
-			email:           "bob@test.com",
-			jwt:             "test",
+			jwt:             testAuthToken,
+			userId:          testUserId.Hex(),
 			prep: func(setup *testSetup) {
-				setup.mockUService.EXPECT().UpdateUserWithJWT(gomock.Any(), "test", gomock.Any()).
+				setup.mockUService.EXPECT().UpdateUserWithID(setup.testCtx, testUserId.Hex(), gomock.Any()).
+					Return(nil).Times(1)
+				setup.mockAuthorizer.EXPECT().InvalidateServiceToken(setup.testCtx, gomock.Any()).
 					Return(nil).Times(1)
 			},
 			wantResCode: http.StatusOK,
@@ -684,16 +736,16 @@ func Test_ResetPassword(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
 			}, 0)
+			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
 
 			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
-				"email":           tt.email,
 				"password":        tt.password,
 				"passwordConfirm": tt.passwordConfirm,
-				"token":           tt.jwt,
+				"userId":          tt.userId,
 			})
 			setup.router.ResetPassword(setup.testCtx)
 

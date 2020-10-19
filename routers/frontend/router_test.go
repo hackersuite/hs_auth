@@ -105,6 +105,8 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 			w := httptest.NewRecorder()
 			_, testServer := gin.CreateTestContext(w)
 
+			mockAuthMiddlewareCall(router, mockAuthorizer, router.ResetPassword)
+
 			router.RegisterRoutes(&testServer.RouterGroup)
 
 			req := httptest.NewRequest(tt.method, tt.route, nil)
@@ -156,4 +158,12 @@ func TestRouter_HandleUnauthorized(t *testing.T) {
 	router.HandleUnauthorized(ctx)
 	assert.Equal(t, http.StatusSeeOther, w.Code)
 	assert.Equal(t, "/login", w.HeaderMap["Location"][0])
+}
+
+func mockAuthMiddlewareCall(router Router, mockAuthorizer *mock_v2.MockAuthorizer, handler gin.HandlerFunc) {
+	mockAuthorizer.EXPECT().WithAuthMiddleware(router, gomock.Any()).Return(
+		func(ctx *gin.Context) {
+			handler(ctx)
+			return
+		})
 }

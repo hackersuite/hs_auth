@@ -18,7 +18,7 @@ func MakeEmailVerificationURIs(user entities.User) common.UniformResourceIdentif
 
 func MakePasswordResetURIs(user entities.User) common.UniformResourceIdentifiers {
 	apiV2Uri, _ := common.NewURIFromString(fmt.Sprintf("%s:SetPassword?path_id=%s", ApiV2ResourcePath, user.ID.Hex()))
-	frontendUri, _ := common.NewURIFromString(fmt.Sprintf("%s:ResetPassword?query_userId=%s", FrontendResourcePath, user.ID.Hex()))
+	frontendUri, _ := common.NewURIFromString(fmt.Sprintf("%s:ResetPassword?postForm_userId=%s", FrontendResourcePath, user.ID.Hex()))
 
 	return []common.UniformResourceIdentifier{apiV2Uri, frontendUri}
 }
