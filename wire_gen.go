@@ -11,10 +11,10 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/routers"
-	v2_3 "github.com/unicsmcr/hs_auth/routers/api/v2"
+	v2_2 "github.com/unicsmcr/hs_auth/routers/api/v2"
 	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services/mongo"
-	v2_2 "github.com/unicsmcr/hs_auth/services/sendgrid/v2"
+	"github.com/unicsmcr/hs_auth/services/multiplexers"
 	"github.com/unicsmcr/hs_auth/utils"
 )
 
@@ -51,12 +51,13 @@ func InitializeServer() (Server, error) {
 		return Server{}, err
 	}
 	teamService := mongo.NewMongoTeamService(logger, env, teamRepository, userService)
+	smtpClient := utils.NewSMTPClient()
 	client := utils.NewSendgridClient(env)
-	emailServiceV2, err := v2_2.NewSendgridEmailServiceV2(appConfig, env, client, userService, authorizer, timeProvider)
+	emailServiceV2, err := multiplexers.NewEmailServiceV2(appConfig, env, smtpClient, client, userService, authorizer, timeProvider)
 	if err != nil {
 		return Server{}, err
 	}
-	apiv2Router := v2_3.NewAPIV2Router(logger, appConfig, authorizer, userService, teamService, tokenService, emailServiceV2, timeProvider)
+	apiv2Router := v2_2.NewAPIV2Router(logger, appConfig, authorizer, userService, teamService, tokenService, emailServiceV2, timeProvider)
 	router := frontend.NewRouter(logger, appConfig, env, userService, teamService, authorizer, timeProvider, emailServiceV2)
 	mainRouter := routers.NewMainRouter(logger, apiv2Router, router)
 	server := NewServer(mainRouter, env)

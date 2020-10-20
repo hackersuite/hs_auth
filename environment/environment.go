@@ -19,6 +19,10 @@ const (
 	MongoPassword  = "MONGO_PASSWORD"
 	JWTSecret      = "JWT_SECRET"
 	SendgridAPIKey = "SENDGRID_API_KEY"
+	SMTPUsername   = "SMTP_USERNAME"
+	SMTPPassword   = "SMTP_PASSWORD"
+	SMTPHost       = "SMTP_HOST"
+	SMTPPort       = "SMTP_PORT"
 )
 
 // NewEnv creates an Env with loaded environment variables
@@ -33,6 +37,10 @@ func NewEnv(logger *zap.Logger) *Env {
 			MongoPassword:  valueOfEnvVar(logger, MongoPassword),
 			JWTSecret:      valueOfEnvVar(logger, JWTSecret),
 			SendgridAPIKey: valueOfEnvVar(logger, SendgridAPIKey),
+			SMTPUsername:   valueOfEnvVar(logger, SMTPUsername),
+			SMTPPassword:   valueOfEnvVar(logger, SMTPPassword),
+			SMTPHost:       valueOfEnvVar(logger, SMTPHost),
+			SMTPPort:       valueOfEnvVar(logger, SMTPPort),
 		},
 	}
 	return &env

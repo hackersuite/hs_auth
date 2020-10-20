@@ -1,6 +1,7 @@
 # Store non-sensitive project configuration here
 name: "Hacker Suite - Auth"
 email:
+  email_delivery_provider: "smtp"
   noreply_email_addr: "noreply@unicsmcr.com"
   help_email_addr: "help@unicsmcr.com"
   noreply_email_name: "UniCS"
