@@ -31,7 +31,6 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 
 	ctrl := gomock.NewController(t)
 	mockUserService := mock_services.NewMockUserService(ctrl)
-	mockEmailService := mock_services.NewMockEmailService(ctrl)
 	mockTeamService := mock_services.NewMockTeamService(ctrl)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
 
@@ -40,13 +39,12 @@ func Test_RegisterRoutes__should_register_required_routes(t *testing.T) {
 	mockAuthorizer.EXPECT().GetAuthorizedResources(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 
 	router := &frontendRouter{
-		logger:       zap.NewNop(),
-		cfg:          &config.AppConfig{Name: "test"},
-		env:          env,
-		userService:  mockUserService,
-		teamService:  mockTeamService,
-		emailService: mockEmailService,
-		authorizer:   mockAuthorizer,
+		logger:      zap.NewNop(),
+		cfg:         &config.AppConfig{Name: "test"},
+		env:         env,
+		userService: mockUserService,
+		teamService: mockTeamService,
+		authorizer:  mockAuthorizer,
 	}
 	emailVerificationRouter := &emailVerificationRouter{*router}
 
@@ -175,7 +173,7 @@ func TestRouter_GetAuthToken__returns_empty_string_when_token_is_not_set(t *test
 }
 
 func TestRouter_HandleUnauthorized(t *testing.T) {
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	defer setup.ctrl.Finish()
 
 	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -211,7 +209,7 @@ func TestEmailVerificationRouter_GetAuthToken(t *testing.T) {
 }
 
 func TestNewRouter__returns_non_nil(t *testing.T) {
-	assert.NotNil(t, NewRouter(nil, nil, nil, nil, nil, nil, nil, nil, nil))
+	assert.NotNil(t, NewRouter(nil, nil, nil, nil, nil, nil, nil, nil))
 }
 
 func Test_renderPage__omits_component_with_failing_data_provider(t *testing.T) {
@@ -225,7 +223,7 @@ func Test_renderPage__omits_component_with_failing_data_provider(t *testing.T) {
 	testPage, err := newFrontendPage("testPage", "login.gohtml", frontendComponents{testComponent})
 	assert.NoError(t, err)
 
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	defer setup.ctrl.Finish()
 	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 	setup.testCtx.Request.AddCookie(&http.Cookie{
@@ -246,7 +244,7 @@ func Test_renderPage__returns_401_when_authorizer_returns_ErrInvalidToken(t *tes
 	testPage, err := newFrontendPage("testPage", "login.gohtml", nil)
 	assert.NoError(t, err)
 
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	defer setup.ctrl.Finish()
 	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 	setup.testCtx.Request.AddCookie(&http.Cookie{
@@ -267,7 +265,7 @@ func Test_renderPage__returns_500_when_authorizer_returns_unkown_error(t *testin
 	testPage, err := newFrontendPage("testPage", "login.gohtml", nil)
 	assert.NoError(t, err)
 
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	defer setup.ctrl.Finish()
 	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
 	setup.testCtx.Request.AddCookie(&http.Cookie{

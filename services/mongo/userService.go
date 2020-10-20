@@ -3,6 +3,7 @@ package mongo
 import (
 	"context"
 	"github.com/unicsmcr/hs_auth/config/role"
+	"github.com/unicsmcr/hs_auth/utils"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -11,8 +12,6 @@ import (
 	"github.com/unicsmcr/hs_auth/environment"
 	"github.com/unicsmcr/hs_auth/repositories"
 	"github.com/unicsmcr/hs_auth/services"
-	"github.com/unicsmcr/hs_auth/utils/auth"
-	authlevels "github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -52,18 +51,17 @@ func (s *mongoUserService) CreateUser(ctx context.Context, name, email, password
 	}
 
 	// hash password
-	pwdHash, err := auth.GetHashForPassword(password)
+	pwdHash, err := utils.GetHashForPassword(password)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not hash password")
 	}
 
 	user := &entities.User{
-		ID:        primitive.NewObjectID(),
-		Name:      name,
-		Email:     formattedEmail,
-		Password:  pwdHash,
-		AuthLevel: s.cfg.BaseAuthLevel,
-		Role:      role,
+		ID:       primitive.NewObjectID(),
+		Name:     name,
+		Email:    formattedEmail,
+		Password: pwdHash,
+		Role:     role,
 	}
 
 	_, err = s.userRepository.InsertOne(ctx, *user)
@@ -100,23 +98,6 @@ func (s *mongoUserService) GetUsersWithTeam(ctx context.Context, teamID string) 
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "could not query for users with team")
-	}
-	defer cur.Close(ctx)
-
-	users, err := decodeUsersResult(ctx, cur)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not decode result")
-	}
-
-	return users, nil
-}
-
-func (s *mongoUserService) GetUsersWithAuthLevel(ctx context.Context, authLevel authlevels.AuthLevel) ([]entities.User, error) {
-	cur, err := s.userRepository.Find(ctx, bson.M{
-		string(entities.UserAuthLevel): authLevel,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "could not query for users with auth level")
 	}
 	defer cur.Close(ctx)
 
@@ -169,21 +150,12 @@ func (s *mongoUserService) GetUserWithEmailAndPwd(ctx context.Context, email, pw
 		return nil, err
 	}
 
-	err = auth.CompareHashAndPassword(user.Password, pwd)
+	err = utils.CompareHashAndPassword(user.Password, pwd)
 	if err != nil {
 		return nil, services.ErrNotFound
 	}
 
 	return user, nil
-}
-
-func (s *mongoUserService) GetUserWithJWT(ctx context.Context, jwt string) (*entities.User, error) {
-	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		return nil, services.ErrInvalidToken
-	}
-
-	return s.GetUserWithID(ctx, claims.Id)
 }
 
 func (s *mongoUserService) GetTeamMembersForUserWithID(ctx context.Context, userID string) ([]entities.User, error) {
@@ -221,15 +193,6 @@ func (s *mongoUserService) GetTeammatesForUserWithID(ctx context.Context, userID
 	return teamMembers, nil
 }
 
-func (s *mongoUserService) GetTeammatesForUserWithJWT(ctx context.Context, jwt string) ([]entities.User, error) {
-	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		return nil, services.ErrInvalidToken
-	}
-
-	return s.GetTeammatesForUserWithID(ctx, claims.Id)
-}
-
 func (s *mongoUserService) UpdateUsersWithTeam(ctx context.Context, teamID string, params services.UserUpdateParams) error {
 	mongoID, err := primitive.ObjectIDFromHex(teamID)
 	if err != nil {
@@ -243,19 +206,6 @@ func (s *mongoUserService) UpdateUsersWithTeam(ctx context.Context, teamID strin
 	})
 	if err != nil {
 		return errors.Wrap(err, "could not update users with team")
-	}
-
-	return nil
-}
-
-func (s *mongoUserService) UpdateUsersWithAuthLevel(ctx context.Context, authLevel authlevels.AuthLevel, params services.UserUpdateParams) error {
-	_, err := s.userRepository.UpdateMany(ctx, bson.M{
-		string(entities.UserAuthLevel): authLevel,
-	}, bson.M{
-		"$set": params,
-	})
-	if err != nil {
-		return errors.Wrap(err, "could not update users with auth level")
 	}
 
 	return nil
@@ -300,15 +250,6 @@ func (s *mongoUserService) UpdateUserWithEmail(ctx context.Context, email string
 	return nil
 }
 
-func (s *mongoUserService) UpdateUserWithJWT(ctx context.Context, jwt string, params services.UserUpdateParams) error {
-	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		return services.ErrInvalidToken
-	}
-
-	return s.UpdateUserWithID(ctx, claims.Id, params)
-}
-
 func (s *mongoUserService) DeleteUserWithID(ctx context.Context, userID string) error {
 	mongoID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
@@ -351,7 +292,7 @@ func (s *mongoUserService) ResetPasswordForUserWithIDAndEmail(ctx context.Contex
 	}
 
 	// hash password
-	pwdHash, err := auth.GetHashForPassword(newPwd)
+	pwdHash, err := utils.GetHashForPassword(newPwd)
 	if err != nil {
 		return errors.Wrap(err, "could not hash password")
 	}
@@ -373,15 +314,6 @@ func (s *mongoUserService) ResetPasswordForUserWithIDAndEmail(ctx context.Contex
 	}
 
 	return nil
-}
-
-func (s *mongoUserService) ResetPasswordForUserWithJWTAndEmail(ctx context.Context, jwt string, email string, newPwd string) error {
-	claims := auth.GetJWTClaims(jwt, []byte(s.env.Get(environment.JWTSecret)))
-	if claims == nil {
-		return services.ErrInvalidToken
-	}
-
-	return s.ResetPasswordForUserWithIDAndEmail(ctx, claims.Id, email, newPwd)
 }
 
 func decodeUserResult(res *mongo.SingleResult) (*entities.User, error) {

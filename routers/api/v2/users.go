@@ -10,7 +10,7 @@ import (
 	"github.com/unicsmcr/hs_auth/routers/api/models"
 	rcommon "github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
-	"github.com/unicsmcr/hs_auth/utils/auth"
+	"github.com/unicsmcr/hs_auth/utils"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 	"net/http"
@@ -330,7 +330,7 @@ func (r *apiV2Router) SetPassword(ctx *gin.Context) {
 		userId = userIdObj.Hex()
 	}
 
-	pwdHash, err := auth.GetHashForPassword(req.Password)
+	pwdHash, err := utils.GetHashForPassword(req.Password)
 	if err != nil {
 		r.logger.Error("failed to hash password", zap.Error(err))
 		models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")

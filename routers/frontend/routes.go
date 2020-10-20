@@ -9,7 +9,7 @@ import (
 	"github.com/unicsmcr/hs_auth/entities"
 	"github.com/unicsmcr/hs_auth/routers/common"
 	"github.com/unicsmcr/hs_auth/services"
-	"github.com/unicsmcr/hs_auth/utils/auth"
+	"github.com/unicsmcr/hs_auth/utils"
 	"go.uber.org/zap"
 	"net/http"
 )
@@ -208,7 +208,7 @@ func (r *frontendRouter) ResetPassword(ctx *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := auth.GetHashForPassword(req.Password)
+	hashedPassword, err := utils.GetHashForPassword(req.Password)
 	if err != nil {
 		r.logger.Error("could not make hash for password", zap.Error(err))
 		r.renderPage(ctx, resetPasswordPage, http.StatusInternalServerError, res{UserId: req.UserId}, "Something went wrong")

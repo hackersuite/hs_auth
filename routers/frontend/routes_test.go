@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -25,8 +24,6 @@ import (
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/testutils"
-	"github.com/unicsmcr/hs_auth/utils/auth"
-	"github.com/unicsmcr/hs_auth/utils/auth/common"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.uber.org/zap"
 )
@@ -37,7 +34,6 @@ var passwordResetURIs = rcommon.MakePasswordResetURIs(entities.User{ID: testUser
 
 type testSetup struct {
 	mockUService     *mock_services.MockUserService
-	mockEService     *mock_services.MockEmailService
 	mockEServiceV2   *mock_services.MockEmailServiceV2
 	mockTService     *mock_services.MockTeamService
 	mockAuthorizer   *mock_v2.MockAuthorizer
@@ -48,16 +44,14 @@ type testSetup struct {
 	w                *httptest.ResponseRecorder
 	testCtx          *gin.Context
 	testServer       *gin.Engine
-	claims           *auth.Claims
 	emailToken       string
 	cfg              *config.AppConfig
 	ctrl             *gomock.Controller
 }
 
-func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLevel) *testSetup {
+func setupTest(t *testing.T, envVars map[string]string) *testSetup {
 	ctrl := gomock.NewController(t)
 	mockUService := mock_services.NewMockUserService(ctrl)
-	mockEService := mock_services.NewMockEmailService(ctrl)
 	mockEServiceV2 := mock_services.NewMockEmailServiceV2(ctrl)
 	mockTService := mock_services.NewMockTeamService(ctrl)
 	mockAuthorizer := mock_v2.NewMockAuthorizer(ctrl)
@@ -68,7 +62,6 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 	restore()
 
 	cfg := &config.AppConfig{
-		BaseAuthLevel: 0,
 		Auth: config.AuthConfig{
 			UserTokenLifetime: 1000,
 		},
@@ -80,25 +73,16 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 		env:            env,
 		userService:    mockUService,
 		teamService:    mockTService,
-		emailService:   mockEService,
 		emailServiceV2: mockEServiceV2,
 		authorizer:     mockAuthorizer,
 		timeProvider:   mockTimeProvider,
 	}
 
 	testUser := entities.User{
-		ID:        primitive.NewObjectID(),
-		Name:      "John Doe",
-		Email:     "john@doe.com",
-		AuthLevel: authLevel,
-		Team:      primitive.NewObjectID(),
-	}
-
-	claims := &auth.Claims{
-		StandardClaims: jwt.StandardClaims{
-			Id: testUser.ID.Hex(),
-		},
-		AuthLevel: testUser.AuthLevel,
+		ID:    primitive.NewObjectID(),
+		Name:  "John Doe",
+		Email: "john@doe.com",
+		Team:  primitive.NewObjectID(),
 	}
 
 	w := httptest.NewRecorder()
@@ -107,7 +91,6 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 
 	return &testSetup{
 		mockUService:     mockUService,
-		mockEService:     mockEService,
 		mockEServiceV2:   mockEServiceV2,
 		mockTService:     mockTService,
 		mockAuthorizer:   mockAuthorizer,
@@ -118,14 +101,13 @@ func setupTest(t *testing.T, envVars map[string]string, authLevel common.AuthLev
 		w:                w,
 		testCtx:          testCtx,
 		testServer:       testServer,
-		claims:           claims,
 		ctrl:             ctrl,
 		cfg:              cfg,
 	}
 }
 
 func Test_LoginPage__should_set_returnto_cookie_correctly(t *testing.T) {
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	defer setup.ctrl.Finish()
 
 	mockRenderPageCall(setup)
@@ -229,7 +211,7 @@ func Test_Login(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			if tt.prep != nil {
@@ -345,7 +327,7 @@ func Test_Register(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -424,7 +406,7 @@ func Test_ForgotPassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -461,7 +443,7 @@ func Test_ResetPasswordPage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -581,7 +563,7 @@ func Test_ResetPassword(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -691,7 +673,7 @@ func Test_VerifyEmail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, common.Unverified)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -711,7 +693,7 @@ func Test_VerifyEmail(t *testing.T) {
 }
 
 func Test_Logout__should_clear_the_auth_cookie(t *testing.T) {
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	defer setup.ctrl.Finish()
 
 	mockRenderPageCall(setup)
@@ -812,7 +794,7 @@ func Test_CreateTeam(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -923,7 +905,7 @@ func Test_JoinTeam(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -1019,7 +1001,7 @@ func Test_LeaveTeam(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -1122,16 +1104,14 @@ func Test_UpdateUser(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
+			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
 
 			if tt.prep != nil {
 				tt.prep(setup)
 			}
-
-			setup.mockUService.EXPECT().GetUserWithJWT(gomock.Any(), gomock.Any()).
-				Return(&entities.User{Name: "Bob the Tester"}, nil).Times(1)
 
 			testutils.AddRequestWithFormParamsToCtx(setup.testCtx, http.MethodPost, map[string]string{
 				"set": tt.paramsToUpdate,
@@ -1228,7 +1208,7 @@ func Test_VerifyEmailResend(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTest(t, map[string]string{
 				environment.JWTSecret: "test",
-			}, 0)
+			})
 			defer setup.ctrl.Finish()
 
 			mockRenderPageCall(setup)
@@ -1251,7 +1231,7 @@ func Test_VerifyEmailResend(t *testing.T) {
 }
 
 func TestFrontendRouter_ProfilePage(t *testing.T) {
-	setup := setupTest(t, nil, 0)
+	setup := setupTest(t, nil)
 	defer setup.ctrl.Finish()
 
 	attachAuthCookie(setup.testCtx)
