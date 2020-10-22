@@ -16,6 +16,14 @@ import (
 
 const returnToCookie = "ReturnTo"
 
+func (r *frontendRouter) RedirectToEntryPage(ctx *gin.Context) {
+	if len(r.GetAuthToken(ctx)) != 0 {
+		ctx.Redirect(http.StatusPermanentRedirect, "/profile")
+	} else {
+		ctx.Redirect(http.StatusPermanentRedirect, "/login")
+	}
+}
+
 func (r *frontendRouter) ProfilePage(ctx *gin.Context) {
 	r.renderPage(ctx, profilePage, http.StatusOK, nil, "")
 }

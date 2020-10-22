@@ -36,6 +36,7 @@ type Router interface {
 	LeaveTeam(*gin.Context)
 	UpdateUser(*gin.Context)
 	ProfilePage(*gin.Context)
+	RedirectToEntryPage(*gin.Context)
 }
 
 type frontendRouter struct {
@@ -90,7 +91,8 @@ func (r *frontendRouter) RegisterRoutes(routerGroup *gin.RouterGroup) {
 		frontendRouter: *r,
 	}
 
-	routerGroup.GET("", r.authorizer.WithAuthMiddleware(r, r.ProfilePage))
+	routerGroup.GET("", r.RedirectToEntryPage)
+	routerGroup.GET("/profile", r.authorizer.WithAuthMiddleware(r, r.ProfilePage))
 	routerGroup.GET("login", r.LoginPage)
 	routerGroup.POST("login", r.Login)
 	routerGroup.GET("logout", r.Logout)
