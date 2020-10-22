@@ -3,6 +3,7 @@ package config
 import (
 	"github.com/unicsmcr/hs_auth/config/role"
 	"github.com/unicsmcr/hs_auth/environment"
+	"github.com/unicsmcr/hs_auth/services/multiplexers/types"
 	"go.uber.org/config"
 )
 
@@ -16,12 +17,14 @@ var (
 
 // EmailConfig stores the configuration to be used by the email service
 type EmailConfig struct {
-	HelpEmailAddr              string `yaml:"help_email_addr"`
-	NoreplyEmailAddr           string `yaml:"noreply_email_addr"`
-	NoreplyEmailName           string `yaml:"noreply_email_name"`
-	EmailVerificationEmailSubj string `yaml:"email_verification_email_subj"`
-	PasswordResetEmailSubj     string `yaml:"password_reset_email_subj"`
-	TokenLifetime              int64  `yaml:"token_lifetime"`
+	// Specifies what service is used for email delivery. Currently supported options: smtp, sendgrid
+	EmailDeliveryProvider      types.EmailDeliveryProvider `yaml:"email_delivery_provider"`
+	HelpEmailAddr              string                      `yaml:"help_email_addr"`
+	NoreplyEmailAddr           string                      `yaml:"noreply_email_addr"`
+	NoreplyEmailName           string                      `yaml:"noreply_email_name"`
+	EmailVerificationEmailSubj string                      `yaml:"email_verification_email_subj"`
+	PasswordResetEmailSubj     string                      `yaml:"password_reset_email_subj"`
+	TokenLifetime              int64                       `yaml:"token_lifetime"`
 }
 
 // AuthConfig stores the configuration to be used by the auth system V2

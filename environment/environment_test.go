@@ -18,6 +18,10 @@ func Test_NewEnv__should_return_correct_env(t *testing.T) {
 		MongoPassword:  "testmongopassword",
 		JWTSecret:      "testsecret",
 		SendgridAPIKey: "testkey",
+		SMTPUsername:   "testsmtpusername",
+		SMTPPassword:   "testsmtppassword",
+		SMTPHost:       "testsmtphost",
+		SMTPPort:       "testsmtpport",
 	}
 
 	restoreVars := testutils.SetEnvVars(vars)
@@ -41,6 +45,10 @@ func Test_Get__should_return_correct_value(t *testing.T) {
 			MongoPassword:  "testmongopassword",
 			JWTSecret:      "testsecret",
 			SendgridAPIKey: "testkey",
+			SMTPUsername:   "testsmtpusername",
+			SMTPPassword:   "testsmtppassword",
+			SMTPHost:       "testsmtphost",
+			SMTPPort:       "testsmtpport",
 		},
 	}
 
@@ -85,9 +93,29 @@ func Test_Get__should_return_correct_value(t *testing.T) {
 			args: JWTSecret,
 		},
 		{
-			name: JWTSecret,
-			want: env.vars[JWTSecret],
-			args: JWTSecret,
+			name: SendgridAPIKey,
+			want: env.vars[SendgridAPIKey],
+			args: SendgridAPIKey,
+		},
+		{
+			name: SMTPUsername,
+			want: env.vars[SMTPUsername],
+			args: SMTPUsername,
+		},
+		{
+			name: SMTPPassword,
+			want: env.vars[SMTPPassword],
+			args: SMTPPassword,
+		},
+		{
+			name: SMTPHost,
+			want: env.vars[SMTPHost],
+			args: SMTPHost,
+		},
+		{
+			name: SMTPPort,
+			want: env.vars[SMTPPort],
+			args: SMTPPort,
 		},
 	}
 

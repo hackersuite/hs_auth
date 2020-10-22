@@ -12,7 +12,7 @@ import (
 	v2 "github.com/unicsmcr/hs_auth/routers/api/v2"
 	"github.com/unicsmcr/hs_auth/routers/frontend"
 	"github.com/unicsmcr/hs_auth/services/mongo"
-	sendgrid_v2 "github.com/unicsmcr/hs_auth/services/sendgrid/v2"
+	"github.com/unicsmcr/hs_auth/services/multiplexers"
 	"github.com/unicsmcr/hs_auth/utils"
 )
 
@@ -25,12 +25,13 @@ func InitializeServer() (Server, error) {
 		mongo.NewMongoTokenService,
 		mongo.NewMongoTeamService,
 		mongo.NewMongoUserService,
-		sendgrid_v2.NewSendgridEmailServiceV2,
+		multiplexers.NewEmailServiceV2,
 		repositories.NewUserRepository,
 		repositories.NewTeamRepository,
 		repositories.NewTokenRepository,
 		utils.NewDatabase,
 		utils.NewSendgridClient,
+		utils.NewSMTPClient,
 		environment.NewEnv,
 		utils.NewLogger,
 		config.NewAppConfig,
