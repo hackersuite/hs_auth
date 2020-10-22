@@ -14,6 +14,8 @@ import (
 	"github.com/unicsmcr/hs_auth/utils"
 )
 
+// NewEmailServiceV2 returns an email service client that uses either Sendgrid or SMTP for email delivery.
+// The email delivery service is specified by the AppConfig.Email.EmailDeliveryProvider field
 func NewEmailServiceV2(cfg *config.AppConfig, env *environment.Env, smtpClient utils.SMTPClient,
 	sendGridClient *sendgridgo.Client, userService services.UserService, authorizer authV2.Authorizer,
 	timeProvider utils.TimeProvider) (services.EmailServiceV2, error) {

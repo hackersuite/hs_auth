@@ -17,7 +17,7 @@ func Test_NewEnv__should_return_correct_env(t *testing.T) {
 		MongoUser:      "testmongouser",
 		MongoPassword:  "testmongopassword",
 		JWTSecret:      "testsecret",
-		SendgridAPIKey: "testsendgridkey",
+		SendgridAPIKey: "testkey",
 		SMTPUsername:   "testsmtpusername",
 		SMTPPassword:   "testsmtppassword",
 		SMTPHost:       "testsmtphost",

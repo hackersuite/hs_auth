@@ -6,5 +6,5 @@ use_secure_cookies: false
 email:
   email_delivery_provider: "sendgrid"
 auth:
-  default_role: "unverified"
-  email_verification_required: true
+  default_role: "applicant"
+  email_verification_required: false
