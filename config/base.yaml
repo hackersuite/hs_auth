@@ -1,15 +1,15 @@
 # Store non-sensitive project configuration here
-name: "Hacker Suite - Auth"
+name: "GreatUniHack 2020 - Auth"
 email:
   email_delivery_provider: "smtp"
-  noreply_email_addr: "noreply@unicsmcr.com"
-  help_email_addr: "help@unicsmcr.com"
-  noreply_email_name: "UniCS"
+  noreply_email_addr: "noreply@greatunihack.com"
+  help_email_addr: "help@greatunihack.com"
+  noreply_email_name: "GreatUniHack"
   email_verification_email_subj: "Verify email"
   password_reset_email_subj: "Reset password"
   token_lifetime: 108000 # 30 hours
-app_url: "auth.unicsmcr.com"
-data_policy_url: "https://drive.google.com/file/d/1wMcJbfEhIp9FjdNbyom4RVUoTH4xc0OB/view"
+app_url: "auth.greatunihack.com"
+data_policy_url: "https://docs.google.com/document/d/1UiL_8cUBZzhbeXCShOn5T92BRq0ClFkguwYxa0qZgnI/view"
 team_members_soft_limit: 4
 auth:
   user_token_lifetime: 108000 # 30 hours
