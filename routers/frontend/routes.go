@@ -82,7 +82,7 @@ func (r *frontendRouter) Login(ctx *gin.Context) {
 	if err != nil && len(returnTo) == 0 {
 		returnTo = "/"
 	}
-	ctx.SetCookie(returnToCookie, returnTo, 0, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
+	ctx.SetCookie(returnToCookie, returnTo, -1, "", r.cfg.DomainName, r.cfg.UseSecureCookies, true)
 	ctx.Redirect(http.StatusMovedPermanently, returnTo)
 }
 
