@@ -1242,6 +1242,30 @@ func TestFrontendRouter_ProfilePage(t *testing.T) {
 	assert.Equal(t, http.StatusOK, setup.w.Code)
 }
 
+func TestFrontendRouter_RedirectToEntryPage__should_redirect_to_login_when_auth_token_is_unavailable(t *testing.T) {
+	setup := setupTest(t, nil)
+	defer setup.ctrl.Finish()
+
+	setup.testCtx.Request = httptest.NewRequest(http.MethodGet, "/test", nil)
+
+	setup.router.RedirectToEntryPage(setup.testCtx)
+
+	assert.Equal(t, http.StatusPermanentRedirect, setup.w.Code)
+	assert.Equal(t, "/login", setup.w.HeaderMap["Location"][0])
+}
+
+func TestFrontendRouter_RedirectToEntryPage__should_redirect_to_profile_when_auth_token_is_available(t *testing.T) {
+	setup := setupTest(t, nil)
+	defer setup.ctrl.Finish()
+
+	attachAuthCookie(setup.testCtx)
+
+	setup.router.RedirectToEntryPage(setup.testCtx)
+
+	assert.Equal(t, http.StatusPermanentRedirect, setup.w.Code)
+	assert.Equal(t, "/profile", setup.w.HeaderMap["Location"][0])
+}
+
 func mockRenderPageCall(setup *testSetup) {
 	setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, gomock.Any(), gomock.Any()).
 		Return(nil, nil).Times(1)
