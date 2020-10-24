@@ -7,10 +7,14 @@ import (
 	"go.uber.org/zap"
 )
 
+const logFile = "app.log"
+
 // NewLogger creates a new zap logger
 func NewLogger() (*zap.Logger, error) {
 	if os.Getenv(environment.Environment) == "prod" {
-		return zap.NewProduction()
+		cfg := zap.NewProductionConfig()
+		cfg.OutputPaths = []string{logFile, os.Stdout.Name()}
+		return cfg.Build()
 	}
 	return zap.NewDevelopment()
 }
