@@ -12,6 +12,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
       - name: Use Go ${{ matrix.go }}
         uses: actions/setup-go@v2
         with:
@@ -22,6 +24,6 @@ jobs:
       - run: cp mongo_express.env.example mongo_express.env
       - run: go get github.com/golang/mock/mockgen
       - name: Run benchmarks
-        run: cob -bench-cmd make -bench-args bench
+        run: cob --base 279e1a884b49727866f8756e081e324adeecff27 -bench-cmd make -bench-args bench
     env:
       GO111MODULE: on
