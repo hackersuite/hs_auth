@@ -1,0 +1,27 @@
+name: Benchmarks
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        go: [ '1.14', '1.13', '1.12' ]
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Use Go ${{ matrix.go }}
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - run: curl -sfL https://raw.githubusercontent.com/knqyf263/cob/master/install.sh | sudo sh -s -- -b /usr/local/bin
+      - run: cp app.env.example app.env
+      - run: cp mongo.env.example mongo.env
+      - run: cp mongo_express.env.example mongo_express.env
+      - run: go get github.com/golang/mock/mockgen
+      - name: Run benchmarks
+        run: cob -bench-cmd make -bench-args bench
+    env:
+      GO111MODULE: on
