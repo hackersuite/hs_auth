@@ -19,7 +19,11 @@ role:
     - "hs:hs_auth:api:v2:RemoveFromTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetAuthorizedResources"
-    - "hs:hs_apply:apply"
+    - "hs:hs_apply:Dashboard:dashboard"
+    - "hs:hs_apply:Application:apply"
+    - "hs:hs_apply:Application:updatePartialApplication"
+    - "hs:hs_apply:Application:submitApplication"
+    - "hs:hs_apply:Application:cancel"
   attendee:
     - "hs:hs_auth:frontend:ProfilePage"
     - "hs:hs_auth:frontend:ProfilePageComponents:Default"
@@ -34,7 +38,8 @@ role:
     - "hs:hs_auth:api:v2:RemoveFromTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetAuthorizedResources"
-    - "hs:hs_apply:apply"
+    - "hs:hs_apply:Dashboard:dashboard"
+    - "hs:hs_apply:Application:cancel"
     - "hs:hs_hub"
   volunteer:
     - "hs:hs_auth:frontend:ProfilePage"
@@ -43,8 +48,7 @@ role:
     - "hs:hs_auth:api:v2:GetUsers"
     - "hs:hs_auth:api:v2:GetTeams"
     - "hs:hs_auth:api:v2:GetAuthorizedResources"
-    - "hs:hs_apply:apply"
+    - "hs:hs_apply:Dashboard:dashboard"
     - "hs:hs_hub"
-    - "hs:hs_apply:review"
   organiser:
     - "hs"
