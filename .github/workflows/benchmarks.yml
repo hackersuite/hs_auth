@@ -22,7 +22,7 @@ jobs:
       - run: cp app.env.example app.env
       - run: cp mongo.env.example mongo.env
       - run: cp mongo_express.env.example mongo_express.env
-      - run: go get github.com/golang/mock/mockgen
+      - run: GO111MODULE=off go get github.com/golang/mock/mockgen
       - name: Run benchmarks
         run: cob --base 279e1a884b49727866f8756e081e324adeecff27 -bench-cmd make -bench-args bench
     env:
