@@ -9,7 +9,7 @@ email:
   password_reset_email_subj: "Reset password"
   token_lifetime: 108000 # 30 hours
 app_url: "auth.greatunihack.com"
-data_policy_url: "https://docs.google.com/document/d/1UiL_8cUBZzhbeXCShOn5T92BRq0ClFkguwYxa0qZgnI/view"
+data_policy_url: "https://docs.google.com/document/d/1M0uaD0jDUr9bU7uaPwmFDRk4b9t0RgG9yl_mpoOdoN4/edit?usp=sharing"
 team_members_soft_limit: 4
 auth:
   user_token_lifetime: 108000 # 30 hours
