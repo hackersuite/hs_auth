@@ -162,8 +162,6 @@ func (a *authorizer) GetAuthorizedResourcesForUser(ctx context.Context, userId p
 	}
 
 	return allowedResources, nil
-
-	return nil, nil
 }
 
 func (a *authorizer) WithAuthMiddleware(router common.RouterResource, operationHandler gin.HandlerFunc) gin.HandlerFunc {
