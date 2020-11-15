@@ -517,6 +517,22 @@ func Test_isSupersetOf__should_return_true_with_source_in_target_set(t *testing.
 				},
 			},
 		},
+		{
+			name: "target does not have the argument that is limited to an empty string",
+			source: UniformResourceIdentifier{
+				path: "hs:hs_auth:frontend:ResetPassword",
+				arguments: map[string]string{
+					"postForm_userId": "",
+				},
+			},
+			target: UniformResourceIdentifier{
+				path: "hs:hs_auth:frontend:ResetPassword",
+				arguments: map[string]string{
+					"postForm_password":        "asdasd",
+					"postForm_passwordConfirm": "asdasd",
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -582,6 +598,30 @@ func Test_isSupersetOf__should_return_false_with_source_not_in_target_set(t *tes
 			target: UniformResourceIdentifier{
 				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
 				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+			},
+		},
+		{
+			name: "empty string in arguments",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": ""},
+				metadata:  nil,
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "hs:hs_application:*"},
+			},
+		},
+		{
+			name: "missing argument in target URI for non-empty argument limiter in source",
+			source: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{"allowed_uri": "non-empty string"},
+				metadata:  nil,
+			},
+			target: UniformResourceIdentifier{
+				path:      "hs:hs_auth:api:v2:provide_access_to_uri",
+				arguments: map[string]string{},
 			},
 		},
 	}

@@ -33,6 +33,8 @@ type Authorizer interface {
 	// GetAuthorizedResources returns what resources from urisToCheck the given token can access.
 	// Will return ErrInvalidToken if the provided token is invalid.
 	GetAuthorizedResources(ctx context.Context, token string, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error)
+	// GetAuthorizedResources returns what resources from urisToCheck the given user can access.
+	GetAuthorizedResourcesForUser(ctx context.Context, userId primitive.ObjectID, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error)
 	// WithAuthMiddleware wraps the given operation handler with authorization middleware
 	WithAuthMiddleware(router common.RouterResource, handler gin.HandlerFunc) gin.HandlerFunc
 	// GetUserIdFromToken extracts the user id from user tokens
@@ -137,6 +139,31 @@ func (a *authorizer) GetAuthorizedResources(ctx context.Context, token string, u
 	}
 
 	return allowedResources, nil
+}
+
+func (a *authorizer) GetAuthorizedResourcesForUser(ctx context.Context, userId primitive.ObjectID, urisToCheck []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {
+	if len(urisToCheck) == 0 {
+		return nil, nil
+	}
+
+	userUris, err := a.getUserValidUris(ctx, userId)
+	if err != nil {
+		return nil, err
+	}
+
+	uris, err := a.filterUrisWithInvalidMetadata(urisToCheck)
+	if err != nil {
+		return nil, errors.Wrap(common.ErrInvalidURI, err.Error())
+	}
+
+	var allowedResources common.UniformResourceIdentifiers
+	for _, resource := range userUris {
+		allowedResources = append(allowedResources, resource.GetAllSupersets(uris)...)
+	}
+
+	return allowedResources, nil
+
+	return nil, nil
 }
 
 func (a *authorizer) WithAuthMiddleware(router common.RouterResource, operationHandler gin.HandlerFunc) gin.HandlerFunc {
@@ -246,6 +273,27 @@ func (a *authorizer) getTokenValidUris(ctx context.Context, token string) ([]com
 	}
 
 	return claimedResources, nil
+}
+
+func (a *authorizer) getUserValidUris(ctx context.Context, userId primitive.ObjectID) ([]common.UniformResourceIdentifier, error) {
+	user, err := a.userService.GetUserWithID(ctx, userId.Hex())
+	if err != nil {
+		return nil, err
+	}
+
+	userPermissions, err := a.cfg.UserRole.GetRolePermissions(user.Role)
+	if err != nil {
+		return nil, err
+	}
+
+	userPermissions = append(userPermissions, user.SpecialPermissions...)
+
+	userPermissions, err = a.filterUrisWithInvalidMetadata(userPermissions)
+	if err != nil {
+		return nil, errors.Wrap(common.ErrInvalidURI, err.Error())
+	}
+
+	return userPermissions, nil
 }
 
 func (a *authorizer) filterUrisWithInvalidMetadata(uris []common.UniformResourceIdentifier) ([]common.UniformResourceIdentifier, error) {

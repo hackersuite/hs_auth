@@ -2,6 +2,7 @@ package v2
 
 import (
 	"encoding/json"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/http"
 	"net/url"
 	"strings"
@@ -108,8 +109,9 @@ func (r *apiV2Router) InvalidateServiceToken(ctx *gin.Context) {
 	ctx.Status(http.StatusNoContent)
 }
 
-// GET: /api/v2/tokens/resources/authorized?from={authorisedUris}
+// GET: /api/v2/tokens/resources/authorized?from={authorisedUris}&user={userId}
 // Request:	 authorisedUris string
+//           (Optional) userId primitive.ObjectID
 // Response: authorisedUris []common.UniformResourceIdentifier
 // Headers:  Authorization -> token
 func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
@@ -130,13 +132,28 @@ func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
 		return
 	}
 
-	token := r.GetAuthToken(ctx)
-	authorizedUris, err := r.authorizer.GetAuthorizedResources(ctx, token, requestedUris)
+	var authorizedUris []common.UniformResourceIdentifier
+	if len(ctx.Query("user")) > 0 {
+		var userId primitive.ObjectID
+		userId, err = primitive.ObjectIDFromHex(ctx.Query("user"))
+		if err != nil {
+			r.logger.Debug("invalid user id", zap.String("userId", ctx.Query("user")))
+			models.SendAPIError(ctx, http.StatusBadRequest, "provided user id is invalid")
+			return
+		}
+		authorizedUris, err = r.authorizer.GetAuthorizedResourcesForUser(ctx, userId, requestedUris)
+	} else {
+		token := r.GetAuthToken(ctx)
+		authorizedUris, err = r.authorizer.GetAuthorizedResources(ctx, token, requestedUris)
+	}
 	if err != nil {
 		switch errors.Cause(err) {
 		case common.ErrInvalidToken:
 			r.logger.Debug("invalid token", zap.Error(err))
 			r.HandleUnauthorized(ctx)
+		case services.ErrNotFound:
+			r.logger.Debug("user not found", zap.String("userId", ctx.Query("user")), zap.Error(err))
+			models.SendAPIError(ctx, http.StatusNotFound, "user with given does not exist")
 		default:
 			r.logger.Error("could not get authorized URIs", zap.Error(err))
 			models.SendAPIError(ctx, http.StatusInternalServerError, "something went wrong")
