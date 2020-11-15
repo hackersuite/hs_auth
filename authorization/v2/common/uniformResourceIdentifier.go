@@ -279,6 +279,15 @@ func (uri UniformResourceIdentifier) isSupersetOf(target UniformResourceIdentifi
 
 	// Validate URI arguments
 	for key, sourceValue := range uri.arguments {
+		// edge-case for empty string in the source URI arguments
+		if len(sourceValue) == 0 {
+			if target.arguments[key] != sourceValue {
+				return false
+			} else {
+				continue
+			}
+		}
+
 		if targetValue, ok := target.arguments[key]; ok {
 			if match, err := regexp.Match(sourceValue, []byte(targetValue)); !match || err != nil {
 				// the argument value on the target URI is not within the argument limitation

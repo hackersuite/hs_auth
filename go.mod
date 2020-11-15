@@ -25,7 +25,6 @@ require (
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/text v0.3.2 // indirect
 	golang.org/x/tools v0.0.0-20201014170642-d1624618ad65
-	gopkg.in/go-playground/assert.v1 v1.2.1 // indirect
 )
 
 replace github.com/ugorji/go v1.1.4 => github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
