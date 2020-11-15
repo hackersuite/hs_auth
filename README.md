@@ -22,6 +22,7 @@
 ### Docker deployment:
  - [GNU make](https://www.gnu.org/software/make/)
  - [Docker](https://www.docker.com/products/docker-desktop)
+ - [docker-compose](https://docs.docker.com/compose/install/)
 
 ### Manual deployment
  - [Go](https://golang.org/)
