@@ -41,6 +41,8 @@ role:
     - "hs:hs_apply:Dashboard:dashboard"
     - "hs:hs_apply:Application:cancel"
     - "hs:hs_hub"
+    - "hs:hs_discord:guild:attendee"
+    - "hs:hs_discord:bot:sync"
   volunteer:
     - "hs:hs_auth:frontend:ProfilePage"
     - "hs:hs_auth:frontend:ProfilePageComponents:Default"
@@ -50,5 +52,7 @@ role:
     - "hs:hs_auth:api:v2:GetAuthorizedResources"
     - "hs:hs_apply:Dashboard:dashboard"
     - "hs:hs_hub"
+    - "hs:hs_discord:guild:volunteer"
+    - "hs:hs_discord:bot"
   organiser:
     - "hs"
