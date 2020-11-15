@@ -19,6 +19,7 @@ role:
     - "hs:hs_auth:api:v2:RemoveFromTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetAuthorizedResources"
+    - "hs:hs_apply:frontend:NavbarComponent"
     - "hs:hs_apply:Dashboard:dashboard"
     - "hs:hs_apply:Application:apply"
     - "hs:hs_apply:Application:updatePartialApplication"
@@ -38,6 +39,7 @@ role:
     - "hs:hs_auth:api:v2:RemoveFromTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetTeam?path_id=me"
     - "hs:hs_auth:api:v2:GetAuthorizedResources"
+    - "hs:hs_apply:frontend:NavbarComponent"
     - "hs:hs_apply:Dashboard:dashboard"
     - "hs:hs_apply:Application:cancel"
     - "hs:hs_hub"
@@ -48,6 +50,7 @@ role:
     - "hs:hs_auth:api:v2:GetUsers"
     - "hs:hs_auth:api:v2:GetTeams"
     - "hs:hs_auth:api:v2:GetAuthorizedResources"
+    - "hs:hs_apply:frontend:NavbarComponent"
     - "hs:hs_apply:Dashboard:dashboard"
     - "hs:hs_hub"
   organiser:
