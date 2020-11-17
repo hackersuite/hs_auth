@@ -9,6 +9,7 @@ import (
 	"github.com/unicsmcr/hs_auth/entities"
 	mock_services "github.com/unicsmcr/hs_auth/mocks/services"
 	"github.com/unicsmcr/hs_auth/repositories"
+	"github.com/unicsmcr/hs_auth/services"
 	"github.com/unicsmcr/hs_auth/services/mongo"
 	"github.com/unicsmcr/hs_auth/utils"
 	"net/http"
@@ -469,6 +470,141 @@ func TestAuthorizer_GetAuthorizedResources_should_return_err_with_invalid_token(
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			uris, err := setup.authorizer.GetAuthorizedResources(setup.testCtx, tt.token, tt.givenUris)
+			assert.Nil(t, uris)
+			assert.Equal(t, tt.wantedErr, errors.Cause(err))
+		})
+	}
+}
+
+func TestAuthorizer_GetAuthorizedResourcesForUser_should_return_correct_uris(t *testing.T) {
+	jwtSecret := "jwtSecret"
+	invalidMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=1000", before))
+	assert.NoError(t, err)
+
+	validUri, err := common.NewURIFromString("hs:hs_auth")
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		prep         func(*authorizerTestSetup)
+		givenUris    []common.UniformResourceIdentifier
+		expectedUris []common.UniformResourceIdentifier
+	}{
+		{
+			name: "when metadata in user role is invalid",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(&entities.User{Role: role.Applicant}, nil).Times(1)
+				setup.testCfg.UserRole[role.Applicant] = common.UniformResourceIdentifiers{invalidMetadataUri}
+				setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(0, 0)).Times(1)
+			},
+			givenUris: common.UniformResourceIdentifiers{validUri},
+		},
+		{
+			name: "when metadata in user's special permissions is invalid",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(&entities.User{Role: role.Applicant, SpecialPermissions: common.UniformResourceIdentifiers{invalidMetadataUri}}, nil).Times(1)
+				setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(0, 0)).Times(1)
+			},
+			givenUris: common.UniformResourceIdentifiers{validUri},
+		},
+		{
+			name: "when metadata in requested uri is invalid",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(&entities.User{Role: role.Applicant, SpecialPermissions: common.UniformResourceIdentifiers{validUri}}, nil).Times(1)
+				setup.mockTimeProvider.EXPECT().Now().Return(time.Unix(0, 0)).Times(1)
+			},
+			givenUris: common.UniformResourceIdentifiers{invalidMetadataUri},
+		},
+		{
+			name:      "when no uris are requested",
+			givenUris: common.UniformResourceIdentifiers{},
+		},
+		{
+			name: "when user has required permissions",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(&entities.User{Role: role.Applicant, SpecialPermissions: common.UniformResourceIdentifiers{validUri}}, nil).Times(1)
+			},
+			givenUris:    common.UniformResourceIdentifiers{validUri},
+			expectedUris: common.UniformResourceIdentifiers{validUri},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupAuthorizerTests(t, jwtSecret)
+			if tt.prep != nil {
+				tt.prep(&setup)
+			}
+			uris, err := setup.authorizer.GetAuthorizedResourcesForUser(setup.testCtx, testUserId, tt.givenUris)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedUris, uris)
+		})
+	}
+}
+
+func TestAuthorizer_GetAuthorizedResourcesForUser_should_return_err(t *testing.T) {
+	jwtSecret := "jwtSecret"
+	malformedMetadataUri, err := common.NewURIFromString(fmt.Sprintf("hs:hs_auth#%s=notadate", before))
+	assert.NoError(t, err)
+
+	validUri, err := common.NewURIFromString("hs:hs_auth")
+	assert.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		prep      func(*authorizerTestSetup)
+		givenUris []common.UniformResourceIdentifier
+		wantedErr error
+	}{
+		{
+			name: "when user does not exist",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
+			givenUris: common.UniformResourceIdentifiers{validUri},
+			wantedErr: services.ErrNotFound,
+		},
+		{
+			name: "when user's role is unknown",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(&entities.User{Role: "unkown role"}, nil).Times(1)
+			},
+			givenUris: common.UniformResourceIdentifiers{validUri},
+			wantedErr: common.ErrUnknownRole,
+		},
+		{
+			name: "when metadata in user's special permissions is malformed",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(&entities.User{Role: role.Applicant, SpecialPermissions: common.UniformResourceIdentifiers{malformedMetadataUri}}, nil).Times(1)
+			},
+			givenUris: common.UniformResourceIdentifiers{validUri},
+			wantedErr: common.ErrInvalidURI,
+		},
+		{
+			name: "when requested URIs contain malformed URI",
+			prep: func(setup *authorizerTestSetup) {
+				setup.mockUserService.EXPECT().GetUserWithID(setup.testCtx, testUserId.Hex()).
+					Return(&entities.User{Role: role.Applicant}, nil).Times(1)
+			},
+			givenUris: common.UniformResourceIdentifiers{malformedMetadataUri},
+			wantedErr: common.ErrInvalidURI,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setup := setupAuthorizerTests(t, jwtSecret)
+			if tt.prep != nil {
+				tt.prep(&setup)
+			}
+			uris, err := setup.authorizer.GetAuthorizedResourcesForUser(setup.testCtx, testUserId, tt.givenUris)
 			assert.Nil(t, uris)
 			assert.Equal(t, tt.wantedErr, errors.Cause(err))
 		})

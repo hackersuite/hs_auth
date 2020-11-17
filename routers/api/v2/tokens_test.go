@@ -277,11 +277,13 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 	expectedRes := &getAuthorizedResourcesRes{
 		AuthorizedUris: expectedUriRes,
 	}
+	hsAuthTestUri, _ := common.NewURIFromString("hs:hs_auth")
 
 	tests := []struct {
 		name            string
 		prep            func(setup *tokensTestSetup)
 		testAllowedURIs string
+		testUserId      string
 		wantResCode     int
 		wantRes         *getAuthorizedResourcesRes
 	}{
@@ -296,7 +298,18 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 			wantRes:         expectedRes,
 		},
 		{
-			name:        "with no query params",
+			name: "with valid request with user id",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResourcesForUser(setup.testCtx, testUserId, gomock.Any()).
+					Return(expectedUriRes, nil).Times(1)
+			},
+			testAllowedURIs: "[\"hs:hs_auth\"]",
+			testUserId:      testUserId.Hex(),
+			wantResCode:     http.StatusOK,
+			wantRes:         expectedRes,
+		},
+		{
+			name: "with no query params", testAllowedURIs: "[hs:hs_auth??##]",
 			wantResCode: http.StatusBadRequest,
 			wantRes: &getAuthorizedResourcesRes{
 				nil,
@@ -311,9 +324,43 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 			},
 		},
 		{
+			name:            "with encoded uri in request",
+			testAllowedURIs: "%5B%22hs%3Ahs%3Aauth%22%5D",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, gomock.Any(), gomock.Any()).
+					Return(common.UniformResourceIdentifiers{hsAuthTestUri}, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &getAuthorizedResourcesRes{
+				common.UniformResourceIdentifiers{hsAuthTestUri},
+			},
+		},
+		{
 			name:            "with malformed uri in request",
 			testAllowedURIs: "[hs:hs_auth??##]",
 			wantResCode:     http.StatusBadRequest,
+			wantRes: &getAuthorizedResourcesRes{
+				nil,
+			},
+		},
+		{
+			name:            "with malformed user id in request",
+			wantResCode:     http.StatusBadRequest,
+			testAllowedURIs: "[\"hs:hs_auth\"]",
+			testUserId:      "not an id",
+			wantRes: &getAuthorizedResourcesRes{
+				nil,
+			},
+		},
+		{
+			name:            "requested user does not exist",
+			wantResCode:     http.StatusNotFound,
+			testAllowedURIs: "[\"hs:hs_auth\"]",
+			testUserId:      testUserId.Hex(),
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResourcesForUser(setup.testCtx, testUserId, gomock.Any()).
+					Return(nil, services.ErrNotFound).Times(1)
+			},
 			wantRes: &getAuthorizedResourcesRes{
 				nil,
 			},
@@ -348,9 +395,12 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			setup := setupTokensTest(t)
 
-			var queryParams map[string]string
+			var queryParams map[string]string = make(map[string]string)
 			if len(tt.testAllowedURIs) > 0 {
-				queryParams = map[string]string{"from": tt.testAllowedURIs}
+				queryParams["from"] = tt.testAllowedURIs
+			}
+			if len(tt.testUserId) > 0 {
+				queryParams["user"] = tt.testUserId
 			}
 
 			testutils.AddRequestWithUrlParamsToCtx(setup.testCtx, http.MethodGet, queryParams)
