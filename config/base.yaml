@@ -1,5 +1,5 @@
 # Store non-sensitive project configuration here
-name: "GreatUniHack 2020 - Auth"
+name: "GreatUniHack 2020"
 email:
   email_delivery_provider: "smtp"
   noreply_email_addr: "noreply@greatunihack.com"
