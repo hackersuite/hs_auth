@@ -160,6 +160,9 @@ func (r *apiV2Router) GetAuthorizedResources(ctx *gin.Context) {
 		}
 		return
 	}
+	if authorizedUris == nil {
+		authorizedUris = common.UniformResourceIdentifiers{}
+	}
 
 	ctx.JSON(http.StatusOK, getAuthorizedResourcesRes{
 		AuthorizedUris: authorizedUris,

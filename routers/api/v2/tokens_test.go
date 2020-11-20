@@ -389,6 +389,18 @@ func TestApiV2Router_GetAuthorizedResources(t *testing.T) {
 				nil,
 			},
 		},
+		{
+			name:            "with empty response",
+			testAllowedURIs: "[\"hs:hs_auth\"]",
+			prep: func(setup *tokensTestSetup) {
+				setup.mockAuthorizer.EXPECT().GetAuthorizedResources(setup.testCtx, gomock.Any(), gomock.Any()).
+					Return(nil, nil).Times(1)
+			},
+			wantResCode: http.StatusOK,
+			wantRes: &getAuthorizedResourcesRes{
+				AuthorizedUris: common.UniformResourceIdentifiers{},
+			},
+		},
 	}
 
 	for _, tt := range tests {
